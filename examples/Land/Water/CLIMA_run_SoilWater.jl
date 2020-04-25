@@ -53,6 +53,8 @@ include("matric_potential.jl")
 include("pressure_head.jl")
 include("hydraulic_head.jl")
 include("effective_saturation.jl")
+include("augmented_liquid.jl")
+
 
 
 ######
@@ -99,7 +101,7 @@ flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
-const velems = 0.0:-0.2:-10 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
+const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 5 # Order of polynomial function between each element
 
 # Set domain using Stached Brick Topology
@@ -116,7 +118,7 @@ m = SoilModelMoisture(
     
     # Define initial soil moisture
     initialθ = (state, aux, t) -> 0.1, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    surfaceθ = (state, aux, t) -> 0.1 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    surfaceθ = (state, aux, t) -> 0.15 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 )
 
 # Set up DG scheme
@@ -178,7 +180,7 @@ output_data = DataFile(joinpath(output_dir, "output_data_Water"))
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
   state_vars = get_vars_from_stack(grid, Q, m, vars_state; exclude=["θi"])
-  aux_vars = get_vars_from_stack(grid, dg.auxstate, m, vars_aux; exclude=["z","ψ"])
+  aux_vars = get_vars_from_stack(grid, dg.auxstate, m, vars_aux; exclude=["z"])
   all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
   step[1]+=1

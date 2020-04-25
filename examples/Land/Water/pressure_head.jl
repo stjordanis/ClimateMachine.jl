@@ -1,5 +1,5 @@
 # pressure_head.jl: This function calculates pressure head ψ of a soil
-function pressure_head(ψ_m,S_l,porosity,S_s) 
+function pressure_head(ψ_m,S_l,porosity,S_s,theta_l) 
 
 # ------------------------------------------------------
 # Input
@@ -7,6 +7,7 @@ function pressure_head(ψ_m,S_l,porosity,S_s)
 #   S_l                      ! augmented liquid fraction
 #   porosity                 ! soil porosity
 #   S_s                      ! aquifer specific storage
+#   theta_l                  ! soil augmented liquid
 # ------------------------------------------------------
 # Output
 #   ψ                        ! Soil pressure head
@@ -16,7 +17,7 @@ function pressure_head(ψ_m,S_l,porosity,S_s)
     if S_l < 1
         ψ = ψ_m     
     elseif S_l >= 1
-        ψ =  ( S_l - porosity ) / S_s
+        ψ =  ( theta_l - porosity ) / S_s
     else
         ψ = ψ_m
     end

@@ -14,7 +14,7 @@ function matric_potential(flag,alpha,S_l,n,m)
 # ------------------------------------------------------   
     
     # Formula for matric potential: ψ_m(S_l) = -alpha^-1 * S_l^(-1/(n*m)) * [1-S_l^(1/m)]^(1/n)
-        
+    
     # Theta(T) = temperature dependence on conductivity
     if flag == "van Genuchten"
         ψ_m = -alpha^-1 * S_l^(-1/(n*m)) * (1-S_l^(1/m))^(1/n) 

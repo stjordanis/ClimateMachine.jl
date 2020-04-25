@@ -33,10 +33,13 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
     else
         K_sat  = 1e-4
     end
-
-    # Effective saturation
-    S_l = effective_saturation(porosity,S_s,ψ,theta_liq) 
     
+    # Get augmented liquid
+    theta_l = augmented_liquid(porosity,S_s,ψ,theta_liq) 
+    
+    # Get effective saturation
+    S_l = effective_saturation(porosity,theta_l)  
+
     # Soil Matric potential - "van Genuchten"
     if flag == "van Genuchten"
         alpha = 2 # m-1
@@ -53,7 +56,7 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
     ψ_m = matric_potential(flag,alpha,S_l,n,m)
     
     # Pressure head ψ of soil
-    ψ = pressure_head(ψ_m,S_l,porosity,S_s) 
+    ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
     
     # Hydraulic conductivity of soil    
     if flag == "van Genuchten"

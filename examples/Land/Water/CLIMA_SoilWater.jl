@@ -106,11 +106,17 @@ function  soil_nodal_update_aux!(
         m = 1 - 1/n 
     end
     
+    # Get augmented liquid
+    theta_l = augmented_liquid(porosity,S_s,ψ,theta_liq) 
+    
     # Get effective saturation
-    S_l = effective_saturation(porosity,S_s,aux.ψ,state.θ) # 0.2
+    S_l = effective_saturation(porosity,theta_l)   # 0.2
     
     # Get matric potential
-    aux.ψ = matric_potential(flag,alpha,S_l,n,m)
+    ψ_m = matric_potential(flag,alpha,S_l,n,m)
+
+    # This function calculates pressure head ψ of a soil
+    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
        
     # Get hydraulic head      
     aux.h = hydraulic_head(aux.z,aux.ψ)   
@@ -141,13 +147,19 @@ function gradvariables!(
         n = 5
         m = 1 - 1/n 
     end
-    
+
+    # Get augmented liquid
+    theta_l = augmented_liquid(porosity,S_s,ψ,theta_liq) 
+    #@show theta_l
     # Get effective saturation
-    S_l = effective_saturation(porosity,S_s,aux.ψ,state.θ)  # 0.2
-    
+    S_l = effective_saturation(porosity,theta_l)   # 0.2
+    #@show S_l
     # Get matric potential
-    aux.ψ = matric_potential(flag,alpha,S_l,n,m)
-    
+    ψ_m = matric_potential(flag,alpha,S_l,n,m)
+    #@show ψ_m
+    # This function calculates pressure head ψ of a soil
+    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
+    #@show aux.ψ
     # Get hydraulic head    
     transform.h = hydraulic_head(aux.z,aux.ψ)    
     # transform.h = aux.z+((-1/2.7)*(state.θ/1.987)^(-1/3.96))*(1-state.θ/1.987)^(1/3.96)

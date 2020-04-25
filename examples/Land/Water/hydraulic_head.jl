@@ -3,7 +3,7 @@ function hydraulic_head(z,ψ)
 
 # ------------------------------------------------------
 # Input
-#   z                      ! soil depth
+#   z                      ! soil depth [in cm]
 #   ψ                      ! Soil pressure head
 # ------------------------------------------------------
 # Output
@@ -11,7 +11,7 @@ function hydraulic_head(z,ψ)
 # ------------------------------------------------------   
         
     # Soil hydraulic head as function of depth and pressure head
-    h = z + ψ
+    h = z/100 + ψ
     
     return h 
 end
