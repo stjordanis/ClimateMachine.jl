@@ -35,9 +35,10 @@ we write `Y = ρcT` and `F(Y, t) = -λ ∇T`.
 using StaticArrays
 using CLIMA.VariableTemplates
 import CLIMA.DGmethods: BalanceLaw,
-                        vars_aux, vars_state, vars_gradient, vars_diffusive,
+                        vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integral, #vars_reverse_integral,
                         flux_nondiffusive!, flux_diffusive!, source!,
-                        gradvariables!, diffusive!, update_aux!, nodal_update_aux!,
+                        gradvariables!, diffusive!, update_aux!, nodal_update_aux!, integral_load_aux!, integral_set_aux!, #reverse_integral_load_aux!, reverse_integral_set_aux!,
+                        indefinite_stack_integral!, #reverse_indefinite_stack_integral!,
                         init_aux!, init_state!,
                         boundary_state!, wavespeed, LocalGeometry
 
@@ -60,7 +61,6 @@ Base.@kwdef struct SoilModel{Fρc, Fκ, FiT, Fst} <: BalanceLaw
   surfaceT::Fst = (state, aux, t) -> 273.15 # (273.15 + 15.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24) #(273.15 + 2.0) # Surface boundary condition. This is an input to the model now.
 end
 
-
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
 
 # Stored in the aux state are:
@@ -71,26 +71,65 @@ vars_aux(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
 vars_state(::SoilModel, FT) = @vars(ρcT::FT) # stored in Q , (\rho  c T) is number rows 
 vars_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
 vars_diffusive(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
-#vars_integral where to store solution # inline function
-# --------------------------------- 4) CliMA functions needed for simulation -------------------
+vars_integral(::SoilModel,FT) = @vars(a::FT) # location to store integrands for bottom up integrals
+#vars_reverse_integral(::SoilModel, FT) = @vars(b::FT) # location to store integrands for top down integrals
 
-# ---------------- 4a) Update states
+# integrate over entire temperature profile at tsoi0
+# integrate over entire temperature profile at end of run
+# integrate over all energy fluxes
 
-#set_indefininte_stack_integral fucntion
-#load_indefinite_stack_integral function
 #add to list of callbacks
 
+# --------------------------------- 4) CliMA functions needed for simulation -------------------
+# ---------------- 4a) Update states
 # Update all auxiliary variables
-function update_aux!(
-    dg::DGModel,
-    m::SoilModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
+function update_aux!(dg::DGModel,
+  dg::DGModel,
+  m::SoilModel,
+  Q::MPIStateArray,
+  t::Real,
+  elems::UnitRange,
 )
   nodal_update_aux!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+  indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
+  #reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
   return true
 end
+
+function integral_load_aux!(
+    m::SoilModel,
+    integrand::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    integrand.a = state.ρcT
+end
+
+function integral_set_aux!(
+    m::SoilModel,
+    aux::Vars,
+    integral::Vars,
+)
+    aux.int.a = integral.a
+end
+
+#function reverse_integral_load_aux!(
+#    m::SoilModel,
+#    integral::Vars,
+#    state::Vars,
+#    aux::Vars,
+#)
+#    integral.a = aux.int.a
+#end
+#
+#function reverse_integral_set_aux!(
+#    m::SoilModel,
+#    aux::Vars,
+#    integral::Vars,
+#)
+#    aux.rev_int.a = integral.a
+#end
+
 # Update all auxiliary nodes
 function soil_nodal_update_aux!(
   m::SoilModel,
@@ -161,9 +200,9 @@ function source!(
     t::Real,
     direction,
 )
-dirac_space=1000000*exp(-(aux.z-(-0.5))^2/(2*(0.1)^2)) #*m.ρc(state, aux, t)/timeend
-dirac_time=1*exp(-(t-(dt))^2/(2*(dt)^2))
-source.ρcT=dirac_space*dirac_time
+#dirac_space=1000000*exp(-(aux.z-(-0.5))^2/(2*(0.1)^2)) #*m.ρc(state, aux, t)/timeend
+#dirac_time=1*exp(-(t-(dt))^2/(2*(dt)^2))
+#source.ρcT=dirac_space*dirac_time
   # @show(source.ρcT)
 end
 
