@@ -55,18 +55,18 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 50*day
+const timeend = 18*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 10*day
+const every_x_simulation_time = 1*day
 
 ######
 ###### 3) # Add soil model and other functions
 ######
 println("3) Add soil model and other functions...")
 
-include("CLIMA_SoilHeat.jl")
+include("CLIMA_SoilHeat_unit_test.jl")
 #include("thermal_properties.jl")
 #include("kersten.jl")
 
@@ -117,12 +117,18 @@ grid = DiscontinuousSpectralElementGrid(topl, FloatType = FT, DeviceArray = Arra
 #κ_clay = (thermal_properties("Clay",0.35,0.05 ))
 #κ_other = (thermal_properties("Other",0.35,0.05 ))
 
+function heaviside(t) # Should I be using an approximation of a heaviside function so that it is continuous
+   0.5 * (sign(t) + 1)
+end
+t1=1*hour
+#t2=t1+10*day
+
 # Define SoilModel struct
 m = SoilModel(
     ρc = (state, aux, t) -> 2.49e6, # aux.z > -0.5 ? 2.49e6 : 2.61e6,
     κ  = (state, aux, t) -> 2.42, # aux.z > -0.5 ? κ_sand : κ_clay,
     initialT = (aux) -> 273.15, #  (273.15 + 2 + 5*exp(-(aux.z-0.5)^2/(2*(0.2)^2)))),
-    surfaceT = (state, aux, t) -> 273.15 #(273.15 + 15.0 + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24)) # replace with T_data
+    surfaceT = (state, aux, t) -> 273.15+10*heaviside(t-t1) #-10*heaviside(t-t2) #(273.15 + 15.0 + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24)) # replace with T_data
     #surfaceT = (state, aux, t) -> (273.15 + 12.0) + 250*(1/sqrt(2*pi*10^2))*exp( -((t/(60*60)-24)^2)/(2*10^2) ) # replace with T_data
     #surfaceT = (state, aux, t) -> Real_continuous_data(t) # replace with T_data
 )
@@ -168,12 +174,12 @@ step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
   state_vars = get_vars_from_stack(grid, Q, m, vars_state)
   aux_vars = get_vars_from_stack(grid, dg.auxstate, m, vars_aux; exclude=["z"])
-  all_vars = OrderedDict(state_vars..., aux_vars...)
+  integral_vars = get_vars_from_stack(grid, Q, m, vars_integral)
+  all_vars = OrderedDict(state_vars..., aux_vars..., integral_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
   step[1]+=1
   nothing
 end
-
 
 ######
 ###### 5) Solve the equations
@@ -189,12 +195,36 @@ println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
 
+#####
+##### 7) Check if analytical solution matches numerical solution
+#####
+#alpha=2.42/2.49e6; %Change
+#L=-1;
+#lambda=(2*k-1)*pi/(2*L);
+#t0=3600;
+#u0=275+10*heaviside(t-t0);
+#g=275;
+#bk1=2/L*int((g-275)*sin(lambda*x),x,0,L);
+#bk2=-10*heaviside(t-t0)*2/L*int(sin(lambda*x),x,0,L);
+#bk=bk1+bk2;
+#f=bk.*exp(-(alpha)*(lambda^2)*t)*sin(lambda*x);
+#figure (1)
+#for t=1:3600*24:3600*24*18
+#    x=linspace(0,L,1000);
+#    u=u0+eval(symsum(f,k,1,1000));
+#    u=eval(u);
+#    plot(u,x)
+#    hold on
+#end
+#axis([270 290 -1 0])
+#ylabel('Depth [m]')
+#xlabel('Temperature [K]'
+
+
 ## Check if Gaussian bump is diffusing at right speed
 
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
-
-
 
 # OLD:
 # plots = []
