@@ -478,7 +478,7 @@ function fillsendbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_fillsendbuf!(device(buf), 256)(
+    event = kernel_fillsendbuf!(device(buf), 256)(
         Val(Np),
         Val(nvar),
         sendbuf,
@@ -507,7 +507,7 @@ function transferrecvbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_transferrecvbuf!(device(buf), 256)(
+    event = kernel_transferrecvbuf!(device(buf), 256)(
         Val(Np),
         Val(nvar),
         buf,
@@ -784,6 +784,42 @@ end
 
 @init tictoc()
 
-include("MPIStateArrays_kernels.jl")
+using KernelAbstractions.Extras: @unroll
+
+@kernel function kernel_fillsendbuf!(
+    ::Val{Np},
+    ::Val{nvar},
+    sendbuf,
+    buf,
+    vmapsend,
+    nvmapsend,
+) where {Np, nvar}
+
+    i = @index(Global, Linear)
+    @inbounds begin
+        e, n = fldmod1(vmapsend[i], Np)
+        @unroll for s in 1:nvar
+            sendbuf[s, i] = buf[n, s, e]
+        end
+    end
+end
+
+@kernel function kernel_transferrecvbuf!(
+    ::Val{Np},
+    ::Val{nvar},
+    buf,
+    recvbuf,
+    vmaprecv,
+    nvmaprecv,
+) where {Np, nvar}
+
+    i = @index(Global, Linear)
+    @inbounds begin
+        e, n = fldmod1(vmaprecv[i], Np)
+        @unroll for s in 1:nvar
+            buf[n, s, e] = recvbuf[s, i]
+        end
+    end
+end
 
 end

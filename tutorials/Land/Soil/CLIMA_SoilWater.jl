@@ -38,10 +38,10 @@ we write `Y = θ` and `F(Y, t) =-k ∇h`.
 using StaticArrays
 using CLIMA.VariableTemplates
 import CLIMA.DGmethods: BalanceLaw,
-                        vars_aux, vars_state, vars_gradient, vars_diffusive,
-                        flux_nondiffusive!, flux_diffusive!, source!,
-                        gradvariables!, diffusive!, update_aux!, nodal_update_aux!,
-                        init_aux!, init_state!,
+                        vars_state_auxiliary, vars_state_conservative, vars_state_gradient, vars_state_gradient_flux,
+                        flux_first_order!, flux_second_order!, source!,
+                        compute_gradient_argument!, compute_gradient_flux!, update_auxiliary_state!, nodal_update_auxiliary_state!,
+                        init_state_auxiliary!, init_state_conservative!,
                         boundary_state!, wavespeed, LocalGeometry
 
 
@@ -84,10 +84,10 @@ end
 # vars_gradient(::SoilModelMoisture, Fθ) = @vars(h::Fθ) # not stored
 # vars_diffusive(::SoilModelMoisture, Fθ) = @vars(∇h::SVector{3,Fθ}) # stored in dg.diffstate
 
-vars_aux(::SoilModelMoisture, FT) = @vars(z::FT, h::FT , ψ::FT) # p::Fθ stored in dg.auxstate
-vars_state(::SoilModelMoisture, FT) = @vars(θ::FT, θi::FT) # stored in Q
-vars_gradient(::SoilModelMoisture, FT) = @vars(h::FT) # not stored
-vars_diffusive(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT}) # stored in dg.diffstate
+vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, h::FT , ψ::FT) # p::Fθ stored in dg.auxstate
+vars_state_conservative(::SoilModelMoisture, FT) = @vars(θ::FT, θi::FT) # stored in Q
+vars_state_gradient(::SoilModelMoisture, FT) = @vars(h::FT) # not stored
+vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT}) # stored in dg.diffstate
 
 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
@@ -95,18 +95,19 @@ vars_diffusive(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT}) # stored in
 # ---------------- 4a) Update states
 
 # Update all auxiliary variables
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::SoilModelMoisture,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
-  nodal_update_aux!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+  nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
   return true
 end
 # Update all auxiliary nodes
 function  soil_nodal_update_aux!(
+  #nodal_update_auxiliary_state
   m::SoilModelMoisture,
   state::Vars,
   aux::Vars,
@@ -151,7 +152,7 @@ end
 # ---------------- 4b) Calculate state and derivative of theta
 
 # Calculate h based on state variable
-function gradvariables!(
+function compute_gradient_argument!(
     m::SoilModelMoisture,
     transform::Vars,
     state::Vars,
@@ -195,7 +196,7 @@ function gradvariables!(
 end
 
 # Gradient of h calculation
-function diffusive!(
+function compute_gradient_flux!(
     m::SoilModelMoisture,
     diffusive::Vars,
     ∇transform::Grad,
@@ -207,7 +208,7 @@ function diffusive!(
 end
 
 # Calculate thermal flux (non-diffusive)
-function  flux_nondiffusive!(
+function  flux_first_order!(
     m::SoilModelMoisture,
     flux::Grad,
     state::Vars,
@@ -218,7 +219,7 @@ function  flux_nondiffusive!(
 end
 
 # Calculate water flux (diffusive)
-function flux_diffusive!(
+function flux_second_order!(
     m::SoilModelMoisture,
     flux::Grad,
     state::Vars,
@@ -275,14 +276,14 @@ end
 
 
 # Initialize z-Profile ### what role does this play? when?
-function init_aux!(m::SoilModelMoisture, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::SoilModelMoisture, aux::Vars, geom::LocalGeometry)
   aux.z = geom.coord[3]
   aux.h = m.initialh(aux, 0) #aux.z+m.initialθ(state, aux, t) #^(-1/0.378))*(-0.3020)
   aux.ψ = m.initialψ(aux, 0)
 end
 
 # Initialize State variables from T to internal energy
-function init_state!(m::SoilModelMoisture, state::Vars, aux::Vars, coords, t::Real)
+function init_state_conservative!(m::SoilModelMoisture, state::Vars, aux::Vars, coords, t::Real)
   state.θ = m.initialθ(aux, 0)
   state.θi = m.initialθi(aux, 0)
 end

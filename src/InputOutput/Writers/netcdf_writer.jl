@@ -1,7 +1,5 @@
 using NCDatasets
-
 struct NetCDFWriter <: AbstractWriter end
-
 function write_data(nc::NetCDFWriter, filename, dims, varvals, simtime)
     Dataset(full_name(nc, filename), "c") do ds
         for (dn, dv) in dims

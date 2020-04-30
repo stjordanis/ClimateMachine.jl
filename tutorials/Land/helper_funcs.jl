@@ -58,7 +58,7 @@ end
 
 function interpolate_grid(
     grid::DiscontinuousSpectralElementGrid{T,dim,N},
-    auxstate,
+    state_auxiliary,
     x3id,
     Zprofile
     ) where {T,dim,N}
