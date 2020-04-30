@@ -1,5 +1,5 @@
 # --------------------------------- run CLIMA SOIL MODEL -----------------------
-# CLIMA_run_SoilHeat.jl: This model simulates soil heat dynamics for the CliMA model
+# CLIMA_run_Soil.jl: This model simulates soil heat + water dynamics for the CliMA model
 
 ######
 ###### 1) Import/Export Needed Functions
@@ -44,13 +44,24 @@ output_dir = joinpath(dirname(dirname(pathof(CLIMA))), "output", "land")
 mkpath(output_dir)
 
 # Add soil model
-include("CLIMA_SoilHeat.jl")
-# Add other functions
+include("A_CLIMA_Soil.jl")
+# Add Temperature functions
 include("thermal_properties.jl")
 include("kersten.jl")
 include("heat_capacity.jl")
 include("internal_energy.jl")
 include("temperature_calculator.jl")
+# Add Water functions
+include("soil_water_properties.jl")
+include("frozen_impedence_factor.jl")
+include("temperature_dependence.jl")
+include("matric_potential.jl")
+include("pressure_head.jl")
+include("hydraulic_head.jl")
+include("effective_saturation.jl")
+include("augmented_liquid.jl")
+include("calculate_frozen_water.jl")
+
 
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
@@ -63,29 +74,39 @@ end
 include(joinpath("..","helper_funcs.jl"))
 include(joinpath("..","plotting_funcs.jl"))
 
-# Read in real temperature data
-Real_Data_vector =  readdlm("tutorials/Land/Heat/T_desert_25N_25E.txt", '\t', FT, '\n')
-Real_Data_vector = [Real_Data_vector...]
-Real_Data_vector = collect(Real_Data_vector)
+# # Read in real temperature data
+# Real_Data_vector =  readdlm("tutorials/Land/Heat/T_desert_25N_25E.txt", '\t', FT, '\n')
+# Real_Data_vector = [Real_Data_vector...]
+# Real_Data_vector = collect(Real_Data_vector)
 
-# discrete time
-# Real_time_data = range(0.00,stop=31536000,length= 8760)
-Real_time_data = range(0.00,stop=31536000,length= length(Real_Data_vector))
-Real_time_data = collect(Real_time_data)
+# # discrete time
+# # Real_time_data = range(0.00,stop=31536000,length= 8760)
+# Real_time_data = range(0.00,stop=31536000,length= length(Real_Data_vector))
+# Real_time_data = collect(Real_time_data)
 
-# return a data structure that is a callable function
-Real_continuous_data = TimeContinuousData(Real_time_data, Real_Data_vector)
+# # return a data structure that is a callable function
+# Real_continuous_data = TimeContinuousData(Real_time_data, Real_Data_vector)
 
 ######
 ###### 2) Set up domain
 ######
 println("2) Set up domain...")
 
-# Read in state variables and data
+# Read in state variables and data - for temp
+soil_T_0 = 273.15 + 20
+theta_liq_surface = 0.35 # Read in from water model {state.θ}
 theta_liquid_0 = 0.35 # Read in from water model {state.θ}
 theta_ice_0 = 0.05 # Read in from water model {state.θi}
 mineral_properties = "Sand" # Read in from data base
 porosity = 0.5 # Read in from data base
+
+# Read in state variables and data - for water
+soil_T = 285 # Read in from heat model {aux.T}
+soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
+h_0 = -3 # Read in from water model {state.θ}
+ψ_0 = -1 # Soil pressure head {aux.h}
+S_s = 10e-4  # [ m-1]
+flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
@@ -98,23 +119,41 @@ topl = StackedBrickTopology(MPI.COMM_WORLD, (0.0:1,0.0:1,velems);
     boundary=((0,0),(0,0),(1,2)))
 grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray = Array, polynomialorder = N)
 
-# Define SoilModel struct
-m = SoilModel(
+# Define SoilModelFull struct
+m = SoilModelFull(
+# Heat
     # Define heat capacity of soil
      ρc = (state, aux, t) -> heat_capacity(mineral_properties,porosity,theta_liquid_0,theta_ice_0 ), # state.θ,state.θi  
     # ρc = (state, aux, t) ->  aux.z > -0.5 ? 2.49e6 : 2.61e6,
     
     # Define thermal conductivity of soil
-     κ   = (state, aux, t) ->   thermal_properties(mineral_properties,theta_liquid_0,theta_ice_0), # state.θ,state.θi 
+    κ   = (state, aux, t) ->   thermal_properties(mineral_properties,theta_liquid_0,theta_ice_0), # state.θ,state.θi 
     # κ  = (state, aux, t) ->  aux.z > -0.5 ? 2.42 : 1.17,
     
     # Define initial temperature of soil
-    initialT = (aux, t) -> (273.15 + 12.0),
+    initialT = (aux, t) -> soil_T_0,
     
     # Define surface boundary condition
-    #surfaceT = (state, aux, t) -> (273.15 + 12.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24) 
-    #surfaceT = (state, aux, t) -> (273.15 + 12.0) + 250*(1/sqrt(2*pi*10^2))*exp( -((t/(60*60)-24)^2)/(2*10^2) )
-    surfaceT = (state, aux, t) -> Real_continuous_data(t) # replace with T_data
+    surfaceT = (state, aux, t) -> soil_T_0, # Real_continuous_data(t), # replace with T_data
+
+# WATER 
+    # Define hydraulic conductivity of soil
+     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h 
+    # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
+    
+    # Define initial soil moisture
+    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
+    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+
 )
 
 # Set up DG scheme
@@ -142,11 +181,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 5*hour
+const timeend = 1*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*hour
+const every_x_simulation_time = 10*minute
 
 
 ######
@@ -170,7 +209,7 @@ plots = []
 dims = OrderedDict("z" => collect(get_z(grid)))
 # run for 8 days (hours?) to get to steady state
 
-output_data = DataFile(joinpath(output_dir, "output_data"))
+output_data = DataFile(joinpath(output_dir, "Soil_output_data"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)

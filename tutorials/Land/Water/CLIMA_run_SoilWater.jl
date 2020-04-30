@@ -54,7 +54,7 @@ include("pressure_head.jl")
 include("hydraulic_head.jl")
 include("effective_saturation.jl")
 include("augmented_liquid.jl")
-
+include("calculate_frozen_water.jl")
 
 
 ######
@@ -89,12 +89,14 @@ println("2) Set up domain...")
 
 # Read in state variables and data
 mineral_properties = "Sand"
-soil_T = 300 # Read in from heat model {aux.T}
-soil_Tref = 298.42 # Soil reference temperature: annual mean temperature of site
-theta_liq = 0.1 # Read in from water model {state.θ}
-theta_ice = 0.00 # Read in from water model {state.θi}
-porosity = 0.5 # Read in from data base
-ψ = -100 # Soil pressure head {aux.h}
+soil_T = 265 # Read in from heat model {aux.T}
+soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
+theta_liq_0 = 0.25 # Read in from water model {state.θ}
+theta_liq_surface = 0.25 # Read in from water model {state.θ}
+theta_ice_0 = 0.02 # Read in from water model {state.θi}
+h_0 = -3 # Read in from water model {state.θ}
+ψ_0 = -1 # Soil pressure head {aux.h}
+porosity = 0.8 # Read in from data base
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
@@ -113,12 +115,22 @@ grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray =
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
      # Define hydraulic conductivity of soil
-     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,theta_ice,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h 
+     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h 
     # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
     
     # Define initial soil moisture
-    initialθ = (state, aux, t) -> 0.1, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    surfaceθ = (state, aux, t) -> 0.15 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
+    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+
 )
 
 # Set up DG scheme
@@ -134,7 +146,6 @@ dg = DGModel( #
 CFL_bound = (Δ^2 / (2 * 2.42/2.49e6))
 dt = CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
 
-
 ######
 ###### 3) Define variables for simulation
 ######
@@ -146,11 +157,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 10*minute
+const timeend = 1*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*minute
+const every_x_simulation_time = 10*minute
 
 
 ######
@@ -179,7 +190,7 @@ output_data = DataFile(joinpath(output_dir, "output_data_Water"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state; exclude=["θi"])
+  state_vars = get_vars_from_stack(grid, Q, m, vars_state) #; exclude=["θi"])
   aux_vars = get_vars_from_stack(grid, dg.auxstate, m, vars_aux; exclude=["z"])
   all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))

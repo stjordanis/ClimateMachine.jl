@@ -79,10 +79,15 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_aux(::SoilModelMoisture, Fθ) = @vars(z::Fθ, h::Fθ , ψ::Fθ) # p::Fθ stored in dg.auxstate
-vars_state(::SoilModelMoisture, Fθ) = @vars(θ::Fθ, θi::Fθ) # stored in Q
-vars_gradient(::SoilModelMoisture, Fθ) = @vars(h::Fθ) # not stored
-vars_diffusive(::SoilModelMoisture, Fθ) = @vars(∇h::SVector{3,Fθ}) # stored in dg.diffstate
+# vars_aux(::SoilModelMoisture, Fθ) = @vars(z::Fθ, h::Fθ , ψ::Fθ) # p::Fθ stored in dg.auxstate
+# vars_state(::SoilModelMoisture, Fθ) = @vars(θ::Fθ, θi::Fθ) # stored in Q
+# vars_gradient(::SoilModelMoisture, Fθ) = @vars(h::Fθ) # not stored
+# vars_diffusive(::SoilModelMoisture, Fθ) = @vars(∇h::SVector{3,Fθ}) # stored in dg.diffstate
+
+vars_aux(::SoilModelMoisture, FT) = @vars(z::FT, h::FT , ψ::FT) # p::Fθ stored in dg.auxstate
+vars_state(::SoilModelMoisture, FT) = @vars(θ::FT, θi::FT) # stored in Q
+vars_gradient(::SoilModelMoisture, FT) = @vars(h::FT) # not stored
+vars_diffusive(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT}) # stored in dg.diffstate
 
 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
