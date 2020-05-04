@@ -35,11 +35,11 @@ we write `Y = ρcT` and `F(Y, t) = -λ ∇T`.
 using StaticArrays
 using CLIMA.VariableTemplates
 import CLIMA.DGmethods: BalanceLaw,
-                        vars_aux, vars_state, vars_gradient, vars_diffusive, vars_integral, #vars_reverse_integral,
-                        flux_nondiffusive!, flux_diffusive!, source!,
-                        gradvariables!, diffusive!, update_aux!, nodal_update_aux!, integral_load_aux!, integral_set_aux!, #reverse_integral_load_aux!, reverse_integral_set_aux!,
-                        indefinite_stack_integral!, #reverse_indefinite_stack_integral!,
-                        init_aux!, init_state!,
+                        vars_state_auxiliary, vars_state_conservative, vars_state_gradient, vars_state_gradient_flux, vars_integrals, vars_reverse_integrals,
+                        flux_first_order!, flux_second_order!, source!,
+                        compute_gradient_argument!, compute_gradient_flux!, update_auxiliary_state!, nodal_update_auxiliary_state!, integral_load_auxiliary_state!, integral_set_auxiliary_state!, reverse_integral_load_auxiliary_state!, reverse_integral_set_auxiliary_state!,
+                        indefinite_stack_integral!, reverse_indefinite_stack_integral!,
+                        init_state_auxiliary!, init_state_conservative!,
                         boundary_state!, wavespeed, LocalGeometry
 
 
@@ -57,8 +57,8 @@ Base.@kwdef struct SoilModel{Fρc, Fκ, FiT, Fst} <: BalanceLaw
   κ::Fκ         = (state, aux, t) -> 2.42     # [ Sand: λ = 2.42 W m-1 K-1 ; Clay: λ = 1.17 W m-1 K-1 ]
 
   # Define initial and boundary condition parameters
-  initialT::FiT = (aux) -> 273.15 # (5*exp(-(aux.z-0.5)^2/(2*(0.2)^2))) # Initial Temperature. This is an input to the model now.
-  surfaceT::Fst = (state, aux, t) -> 273.15 # (273.15 + 15.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24) #(273.15 + 2.0) # Surface boundary condition. This is an input to the model now.
+  initialT::FiT = (aux) -> aux.z - (aux.z)^2  # 273.15 # (5*exp(-(aux.z-0.5)^2/(2*(0.2)^2))) # Initial Temperature. This is an input to the model now.
+  surfaceT::Fst = (state, aux, t) -> 273.15+10*heaviside(t-t1)-10*heaviside(t-t2) #273.15 # (273.15 + 15.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24) #(273.15 + 2.0) # Surface boundary condition. This is an input to the model now.
 end
 
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
@@ -67,12 +67,13 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_aux(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
-vars_state(::SoilModel, FT) = @vars(ρcT::FT) # stored in Q , (\rho  c T) is number rows 
-vars_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_diffusive(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
-vars_integral(::SoilModel,FT) = @vars(a::FT) # location to store integrands for bottom up integrals
-#vars_reverse_integral(::SoilModel, FT) = @vars(b::FT) # location to store integrands for top down integrals
+vars_integrals(::SoilModel,FT) = @vars(a::FT) # location to store integrands for bottom up integrals
+vars_reverse_integrals(::SoilModel, FT) = @vars(a::FT) # location to store integrands for top down integrals
+vars_state_auxiliary(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
+vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows 
+#@vars(int::vars_integrals(m, T), rev_int::vars_integrals(m, T), r::T, a::T)
+vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
+vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
 
 # integrate over entire temperature profile at tsoi0
 # integrate over entire temperature profile at end of run
@@ -83,20 +84,26 @@ vars_integral(::SoilModel,FT) = @vars(a::FT) # location to store integrands for 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
 # ---------------- 4a) Update states
 # Update all auxiliary variables
-function update_aux!(dg::DGModel,
+function update_auxiliary_state!(
   dg::DGModel,
   m::SoilModel,
   Q::MPIStateArray,
   t::Real,
   elems::UnitRange,
 )
-  nodal_update_aux!(soil_nodal_update_aux!, dg, m, Q, t, elems)
-  indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
+  nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+  indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
   #reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
+  # Flux (energy coming into top layer) over one time step
+  # thermal conductivity is tk, tsurf is temperature at surface given by boundary condition,
+  # tsoi(1) is temperature just below surface layer layer, z is depth of first layer
+  # soilvar.gsoi = soilvar.tk(1) * (tsurf - soilvar.tsoi(1)) / (0 - soilvar.z(1))
+  # analytical_flux=m.ρc(state, aux, t)*m.surfaceT(state, aux, t)
+  
   return true
 end
-
-function integral_load_aux!(
+#
+function integral_load_auxiliary_state!(
     m::SoilModel,
     integrand::Vars,
     state::Vars,
@@ -105,7 +112,7 @@ function integral_load_aux!(
     integrand.a = state.ρcT
 end
 
-function integral_set_aux!(
+function integral_set_auxiliary_state!(
     m::SoilModel,
     aux::Vars,
     integral::Vars,
@@ -113,22 +120,22 @@ function integral_set_aux!(
     aux.int.a = integral.a
 end
 
-#function reverse_integral_load_aux!(
-#    m::SoilModel,
-#    integral::Vars,
-#    state::Vars,
-#    aux::Vars,
-#)
-#    integral.a = aux.int.a
-#end
-#
-#function reverse_integral_set_aux!(
-#    m::SoilModel,
-#    aux::Vars,
-#    integral::Vars,
-#)
-#    aux.rev_int.a = integral.a
-#end
+function reverse_integral_load_auxiliary_state!(
+    m::SoilModel,
+    integral::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    integral.a = aux.int.a
+end
+
+function reverse_integral_set_auxiliary_state!(
+    m::SoilModel,
+    aux::Vars,
+    integral::Vars,
+)
+    aux.rev_int.a = integral.a
+end
 
 # Update all auxiliary nodes
 function soil_nodal_update_aux!(
@@ -142,7 +149,7 @@ end
 # ---------------- 4b) Calculate state and derivative of T
 
 # Calculate T based on internal energy state variable
-function gradvariables!(
+function compute_gradient_argument!(
     m::SoilModel,
     transform::Vars,
     state::Vars,
@@ -152,7 +159,7 @@ function gradvariables!(
   transform.T = state.ρcT / m.ρc(state, aux, t)
 end
 # Gradient of T calculation
-function diffusive!(
+function compute_gradient_flux!(
     m::SoilModel,
     diffusive::Vars,
     ∇transform::Grad,
@@ -163,7 +170,7 @@ function diffusive!(
   diffusive.∇T = ∇transform.T
 end
 # Calculate thermal flux (non-diffusive (?))
-function flux_nondiffusive!(
+function flux_first_order!(
     m::SoilModel,
     flux::Grad,
     state::Vars,
@@ -172,7 +179,7 @@ function flux_nondiffusive!(
   )
 end
 # Calculate thermal flux (diffusive (?))
-function flux_diffusive!(
+function flux_second_order!(
     m::SoilModel,
     flux::Grad,
     state::Vars,
@@ -209,12 +216,12 @@ end
 # ---------------- 4d) Initialization
 
 # Initialize z-Profile
-function init_aux!(m::SoilModel, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::SoilModel, aux::Vars, geom::LocalGeometry)
   aux.z = geom.coord[3]
   aux.T = m.initialT(aux)
 end
 # Initialize State variables from T to internal energy
-function init_state!(m::SoilModel, state::Vars, aux::Vars, coords, t::Real)
+function init_state_conservative!(m::SoilModel, state::Vars, aux::Vars, coords, t::Real)
   state.ρcT = m.ρc(state, aux, t) * aux.T
 end
 
@@ -225,7 +232,8 @@ function boundary_state!(nf, m::SoilModel, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
   if bctype == 1
     # surface
-    state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+    # state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+    nothing
   elseif bctype == 2
     # bottom
     nothing
@@ -237,7 +245,8 @@ function boundary_state!(nf, m::SoilModel, state⁺::Vars, diff⁺::Vars,
                          bctype, t, _...)
   if bctype == 1
     # surface
-    state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+    diff⁺.∇T = -diff⁻.∇T
+    # state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
   elseif bctype == 2
     # bottom
     diff⁺.∇T = -diff⁻.∇T
