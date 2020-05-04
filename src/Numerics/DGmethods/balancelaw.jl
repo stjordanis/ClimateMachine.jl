@@ -69,8 +69,8 @@ function flux_first_order! end
 function flux_second_order! end
 function source! end
 
-function compute_gradient_argument! end
-function compute_gradient_flux! end
+compute_gradient_argument!(::BalanceLaw, args...) = nothing
+compute_gradient_flux!(::BalanceLaw, args...) = nothing
 function transform_post_gradient_laplacian! end
 
 function wavespeed end
@@ -163,7 +163,7 @@ function create_auxiliary_state(balance_law, grid)
     device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     event = Event(device)
-    event = kernel_init_state_auxiliary!(device, Np, Np * nrealelem)(
+    event = kernel_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
         balance_law,
         Val(dim),
         Val(polyorder),
