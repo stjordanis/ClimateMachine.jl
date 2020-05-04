@@ -89,10 +89,10 @@ println("2) Set up domain...")
 
 # Read in state variables and data
 mineral_properties = "Sand"
-soil_T = 265 # Read in from heat model {aux.T}
+soil_T = 275 # Read in from heat model {aux.T}
 soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
-theta_liq_0 = 0.25 # Read in from water model {state.θ}
-theta_liq_surface = 0.25 # Read in from water model {state.θ}
+theta_liq_0 = 0.20 # Read in from water model {state.θ}
+theta_liq_surface = 0.20 # Read in from water model {state.θ}
 theta_ice_0 = 0.02 # Read in from water model {state.θi}
 h_0 = -3 # Read in from water model {state.θ}
 ψ_0 = -1 # Soil pressure head {aux.h}
@@ -157,11 +157,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 5*minute
+const timeend = 1*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*minute
+const every_x_simulation_time = 1*hour
 
 
 ######
