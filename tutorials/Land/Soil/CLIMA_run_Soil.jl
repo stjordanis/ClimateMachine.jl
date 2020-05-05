@@ -95,12 +95,12 @@ println("2) Set up domain...")
 
 # Read in state variables and data
 mineral_properties = "Clay"
-soil_T_0 = 273 # Read in from heat model {aux.T}
-soil_T_surface = 270 # Read in from heat model {aux.T}
+soil_T_0 = 295 # Read in from heat model {aux.T}
+soil_T_surface = 298 # Read in from heat model {aux.T}
 soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
 theta_liq_0 = 0.2 # Read in from water model {state.θ}
-theta_liq_surface = 0.25 # Read in from water model {state.θ}
-theta_ice_0 = 0.05 # Read in from water model {state.θi}
+theta_liq_surface = 0.15 # Read in from water model {state.θ}
+theta_ice_0 = 0 # Read in from water model {state.θi}
 h_0 = -3 # Read in from water model {state.θ}
 ψ_0 = -1 # Soil pressure head {aux.h}
 porosity = 0.5 # Read in from data base
@@ -110,7 +110,7 @@ flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
-const velems = 0.0:-0.5:-10 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
+const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 5 # Order of polynomial function between each element
 
 # Set domain using Stached Brick Topology
@@ -139,7 +139,7 @@ m = SoilModels(
     initialθi = (aux, t) -> theta_ice_0,  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 
     # Define heat capacity of soil
-    ρc = (state, aux, t) -> heat_capacity(mineral_properties,porosity,state.θ,state.θi ), # state.θ,state.θi  
+    ρc = (state, aux, t) ->  heat_capacity(mineral_properties,porosity,state.θ,state.θi ), # state.θ,state.θi  
     
     # Define thermal conductivity of soil
     κ   = (state, aux, t) ->   thermal_properties(mineral_properties,state.θ,state.θi), # state.θ,state.θi 
