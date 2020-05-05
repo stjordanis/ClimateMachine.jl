@@ -15,7 +15,7 @@ function internal_energy(c_s,T,theta_ice)
     # I(T,theta;porosity) = c_s*(T-T0) - theta_ice*density_ice*Lf_0 
 
     # Freezing point of water
-    T0 = 0 # 273.15 # K
+    T0 =  0 # 273.15 # K
     
     # Specific Latent heat of fusion
     Lf_0 = 333.6e3 # J kg-1

@@ -55,7 +55,7 @@ include("hydraulic_head.jl")
 include("effective_saturation.jl")
 include("augmented_liquid.jl")
 include("calculate_frozen_water.jl")
-
+include("heaviside.jl") 
 
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
@@ -88,22 +88,22 @@ include(joinpath("..","plotting_funcs.jl"))
 println("2) Set up domain...")
 
 # Read in state variables and data
-mineral_properties = "Sand"
-soil_T = 275 # Read in from heat model {aux.T}
+mineral_properties = "Clay"
+soil_T = 276 # Read in from heat model {aux.T}
 soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
-theta_liq_0 = 0.20 # Read in from water model {state.θ}
-theta_liq_surface = 0.20 # Read in from water model {state.θ}
-theta_ice_0 = 0.02 # Read in from water model {state.θi}
+theta_liq_0 = 0.1 # Read in from water model {state.θ}
+theta_liq_surface = 0.4 # Read in from water model {state.θ}
+theta_ice_0 = 0.2 # Read in from water model {state.θi}
 h_0 = -3 # Read in from water model {state.θ}
 ψ_0 = -1 # Soil pressure head {aux.h}
-porosity = 0.8 # Read in from data base
+porosity = 0.7 # Read in from data base
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
-const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
+const velems = 0.0:-0.05:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 5 # Order of polynomial function between each element
 
 # Set domain using Stached Brick Topology
