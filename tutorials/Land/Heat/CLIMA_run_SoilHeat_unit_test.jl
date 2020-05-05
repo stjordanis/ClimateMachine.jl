@@ -55,11 +55,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 10*day
+const timeend = 1*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*day
+const every_x_simulation_time = 2*hour
 
 ######
 ###### 3) # Add soil model and other functions
@@ -108,8 +108,7 @@ println("4) Set up domain...")
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial
 # giving an approximate resolution of 5cm (true when elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] and 5th degree polynomial)
-#const velems = 0.0:-0.1:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
-const velems = 0.0:0.1:1
+const velems = 0.0:-0.1:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 4 # Order of polynomial function between each element
 
 # Set domain using Stached Brick Topology
@@ -129,8 +128,8 @@ grid = DiscontinuousSpectralElementGrid(topl, FloatType = FT, DeviceArray = Arra
 m = SoilModel(
     ρc = (state, aux, t) -> 2.49e6, # aux.z > -0.5 ? 2.49e6 : 2.61e6,
     κ  = (state, aux, t) -> 2.42, # aux.z > -0.5 ? κ_sand : κ_clay,
-    initialT = (aux) -> aux.z - (aux.z)^2, #273.15, #  (273.15 + 2 + 5*exp(-(aux.z-0.5)^2/(2*(0.2)^2)))),
-    surfaceT = (state, aux, t) -> 273.15+10*heaviside(t-t1) #-10*heaviside(t-t2) #(273.15 + 15.0 + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24)) # replace with T_data
+    initialT = (aux) -> 273.15, # aux.z - (aux.z)^2,  #  (273.15 + 2 + 5*exp(-(aux.z-0.5)^2/(2*(0.2)^2)))),
+    surfaceT = (state, aux, t) -> 273.15 #+10*heaviside(t-t1) #-10*heaviside(t-t2) #(273.15 + 15.0 + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24)) # replace with T_data
     #surfaceT = (state, aux, t) -> (273.15 + 12.0) + 250*(1/sqrt(2*pi*10^2))*exp( -((t/(60*60)-24)^2)/(2*10^2) ) # replace with T_data
     #surfaceT = (state, aux, t) -> Real_continuous_data(t) # replace with T_data
 )

@@ -57,8 +57,8 @@ Base.@kwdef struct SoilModel{Fρc, Fκ, FiT, Fst} <: BalanceLaw
   κ::Fκ         = (state, aux, t) -> 2.42     # [ Sand: λ = 2.42 W m-1 K-1 ; Clay: λ = 1.17 W m-1 K-1 ]
 
   # Define initial and boundary condition parameters
-  initialT::FiT = (aux) -> aux.z - (aux.z)^2  # 273.15 # (5*exp(-(aux.z-0.5)^2/(2*(0.2)^2))) # Initial Temperature. This is an input to the model now.
-  surfaceT::Fst = (state, aux, t) -> 273.15+10*heaviside(t-t1)-10*heaviside(t-t2) #273.15 # (273.15 + 15.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24) #(273.15 + 2.0) # Surface boundary condition. This is an input to the model now.
+  initialT::FiT = (aux) -> 273.15 #aux.z - (aux.z)^2  #  # (5*exp(-(aux.z-0.5)^2/(2*(0.2)^2))) # Initial Temperature. This is an input to the model now.
+  surfaceT::Fst = (state, aux, t) -> 273.15 #+10*heaviside(t-t1)#-10*heaviside(t-t2) #273.15 # (273.15 + 15.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24) #(273.15 + 2.0) # Surface boundary condition. This is an input to the model now.
 end
 
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
@@ -99,7 +99,7 @@ function update_auxiliary_state!(
   # tsoi(1) is temperature just below surface layer layer, z is depth of first layer
   # soilvar.gsoi = soilvar.tk(1) * (tsurf - soilvar.tsoi(1)) / (0 - soilvar.z(1))
   # analytical_flux=m.ρc(state, aux, t)*m.surfaceT(state, aux, t)
-  
+
   return true
 end
 #
@@ -207,9 +207,9 @@ function source!(
     t::Real,
     direction,
 )
-#dirac_space=1000000*exp(-(aux.z-(-0.5))^2/(2*(0.1)^2)) #*m.ρc(state, aux, t)/timeend
-#dirac_time=1*exp(-(t-(dt))^2/(2*(dt)^2))
-#source.ρcT=dirac_space*dirac_time
+dirac_space=1000000*exp(-(aux.z-(-0.5))^2/(2*(0.1)^2)) #*m.ρc(state, aux, t)/timeend,
+dirac_time=1*exp(-(t-(dt))^2/(2*(dt)^2))
+source.ρcT=dirac_space*dirac_time
   # @show(source.ρcT)
 end
 
@@ -232,24 +232,24 @@ function boundary_state!(nf, m::SoilModel, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
   if bctype == 1
     # surface
-    # state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
-    nothing
+    state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+    #nothing
   elseif bctype == 2
     # bottom
     nothing
   end
 end
 # Boundary condition function - repeated?
-function boundary_state!(nf, m::SoilModel, state⁺::Vars, diff⁺::Vars,
-                         aux⁺::Vars, nM, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
-                         bctype, t, _...)
-  if bctype == 1
-    # surface
-    diff⁺.∇T = -diff⁻.∇T
-    # state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
-  elseif bctype == 2
-    # bottom
-    diff⁺.∇T = -diff⁻.∇T
-  end
-end
+ function boundary_state!(nf, m::SoilModel, state⁺::Vars, diff⁺::Vars,
+                          aux⁺::Vars, nM, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
+                          bctype, t, _...)
+   if bctype == 1
+     # surface
+     #diff⁺.∇T = -10*diff⁻.∇T
+     state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+   elseif bctype == 2
+     # bottom
+     diff⁺.∇T = -diff⁻.∇T
+   end
+ end
 
