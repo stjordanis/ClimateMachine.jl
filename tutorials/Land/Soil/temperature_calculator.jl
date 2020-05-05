@@ -8,7 +8,7 @@ function temperature_calculator(c_s,I,theta_ice)
 #   theta_ice                ! fraction of water that is ice
 # ------------------------------------------------------
 # Output
-#   T_soil                   ! Soil temperature
+#   T_soil             ! Change in Soil temperature
 # ------------------------------------------------------   
     
     # Formula for the temperature soil (K):

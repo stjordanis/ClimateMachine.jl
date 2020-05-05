@@ -31,7 +31,7 @@ function heat_capacity(mineral_properties,porosity,theta_liq,theta_ice)
     
     # Volumetric  heat  capacity  of  soil  (heat  capacity  per  unit  mass,J m-3K−1):
     c_s = (1-porosity)*c_ds + theta_liq*c_l + theta_ice*c_i
-                       
+        
     return c_s
 end
 

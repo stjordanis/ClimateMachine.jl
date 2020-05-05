@@ -248,9 +248,9 @@ function source!(
     direction,
 )
 
-@show state.θi
-@show state.θ
-@show soil_T
+# @show state.θi
+# @show state.θ
+# @show soil_T
 
 # Update sources for ice and liquid
 if state.θi > 0
@@ -266,8 +266,8 @@ end
 source.θi = F_T/917 # rho_i = 0.917 # g cm-3, density of ice
 source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
 
-@show source.θi
-@show source.θ
+# @show source.θi
+# @show source.θ
 
 end
 

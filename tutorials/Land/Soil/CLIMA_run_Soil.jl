@@ -61,7 +61,7 @@ include("hydraulic_head.jl")
 include("effective_saturation.jl")
 include("augmented_liquid.jl")
 include("calculate_frozen_water.jl")
-
+include("heaviside.jl") 
 
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
@@ -94,22 +94,23 @@ Real_continuous_data = TimeContinuousData(Real_time_data, Real_Data_vector)
 println("2) Set up domain...")
 
 # Read in state variables and data
-mineral_properties = "Sand"
-soil_T_0 = 275 # Read in from heat model {aux.T}
+mineral_properties = "Clay"
+soil_T_0 = 273 # Read in from heat model {aux.T}
+soil_T_surface = 270 # Read in from heat model {aux.T}
 soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
-theta_liq_0 = 0.25 # Read in from water model {state.θ}
+theta_liq_0 = 0.2 # Read in from water model {state.θ}
 theta_liq_surface = 0.25 # Read in from water model {state.θ}
-theta_ice_0 = 0.00 # Read in from water model {state.θi}
+theta_ice_0 = 0.05 # Read in from water model {state.θi}
 h_0 = -3 # Read in from water model {state.θ}
 ψ_0 = -1 # Soil pressure head {aux.h}
-porosity = 0.8 # Read in from data base
+porosity = 0.5 # Read in from data base
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
-const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
+const velems = 0.0:-0.5:-10 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 5 # Order of polynomial function between each element
 
 # Set domain using Stached Brick Topology
@@ -120,6 +121,23 @@ grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray =
 
 # Load Soil Model in 'm'
 m = SoilModels(
+     # Define hydraulic conductivity of soil
+     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,aux.T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h 
+    # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
+    
+    # Define initial soil moisture
+    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
+    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    
+    # Define initial and boundary condition parameters
+    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+
+    # Define initial and boundary condition parameters
+    initialθi = (aux, t) -> theta_ice_0,  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+
     # Define heat capacity of soil
     ρc = (state, aux, t) -> heat_capacity(mineral_properties,porosity,state.θ,state.θi ), # state.θ,state.θi  
     
@@ -130,35 +148,16 @@ m = SoilModels(
     initialT= (aux, t) -> soil_T_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
     
     # Define surface boundary condition
-    surfaceT = (state, aux, t) -> Real_continuous_data(t), # replace with T_data
+    surfaceT = (state, aux, t) ->  soil_T_surface# Real_continuous_data(t) # replace with T_data
 
-
-    # Define hydraulic conductivity of soil
-    K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,aux.T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h 
-    
-    # Define initial soil moisture
-    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    
-    # Define surface soil moisture
-    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    
-    # Define initial hydraulic head
-    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    
-    # Define initial pressure head (matric potential)
-    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    
-    # Define initial frozen water content
-    initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-  
 )
 
 # Set up DG scheme
 dg = DGModel( #
   m, # "PDE part"
   grid,
-  CentralNumericalFluxNonDiffusive(), # penalty terms for discretizations
-  CentralNumericalFluxDiffusive(),
+  CentralNumericalFluxFirstOrder(), # penalty terms for discretizations
+  CentralNumericalFluxSecondOrder(),
   CentralNumericalFluxGradient())
 
 # Minimum spatial and temporal steps
@@ -177,11 +176,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*hour
+const timeend = 1*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 10*minute
+const every_x_simulation_time = 1*hour
 
 
 ######
@@ -197,8 +196,8 @@ Q = init_ode_state(dg, Float64(0))
 lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
 # Plot initial state
-p = get_plot(grid, Q, dg.auxstate, 0)
-export_plots(p, joinpath(output_dir, "initial_state_Soil.png"))
+# p = get_plot(grid, Q, dg.auxstate, 0)
+# export_plots(p, joinpath(output_dir, "initial_state_Water.png"))
 
 mkpath(output_dir)
 
@@ -208,17 +207,18 @@ dims = OrderedDict("z" => collect(get_z(grid)))
 
 output_data = DataFile(joinpath(output_dir, "output_data_Soil"))
 
+  
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state) #; exclude=["θi"])
-  aux_vars = get_vars_from_stack(grid, dg.auxstate, m, vars_aux; exclude=["z"])
+  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative) #; exclude=["θi"])
+  aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
   all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
   step[1]+=1
   nothing
 end
 
-
+  
 ######
 ###### 5) Solve the equations
 ######
