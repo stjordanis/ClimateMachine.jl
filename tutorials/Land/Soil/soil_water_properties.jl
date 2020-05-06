@@ -30,11 +30,11 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
     # K_sat: Global tabulated values from Dai et al. (2019a)
     # [ Sand: K_sat = 10e-2 m s-1 ; Clay: K_sat = 10e-7 m s-1 ]
     if mineral_properties == "Sand"
-        K_sat  = 1e-5
+        K_sat  = 1e-3
     elseif mineral_properties == "Clay"
-        K_sat  = 1e-9
+        K_sat  = 1e-7
     else
-        K_sat  = 1e-6
+        K_sat  = 1e-4
     end
     
     # Get augmented liquid

@@ -95,17 +95,19 @@ println("2) Set up domain...")
 
 # Read in state variables and data
 mineral_properties = "Clay"
-soil_T_0 = 295 # Read in from heat model {aux.T}
-soil_T_surface = 298 # Read in from heat model {aux.T}
-soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
+soil_T_0 = 275 # Read in from heat model {aux.T}
+soil_T_surface = 275 # Read in from heat model {aux.T}
 theta_liq_0 = 0.2 # Read in from water model {state.θ}
-theta_liq_surface = 0.15 # Read in from water model {state.θ}
-theta_ice_0 = 0 # Read in from water model {state.θi}
-h_0 = -3 # Read in from water model {state.θ}
-ψ_0 = -1 # Soil pressure head {aux.h}
-porosity = 0.5 # Read in from data base
+theta_liq_surface = 0.2 # Read in from water model {state.θ}
+theta_ice_0 = 0.02 # Read in from water model {state.θi}
+porosity = 0.8 # Read in from data base
+
+soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
+
+h_0 = -3 # Read in from water model {aux.h}
+ψ_0 = -1 # Soil pressure head {aux.ψ}
 
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
