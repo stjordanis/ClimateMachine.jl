@@ -55,11 +55,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*day
+const timeend = 5*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 2*hour
+const every_x_simulation_time = 6*hour
 
 ######
 ###### 3) # Add soil model and other functions
@@ -175,8 +175,8 @@ step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
   state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative) #; exclude=["θi"])
   aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
-  integral_vars = get_vars_from_stack(grid, Q, m, vars_integrals)
-  all_vars = OrderedDict(state_vars..., aux_vars..., integral_vars...)
+  integral_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_integrals)
+  all_vars = OrderedDict(state_vars..., aux_vars...,integral_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
   step[1]+=1
   nothing
