@@ -45,7 +45,7 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
 
     # Soil Matric potential - "van Genuchten"
     if flag == "van Genuchten"
-        alpha = 2 # m-1
+        alpha = 0.02 # m-1
         n = 5
         m = 1 - 1/n 
     elseif flag == "Brooks and Corey"

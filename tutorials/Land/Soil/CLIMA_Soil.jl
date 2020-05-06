@@ -126,12 +126,12 @@ function  soil_nodal_update_aux!(
     
     # Soil Matric potential - "van Genuchten"
     if flag == "van Genuchten"
-        alpha = 2 # m-1
+        alpha = 0.02 # m-1
         n = 5
         M = 1 - 1/n 
     elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
-        alpha = 2 # m-1
+        alpha = 0.02 # m-1
         n = 5
         M = 1 - 1/n 
     end
@@ -182,12 +182,12 @@ function compute_gradient_argument!(
     
     # Soil Matric potential - "van Genuchten"
     if flag == "van Genuchten"
-        alpha = 2 # m-1
+        alpha = 0.02 # m-1
         n = 5
         M = 1 - 1/n 
     elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
-        alpha = 2 # m-1
+        alpha = 0.02 # m-1
         n = 5
         M = 1 - 1/n 
     end
@@ -217,6 +217,7 @@ function compute_gradient_argument!(
    # transform.T = temperature_calculator(ρc,state.ρcT,state.θi)
    transform.T = temperature_calculator(m.ρc(state, aux, t),state.ρcT,state.θi)
 # @show m.ρc(state, aux, t)
+# @show state.ρcT
 # @show transform.T
 end
 
