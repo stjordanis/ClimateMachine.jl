@@ -69,11 +69,22 @@ end
 #   `D` Diffusion tensor
 vars_integrals(::SoilModel,FT) = @vars(a::FT) # location to store integrands for bottom up integrals
 vars_reverse_integrals(::SoilModel, FT) = @vars(a::FT) # location to store integrands for top down integrals
-vars_state_auxiliary(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
+vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, T), ) # stored dg.auxstate
 vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows 
 #@vars(int::vars_integrals(m, T), rev_int::vars_integrals(m, T), r::T, a::T)
 vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
 vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
+
+
+vars_state_auxiliary(m::IntegralTestModel, T) = @vars(
+    int::vars_integrals(m, T),
+    rev_int::vars_reverse_integrals(m, T),
+    coord::SVector{3, T},
+    a::T,
+    b::T,
+    rev_a::T,
+    rev_b::T
+)
 
 # integrate over entire temperature profile at tsoi0
 # integrate over entire temperature profile at end of run
@@ -93,7 +104,7 @@ function update_auxiliary_state!(
 )
   nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
   indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
-  #reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
+  reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
   # Flux (energy coming into top layer) over one time step
   # thermal conductivity is tk, tsurf is temperature at surface given by boundary condition,
   # tsoi(1) is temperature just below surface layer layer, z is depth of first layer
