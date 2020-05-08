@@ -1,5 +1,5 @@
 # thermal_properties.jl: This function calculates soil thermal conductivity
-function thermal_properties(mineral_properties,theta_liq,theta_ice) 
+function thermal_properties(mineral_properties,porosity,theta_liq,theta_ice) 
 
 # ------------------------------------------------------
 # Input
@@ -27,6 +27,10 @@ function thermal_properties(mineral_properties,theta_liq,theta_ice)
     
     # Total water = liquid water + ice water
     theta_water =  theta_liq + theta_ice 
+#     # Take care of super dryness (for now)
+#     if theta_water < 0
+#         theta_water = 0.0001
+#     end
     
     # κ_sat_frozen and κ_sat_unfrozen: Global tabulated values from Dai et al. (2019a)
     if mineral_properties == "Sand"
@@ -45,7 +49,6 @@ function thermal_properties(mineral_properties,theta_liq,theta_ice)
     
     # Kersten number from Dai et al (2019a) and Balland and Arp (2005)
     vom = 0.05 # Volume fraction of organic matter in soil: Global tabulated values from Dai et al. (2019a) 
-    porosity = 0.5 # Porosity: Global tabulated values from Dai et al. (2019a) 
     Sr = (theta_water) / (porosity) # Relative Saturation Sr = (theta_liquid + theta_ice) / porosity
     a = 0.24 # a = -0.24 +/- 0.04 ... adjustable parameter based on soil measurements
     b = 18.1 # b = 18.1 +/- 1.1 ... adjustable parameter based on soil measurements
@@ -53,7 +56,7 @@ function thermal_properties(mineral_properties,theta_liq,theta_ice)
     v_gravel = 0.2 # Global tabulated values from Dai et al. (2019a) 
     
     # Use Kersten number function
-    Ke = kersten(theta_ice,vom,porosity,Sr,a,b,v_sand,v_gravel)  
+    Ke = kersten(theta_ice,vom,Sr,a,b,v_sand,v_gravel)  
        
     κ = Ke*κ_sat  + (1-Ke)*κ_dry
     κ_out  = κ    

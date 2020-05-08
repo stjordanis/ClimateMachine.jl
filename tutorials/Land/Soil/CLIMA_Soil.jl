@@ -97,7 +97,7 @@ end
 vars_state_auxiliary(::SoilModels, FT) = @vars(z::FT, h::FT , ψ::FT, T::FT) # p::Fθ stored in dg.auxstate
 vars_state_conservative(::SoilModels, FT) = @vars(ρcT::FT, θ::FT, θi::FT) # stored in Q
 vars_state_gradient(::SoilModels, FT) = @vars(h::FT, T::FT) # not stored
-vars_state_gradient_flux(::SoilModels, FT) = @vars(∇h::SVector{3,FT}, ∇T::SVector{3,FT}) # stored in dg.diffstate
+vars_state_gradient_flux(::SoilModels, FT) = @vars(∇h::SVector{3,FT}, ∇θ::SVector{3,FT}, ∇T::SVector{3,FT}) # stored in dg.diffstate
 
 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
@@ -122,23 +122,10 @@ function  soil_nodal_update_aux!(
   state::Vars,
   aux::Vars,
   t::Real)
-    # flag = "van Genuchten" # - "Brooks and Corey"
-    
-    # Soil Matric potential - "van Genuchten"
-    if flag == "van Genuchten"
-        alpha = 0.02 # m-1
-        n = 5
-        M = 1 - 1/n 
-    elseif flag == "Brooks and Corey"
-    # Soil Matric potential - "Brooks and Corey"
-        alpha = 0.02 # m-1
-        n = 5
-        M = 1 - 1/n 
-    end
-    
+        
     # How much water
     theta_water = state.θ + state.θi
-# @show theta_water
+	# @show theta_water
 
     # Get augmented liquid
     theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water) 
@@ -147,7 +134,7 @@ function  soil_nodal_update_aux!(
     S_l = effective_saturation(porosity,theta_l)   # 0.2
 
     # Get matric potential
-    ψ_m = matric_potential(flag,alpha,S_l,n,M)
+    ψ_m = matric_potential(flag,S_l)
 
     # This function calculates pressure head ψ of a soil
     aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
@@ -191,20 +178,19 @@ function compute_gradient_argument!(
         n = 5
         M = 1 - 1/n 
     end
-
+       
     # How much water
     theta_water = state.θ + state.θi
-# @show theta_water
+	# @show theta_water
 
     # Get augmented liquid
     theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water) 
 
     # Get effective saturation
     S_l = effective_saturation(porosity,theta_l)   # 0.2
-# @show S_l
 
     # Get matric potential
-    ψ_m = matric_potential(flag,alpha,S_l,n,M)
+    ψ_m = matric_potential(flag,S_l)
 
     # This function calculates pressure head ψ of a soil
     aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
@@ -291,7 +277,13 @@ F_T = calculate_frozen_water(state.θ,state.θi,aux.T)
 # Source of ice
 source.θi = F_T/917 # rho_i = 0.917 # g cm-3, density of ice
 source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
+if source.θi > state.θ
+	state.θi = state.θ
+end
 
+if source.θ > state.θi
+	state.θ = state.θi
+end
 # @show source.θi
 # @show source.θ
 
@@ -313,7 +305,9 @@ end
 function init_state_conservative!(m::SoilModels, state::Vars, aux::Vars, coords, t::Real)
   state.θ = m.initialθ(aux, 0)
   state.θi = m.initialθi(aux, 0)
-  state.ρcT = m.ρc(state, aux, 0) * m.initialT(aux, 0) 
+  state.ρcT =internal_energy( m.ρc(state, aux, 0) , m.initialT(aux, 0) , m.initialθi(aux, 0) )
+  #state.ρcT = m.ρc(state, aux, 0) * m.initialT(aux, 0) 
+  
   # @show m.ρc(state, aux, t)
   # @show 1
 end
@@ -326,12 +320,16 @@ end
 function boundary_state!(nf, m::SoilModels, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
   if bctype == 1
-    # surface
-    state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
-    state⁺.θ= m.surfaceθ(state⁻, aux⁻, t)
+    nothing
+    # # surface
+    # state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+    # state⁺.θ= m.surfaceθ(state⁻, aux⁻, t)
   elseif bctype == 2
     # bottom
     nothing
+    # diff⁺.∇h = -diff⁻.∇h
+    # diff⁺.∇θ = -diff⁻.∇θ
+    # diff⁺.∇T = -diff⁻.∇T
   end
 end
 
@@ -341,12 +339,48 @@ function boundary_state!(nf, m::SoilModels, state⁺::Vars, diff⁺::Vars,
                          bctype, t, _...)
   if bctype == 1
     # surface
-    state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
-    state⁺.θ = m.surfaceθ(state⁻, aux⁻, t)
+    # state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+    # state⁺.ρcT = internal_energy( m.ρc(state⁻, aux⁻, t) , m.surfaceT(state⁻, aux⁻, t) ,  state⁻.θi )
+    # state⁺.θ = m.surfaceθ(state⁻, aux⁻, t)
+    nothing
   elseif bctype == 2
     # bottom
-    nothing
-    #diff⁺.∇h = -diff⁻.∇h
-    #diff⁺.∇θ = -diff⁻.∇θ        
+     nothing
+    # diff⁺.∇h = -diff⁻.∇h
+    # diff⁺.∇θ = -diff⁻.∇θ
+    # diff⁺.∇T = -diff⁻.∇T        
   end
 end
+
+
+# # ---------------- 4e) Boundary Conditions
+# # Boundary condition function
+# function boundary_state!(nf, m::SoilModel, state⁺::Vars, aux⁺::Vars,
+#                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
+#   if bctype == 1
+#     #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)# Dirichlet
+#     nothing # Newmann
+#   elseif bctype == 2
+#     # bottom
+#     nothing # keep like this for Newmann and Dirichlet
+#   end
+# end
+# # Boundary condition function - repeated?
+#  function boundary_state!(nf, m::SoilModel, state⁺::Vars, diff⁺::Vars,
+#                           aux⁺::Vars, n̂, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
+#                           bctype, t, _...)
+#    if bctype == 1
+#      # surface
+#      diff⁺.k∇T = -n̂*10*t  # Newmann
+#      #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
+#    elseif bctype == 2
+#      # bottom
+#      diff⁺.k∇T = -diff⁻.k∇T # Newmann
+#    end
+#  end
+
+
+
+
+
+

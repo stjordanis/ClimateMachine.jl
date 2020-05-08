@@ -15,7 +15,7 @@ function temperature_calculator(c_s,I,theta_ice)
     # T = T0 + [ ( I + theta_ice*density_ice*Lf_0 ) / c_s ]
 
     # Freezing point of water
-    T0 = 0 # 273.15 # K
+    T0 = 273.15 # K
     
     # Specific Latent heat of fusion
     Lf_0 = 333.6e3 # J kg-1

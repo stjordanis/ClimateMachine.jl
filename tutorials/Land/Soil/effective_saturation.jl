@@ -13,6 +13,15 @@ function effective_saturation(porosity,theta_l)
     # Effective saturation
     S_l = theta_l / porosity
     
+#     # Eliminiate super saturation (for now)
+#     if S_l >1
+#         S_l = 0.9999;
+#     end
+#     # Eliminiate super dryness (for now)
+#     if S_l <0
+#         S_l = 0.0001;
+#     end
+    
     return S_l 
 end
 

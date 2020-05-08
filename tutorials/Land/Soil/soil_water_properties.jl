@@ -30,11 +30,11 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
     # K_sat: Global tabulated values from Dai et al. (2019a)
     # [ Sand: K_sat = 10e-2 m s-1 ; Clay: K_sat = 10e-7 m s-1 ]
     if mineral_properties == "Sand"
-        K_sat  = 1e-3
+        K_sat  = 1e-1
     elseif mineral_properties == "Clay"
-        K_sat  = 1e-7
+        K_sat  = 1e-6
     else
-        K_sat  = 1e-4
+        K_sat  = 1e-3
     end
     
     # Get augmented liquid
@@ -50,7 +50,7 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
         m = 1 - 1/n 
     elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
-        alpha = 2 # m-1
+        alpha = 0.02 # m-1
         n = 5
         m = 1 - 1/n 
     end
@@ -60,14 +60,12 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
         K_s = Theta_T * Gamma_thetai * K_sat*( S_l^(1/2) * ( 1 - ( 1 - S_l^(1/m) )^m )^2 )  
     elseif flag == "Brooks and Corey"
         if S_l < 1
-            K_s = Theta_T * Gamma_thetai * K_sat*( S_l^(2*m+3) )  
+            M = 1/m-1
+            K_s = Theta_T * Gamma_thetai * K_sat*( S_l^(2*M+3) )  
         elseif S_l >= 1
-            K_s = Theta_T * Gamma_thetai * K_sat * (1) 
+            K_s = Theta_T * Gamma_thetai * K_sat 
         end
     end
-    
-    # Make final conversion
-    # K_s = K_s/100
     
     return K_s
 end

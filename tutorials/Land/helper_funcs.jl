@@ -21,10 +21,17 @@ The values are a NetCDF file, which includes the
 time information.
 """
 function collect_data(output_data::DataFile, n_steps::Int)
-  all_data = Dict()
+  all_keys = NCDataset(output_data(0)*".nc", "r") do ds
+    keys(ds)
+  end
+  all_data = Dict((i=> Dict((k=>[] for k in all_keys)...) for i in 0:n_steps-1)...)
   for i in 0:n_steps-1
     f = output_data(i)
-    all_data[i] = NCDataset(f*".nc", "r")
+    NCDataset(f*".nc", "r") do ds
+      for k in all_keys
+        all_data[i][k] = ds[k][:]
+      end
+    end
   end
   return all_data
 end

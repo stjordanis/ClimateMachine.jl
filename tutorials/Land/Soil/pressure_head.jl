@@ -18,8 +18,6 @@ function pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
         ψ = ψ_m     
     elseif S_l >= 1
         ψ =  ( theta_l - porosity ) / S_s
-    else
-        ψ = ψ_m
     end
     
     return ψ 

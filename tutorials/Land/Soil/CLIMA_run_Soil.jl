@@ -144,7 +144,7 @@ m = SoilModels(
     ρc = (state, aux, t) ->  heat_capacity(mineral_properties,porosity,state.θ,state.θi ), # state.θ,state.θi  
     
     # Define thermal conductivity of soil
-    κ   = (state, aux, t) ->   thermal_properties(mineral_properties,state.θ,state.θi), # state.θ,state.θi 
+    κ   = (state, aux, t) ->   thermal_properties(mineral_properties,porosity,state.θ,state.θi), # state.θ,state.θi 
     
     # Define initial temperature of soil
     initialT= (aux, t) -> soil_T_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
@@ -178,11 +178,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*day
+const timeend = 5*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*hour
+const every_x_simulation_time = 30*minute
 
 
 ######
