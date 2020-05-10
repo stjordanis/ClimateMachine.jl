@@ -232,7 +232,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
         param_set;                                   # Parameter set corresponding to earth parameters
         turbulence = SmagorinskyLilly(_C_smag),       # Turbulence closure model
-        hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
+        hyperdiffusion = NoHyperDiffusion(), #StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
         source = (Gravity(),),                       # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),       # Tracer model with diffusivity coefficients
         ref_state = ref_state,                       # Reference state
@@ -274,7 +274,7 @@ function main()
     # the domain bounds, and the courant-number for the time-integrator. Note how the time-integration components
     # `solver_config` are distinct from the spatial / model components in `driver_config`. `init_on_cpu` is a helper
     # keyword argument that forces problem initialisation on CPU (thereby allowing the use of random seeds, spline interpolants and other special functions at the initialisation step.)
-    N = 4
+    N = 16
     Δh = FT(50)
     Δv = FT(50)
     resolution = (Δh, Δh, Δv)
@@ -282,7 +282,7 @@ function main()
     ymax = FT(2500)
     zmax = FT(2500)
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(2)
     CFL = FT(20)
 
     # Assign configurations so they can be passed to the `invoke!` function
