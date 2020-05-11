@@ -121,17 +121,17 @@ m = SoilModels(
     # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
 
     # Define initial soil moisture
-    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil
+    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface
 
     # Define initial and boundary condition parameters
-    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil
 
     # Define initial and boundary condition parameters
-    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil
 
     # Define initial and boundary condition parameters
-    initialθi = (aux, t) -> theta_ice_0,  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialθi = (aux, t) -> theta_ice_0,  #267 # [m3/m3] constant flux at surface
 
     # Define heat capacity of soil
     ρc = (state, aux, t) ->  heat_capacity(mineral_properties,porosity,state.θ,state.θi ), # state.θ,state.θi
@@ -140,7 +140,7 @@ m = SoilModels(
     κ   = (state, aux, t) ->   thermal_properties(mineral_properties,porosity,state.θ,state.θi), # state.θ,state.θi
 
     # Define initial temperature of soil
-    initialT= (aux, t) -> soil_T_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialT= (aux, t) -> soil_T_0, # [m3/m3] constant water content in soil
 
     # Define surface boundary condition
     surfaceT = (state, aux, t) ->  soil_T_surface# Real_continuous_data(t) # replace with T_data
@@ -205,7 +205,7 @@ output_data = DataFile(joinpath(output_dir, "output_data_Soil"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative) #; exclude=["θi"])
+  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative)
   aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
   all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
@@ -231,36 +231,3 @@ all_data = collect_data(output_data, step[1])
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
 
-
-
-# OLD ------------------------ 5) Run model for many time steps and plot ---------------------------------------
-
-# a function for performing interpolation on the DG grid
-# TODO: use CLIMA interpolation once available
-#function interpolate(grid, auxstate, Zprofile)
-#    P = zeros(size(Zprofile))
-#    nelems = size(grid.vgeo, 3)
-#    for elem in 1:nelems
-#        G = grid.vgeo[(1:(N+1)^2:(N+1)^3),ClimateMachine.Mesh.Grids.vgeoid.x3id,elem]
-#        I = minimum(G) .< Zprofile .<= maximum(G)
-#        M = interpolationmatrix(G, Zprofile[I])
-#        P[I] .= M*auxstate.data[(1:(N+1)^2:(N+1)^3),2,elem]
-#    end
-#    return P
-#end
-
-#t_plot = 24*4 # How many time steps to plot?
-#Zprofile = -0.995:0.01:0 # needs to be in sorted order for contour function
-#Tprofile = zeros(length(Zprofile),t_plot)
-#hours = 0.5:1:t_plot
-
-#for (i,h) in enumerate(hours)
-#    t = solve!(Q, lsrk; timeend=day+h*hour)
-#    Tprofile[:,i] = (interpolate(grid, dg.auxstate, Zprofile))
-#end
-
-#contour(hours, Zprofile.*100, Tprofile,
-#    levels=0:1, xticks=0:4:t_plot, xlimits=(0,t_plot),
-#    xlabel="Time of day (hours)", ylabel="Soil depth (cm)", title="Volumetric water content (m3/m3)")
-
-#savefig(joinpath(output_dir, "contour.png"))

@@ -74,10 +74,10 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_state_auxiliary(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
-vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT, θ::FT, θi::FT) # stored in Q
-vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
+vars_state_auxiliary(::SoilModel, FT) = @vars(z::FT, T::FT)
+vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT, θ::FT, θi::FT)
+vars_state_gradient(::SoilModel, FT) = @vars(T::FT)
+vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT})
 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
 

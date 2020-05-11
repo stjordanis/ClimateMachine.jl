@@ -87,10 +87,10 @@ end
 #   `D` Diffusion tensor
 vars_integrals(::SoilModel,FT) = @vars(a::FT) # location to store integrands for bottom up integrals
 vars_reverse_integrals(::SoilModel, FT) = @vars(a::FT) # location to store integrands for top down integrals
-vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, FT), a::FT, rev_a::FT) # stored dg.auxstate
-vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows 
+vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, FT), a::FT, rev_a::FT)
+vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows
 vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
+vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT})
 
 # integrate over entire temperature profile at tsoi0
 # integrate over entire temperature profile at end of run

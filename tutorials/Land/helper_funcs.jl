@@ -128,7 +128,7 @@ function get_vars_from_stack(
 end
 
 function get_data(grid::DiscontinuousSpectralElementGrid{T,dim,N},
-                  array::MPIStateArray, # dg.auxstate or state.data
+                  array::MPIStateArray,
                   ) where {T,dim,N}
     # TODO: this currently uses some internals: provide a better way to do this
     return reshape(array[(1:(N+1)^2:(N+1)^3),2,:],:)

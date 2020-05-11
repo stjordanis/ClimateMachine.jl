@@ -192,37 +192,3 @@ all_data = collect_data(output_data, step[1])
 
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
-
-
-
-# OLD ------------------------ 5) Run model for many time steps and plot ---------------------------------------
-
-# a function for performing interpolation on the DG grid
-# TODO: use CLIMA interpolation once available
-#function interpolate(grid, auxstate, Zprofile)
-#    P = zeros(size(Zprofile))
-#    nelems = size(grid.vgeo, 3)
-#    for elem in 1:nelems
-#        G = grid.vgeo[(1:(N+1)^2:(N+1)^3),ClimateMachine.Mesh.Grids.vgeoid.x3id,elem]
-#        I = minimum(G) .< Zprofile .<= maximum(G)
-#        M = interpolationmatrix(G, Zprofile[I])
-#        P[I] .= M*auxstate.data[(1:(N+1)^2:(N+1)^3),2,elem]
-#    end
-#    return P
-#end
-
-#t_plot = 24*4 # How many time steps to plot?
-#Zprofile = -0.995:0.01:0 # needs to be in sorted order for contour function
-#Tprofile = zeros(length(Zprofile),t_plot)
-#hours = 0.5:1:t_plot
-
-#for (i,h) in enumerate(hours)
-#    t = solve!(Q, lsrk; timeend=day+h*hour)
-#    Tprofile[:,i] = (interpolate(grid, dg.auxstate, Zprofile))
-#end
-
-#contour(hours, Zprofile.*100, Tprofile,
-#    levels=0:1, xticks=0:4:t_plot, xlimits=(0,t_plot),
-#    xlabel="Time of day (hours)", ylabel="Soil depth (cm)", title="Volumetric water content (m3/m3)")
-
-#savefig(joinpath(output_dir, "contour.png"))

@@ -164,7 +164,7 @@ output_data = DataFile(joinpath(output_dir, "output_data"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative) #; exclude=["θi"])
+  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative)
   aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
   integral_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_integrals)
   all_vars = OrderedDict(state_vars..., aux_vars...,integral_vars...)
@@ -218,30 +218,3 @@ all_data = collect_data(output_data, step[1])
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
 
-# OLD:
-# plots = []
-# for num in keys(all_data)
-#   Tg = all_data[num]["Tg"]
-#   p = plot(Tg, gridg, ylabel="depth (cm) at t=$(t)", xlabel="T (°K)", yticks=-100:20:0, xlimits=(263.15,303.15), legend=false)
-#   push!(plots, plot)
-
-# export_plots(plots, joinpath(output_dir, "state_over_time.png"))
-# a function for performing interpolation on the DG grid
-# TODO: use CLIMA interpolation once available
-
-# t_plot = 24*7 # How many time steps to plot?
-# t_plot = 1 # How many time steps to plot?
-# Zprofile = -0.995:0.01:0 # needs to be in sorted order for contour function
-# Tprofile = zeros(length(Zprofile),t_plot)
-# hours = 0.5:1:t_plot
-
-# solve! should occur only once, not in a loop
-# for (i,h) in enumerate(hours)
-#    t = solve!(Q, lsrk; timeend=0*day+h*hour)
-#    Tprofile[:,i] = (interpolate_grid(grid, dg.auxstate, ClimateMachine.Mesh.Grids.vgeoid.x3id, Zprofile))
-# end
-
-# plot_contour(hours, Zprofile, Tprofile, t_plot, filename) = nothing
-
-
-# plot_contour(hours, Zprofile, Tprofile, t_plot, joinpath(output_dir, "contour_T.png"))
