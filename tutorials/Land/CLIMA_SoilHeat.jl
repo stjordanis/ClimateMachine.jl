@@ -27,13 +27,24 @@ we write `Y = ρcT` and `F(Y, t) = -λ ∇T`.
 
 # Add necessary CliMA functions and sub-routines
 using StaticArrays
-using CLIMA.VariableTemplates
-import CLIMA.DGmethods: BalanceLaw,
-                        vars_aux, vars_state, vars_gradient, vars_diffusive,
-                        flux_nondiffusive!, flux_diffusive!, source!,
-                        gradvariables!, diffusive!, update_aux!, nodal_update_aux!,
-                        init_aux!, init_state!,
-                        boundary_state!, wavespeed, LocalGeometry
+using ClimateMachine.VariableTemplates
+import ClimateMachine.DGmethods: BalanceLaw,
+                        vars_state_auxiliary,
+                        vars_state_conservative,
+                        vars_state_gradient,
+                        vars_state_gradient_flux,
+                        flux_first_order!,
+                        flux_second_order!,
+                        source!,
+                        compute_gradient_argument!,
+                        compute_gradient_flux!,
+                        update_auxiliary_state!,
+                        nodal_update_auxiliary_state!,
+                        init_state_auxiliary!,
+                        init_state_conservative!,
+                        boundary_state!,
+                        wavespeed,
+                        LocalGeometry
 
 
 # --------------------------------- 2) Define Structs ---------------------------------------
@@ -63,24 +74,24 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_aux(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
-vars_state(::SoilModel, FT) = @vars(ρcT::FT, θ::FT, θi::FT) # stored in Q
-vars_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_diffusive(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
+vars_state_auxiliary(::SoilModel, FT) = @vars(z::FT, T::FT) # stored dg.auxstate
+vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT, θ::FT, θi::FT) # stored in Q
+vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
+vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
 
 # ---------------- 4a) Update states
 
 # Update all auxiliary variables
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::SoilModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
-  nodal_update_aux!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+  nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
   return true
 end
 # Update all auxiliary nodes
@@ -97,7 +108,7 @@ end
 # ---------------- 4b) Calculate state and derivative of T
 
 # Calculate T based on internal energy state variable
-function gradvariables!(
+function compute_gradient_argument!(
     m::SoilModel,
     transform::Vars,
     state::Vars,
@@ -106,10 +117,10 @@ function gradvariables!(
 )
   #transform.T = state.ρcT / m.ρc(state, aux, t)
    #  transform.T = temperature_calculator(m.ρc(state, aux, t),state.ρcT,state.θi)
-    transform.T = temperature_calculator(m.ρc(state, aux, t),state.ρcT,theta_ice_0) 
+    transform.T = temperature_calculator(m.ρc(state, aux, t),state.ρcT,theta_ice_0)
 end
 # Gradient of T calculation
-function diffusive!(
+function compute_gradient_flux!(
     m::SoilModel,
     diffusive::Vars,
     ∇transform::Grad,
@@ -120,7 +131,7 @@ function diffusive!(
   diffusive.∇T = ∇transform.T
 end
 # Calculate thermal flux (non-diffusive (?))
-function flux_nondiffusive!(
+function flux_first_order!(
     m::SoilModel,
     flux::Grad,
     state::Vars,
@@ -129,7 +140,7 @@ function flux_nondiffusive!(
   )
 end
 # Calculate thermal flux (diffusive (?))
-function flux_diffusive!(
+function flux_second_order!(
     m::SoilModel,
     flux::Grad,
     state::Vars,
@@ -153,12 +164,12 @@ end
 # ---------------- 4d) Initialization
 
 # Initialize z-Profile
-function init_aux!(m::SoilModel, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::SoilModel, aux::Vars, geom::LocalGeometry)
   aux.z = geom.coord[3]
   aux.T = m.initialT(aux, 0)
 end
 # Initialize State variables from T to internal energy
-function init_state!(m::SoilModel, state::Vars, aux::Vars, coords, t::Real)
+function init_state_conservative!(m::SoilModel, state::Vars, aux::Vars, coords, t::Real)
   state.ρcT = m.ρc(state, aux, t) * aux.T
   state.θ = theta_liquid_0
   state.θi = theta_ice_0

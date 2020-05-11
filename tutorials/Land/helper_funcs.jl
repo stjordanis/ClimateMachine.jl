@@ -2,6 +2,33 @@
 ##### Helper functions
 #####
 
+"""
+    get_z(grid, z_scale)
+Gauss-Lobatto points along the z-coordinate
+ - `grid` DG grid
+ - `z_scale` multiplies `z-coordinate`
+"""
+function get_z(grid::DiscontinuousSpectralElementGrid{T,dim,N}, z_scale) where {T,dim,N}
+    # TODO: this currently uses some internals: provide a better way to do this
+    return reshape(grid.vgeo[(1:(N+1)^2:(N+1)^3),ClimateMachine.Mesh.Grids.vgeoid.x3id,:],:)*z_scale
+end
+
+"""
+    SingleStackGrid(MPI, velems, N_poly)
+
+Returns a single-stack grid
+ - `MPI` mpi communicator
+ - `velems` range of vertical elements
+ - `N_poly` polynomial order
+"""
+function SingleStackGrid(MPI, velems, N_poly, FT, ArrayType)
+  topl = StackedBrickTopology(MPI.COMM_WORLD, (0.0:1,0.0:1,velems);
+      periodicity = (true,true,false),
+      boundary=((0,0),(0,0),(1,2)))
+  grid = DiscontinuousSpectralElementGrid(topl, FloatType = FT, DeviceArray = Array, polynomialorder = N)
+  return grid
+end
+
 struct DataFile{S<:AbstractString}
     filename::S
     prop_name::S
@@ -36,11 +63,53 @@ function collect_data(output_data::DataFile, n_steps::Int)
   return all_data
 end
 
-function get_vars_from_stack(grid::DiscontinuousSpectralElementGrid{T,dim,N},
-                             Q::MPIStateArray, # dg.auxstate or state.data
-                             bl::BalanceLaw, # SoilModelHeat
-                             vars_fun::F;
-                             exclude=[]) where {T,dim,N,F<:Function}
+"""
+    get_prop_recursive(var, v::String)
+
+Recursive `getproperty` on struct `var` based on dot chain (`a.b`).
+
+# Example:
+```
+struct A; a; end
+struct B; b; end
+struct C; c; end
+var = A(B(C(1)))
+c = get_prop_recursive(var, "a.b.c")
+```
+"""
+function get_prop_recursive(var, v::String)
+  if occursin(".", v)
+    s = split(v, ".")
+    if length(s)==1
+      return getproperty(var, Symbol(s[1]))
+    else
+      return get_prop_recursive(getproperty(var, Symbol(s[1])), join(s[2:end], "."))
+    end
+  else
+    return getproperty(var, Symbol(v))
+  end
+end
+
+"""
+    get_vars_from_stack(
+        grid::DiscontinuousSpectralElementGrid{T,dim,N},
+        Q::MPIStateArray,
+        bl::BalanceLaw,
+        vars_fun::F;
+        exclude=[]
+        ) where {T,dim,N,F<:Function}
+Returns a dictionary whose keys are computed
+from `vars_fun` (e.g., `vars_state`) and values
+are arrays of each variable along the z-coordinate.
+Skips variables whose keys are listed in `exclude`.
+"""
+function get_vars_from_stack(
+  grid::DiscontinuousSpectralElementGrid{T,dim,N},
+  Q::MPIStateArray,
+  bl::BalanceLaw,
+  vars_fun::F;
+  exclude=[]
+  ) where {T,dim,N,F<:Function}
     D = Dict()
     FT = eltype(Q)
     vf = vars_fun(bl,FT)
@@ -51,7 +120,9 @@ function get_vars_from_stack(grid::DiscontinuousSpectralElementGrid{T,dim,N},
       filter!(x->!(x == e), fn)
     end
     for v in fn
-        D[v] = reshape(FT[getproperty(Vars{vf}(Q[i, :, e]), Symbol(v)) for i in R, e in 1:nz],:)
+        vars = [Vars{vf}(Q[i, :, e]) for i in R, e in 1:nz]
+        D[v] = get_prop_recursive.(vars, Ref(v))
+        D[v] = reshape(D[v],:)
     end
     return D
 end

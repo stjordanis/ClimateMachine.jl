@@ -9,23 +9,23 @@ println("1) Import/Export Needed Functions")
 # Load necessary CliMA subroutines
 using MPI
 using Test
-using CLIMA
+using ClimateMachine
 using Logging
 using Printf
 using NCDatasets
 using LinearAlgebra
 using OrderedCollections
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Writers
-using CLIMA.VTK
-using CLIMA.Mesh.Elements: interpolationmatrix
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Writers
+using ClimateMachine.VTK
+using ClimateMachine.Mesh.Elements: interpolationmatrix
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
 
 using Interpolations
 using DelimitedFiles
@@ -35,12 +35,12 @@ using DelimitedFiles
 ENV["CLIMA_GPU"] = "false"
 
 # Initialize CliMA
-CLIMA.init()
+ClimateMachine.init()
 
 FT = Float64
 
 # Change output directory and save plots there
-output_dir = joinpath(dirname(dirname(pathof(CLIMA))), "output", "land")
+output_dir = joinpath(dirname(dirname(pathof(ClimateMachine))), "output", "land")
 mkpath(output_dir)
 
 
@@ -81,10 +81,6 @@ include("CLIMA_SoilHeat_unit_test.jl")
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
 ######
 
-function get_z(grid)
-    # TODO: this currently uses some internals: provide a better way to do this
-    return reshape(grid.vgeo[(1:(N+1)^2:(N+1)^3),CLIMA.Mesh.Grids.vgeoid.x3id,:],:)*100
-end
 include(joinpath("..","helper_funcs.jl"))
 include(joinpath("..","plotting_funcs.jl"))
 
@@ -111,13 +107,8 @@ println("4) Set up domain...")
 const velems = 0.0:-0.1:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 4 # Order of polynomial function between each element
 
-# Set domain using Stached Brick Topology
-topl = StackedBrickTopology(MPI.COMM_WORLD, (0.0:1,0.0:1,velems);
-    periodicity = (true,true,false),
-    boundary=((0,0),(0,0),(1,2)))
-
-# Set up grid
-grid = DiscontinuousSpectralElementGrid(topl, FloatType = FT, DeviceArray = Array, polynomialorder = N)
+# Set domain using Stacked Brick
+grid = SingleStackGrid(MPI, velems, N, FT, Array)
 
 # Define thermal conductivity
 #κ_sand = (thermal_properties("Sand",0.35,0.05 ))
@@ -166,7 +157,7 @@ export_plots(p, joinpath(output_dir, "initial_state.png"))
 mkpath(output_dir)
 
 plots = []
-dims = OrderedDict("z" => collect(get_z(grid)))
+dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
 output_data = DataFile(joinpath(output_dir, "output_data"))
@@ -247,7 +238,7 @@ all_data = collect_data(output_data, step[1])
 # solve! should occur only once, not in a loop
 # for (i,h) in enumerate(hours)
 #    t = solve!(Q, lsrk; timeend=0*day+h*hour)
-#    Tprofile[:,i] = (interpolate_grid(grid, dg.auxstate, CLIMA.Mesh.Grids.vgeoid.x3id, Zprofile))
+#    Tprofile[:,i] = (interpolate_grid(grid, dg.auxstate, ClimateMachine.Mesh.Grids.vgeoid.x3id, Zprofile))
 # end
 
 # plot_contour(hours, Zprofile, Tprofile, t_plot, filename) = nothing

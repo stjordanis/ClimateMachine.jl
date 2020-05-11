@@ -33,14 +33,32 @@ we write `Y = ρcT` and `F(Y, t) = -λ ∇T`.
 
 # Add necessary CliMA functions and sub-routines
 using StaticArrays
-using CLIMA.VariableTemplates
-import CLIMA.DGmethods: BalanceLaw,
-                        vars_state_auxiliary, vars_state_conservative, vars_state_gradient, vars_state_gradient_flux, vars_integrals, vars_reverse_integrals,
-                        flux_first_order!, flux_second_order!, source!,
-                        compute_gradient_argument!, compute_gradient_flux!, update_auxiliary_state!, nodal_update_auxiliary_state!, integral_load_auxiliary_state!, integral_set_auxiliary_state!, reverse_integral_load_auxiliary_state!, reverse_integral_set_auxiliary_state!,
-                        indefinite_stack_integral!, reverse_indefinite_stack_integral!,
-                        init_state_auxiliary!, init_state_conservative!,
-                        boundary_state!, wavespeed, LocalGeometry
+using ClimateMachine.VariableTemplates
+import ClimateMachine.DGmethods: BalanceLaw,
+                        vars_state_auxiliary,
+                        vars_state_conservative,
+                        vars_state_gradient,
+                        vars_state_gradient_flux,
+                        vars_integrals,
+                        vars_reverse_integrals,
+                        flux_first_order!,
+                        flux_second_order!,
+                        source!,
+                        compute_gradient_argument!,
+                        compute_gradient_flux!,
+                        update_auxiliary_state!,
+                        nodal_update_auxiliary_state!,
+                        integral_load_auxiliary_state!,
+                        integral_set_auxiliary_state!,
+                        reverse_integral_load_auxiliary_state!,
+                        reverse_integral_set_auxiliary_state!,
+                        indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,
+                        init_state_auxiliary!,
+                        init_state_conservative!,
+                        boundary_state!,
+                        wavespeed,
+                        LocalGeometry
 
 
 # --------------------------------- 2) Define Structs ---------------------------------------

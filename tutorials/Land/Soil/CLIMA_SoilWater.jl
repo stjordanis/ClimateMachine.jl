@@ -2,7 +2,7 @@
 # CLIMA_SoilWater.jl: This model simulates soil water dynamics for the CliMA model
 
 """
-Soil Water Model 
+Soil Water Model
 
 Computes diffusive flux `F` in:
 
@@ -36,13 +36,24 @@ we write `Y = θ` and `F(Y, t) =-k ∇h`.
 
 # Add necessary CliMA functions and sub-routines
 using StaticArrays
-using CLIMA.VariableTemplates
-import CLIMA.DGmethods: BalanceLaw,
-                        vars_state_auxiliary, vars_state_conservative, vars_state_gradient, vars_state_gradient_flux,
-                        flux_first_order!, flux_second_order!, source!,
-                        compute_gradient_argument!, compute_gradient_flux!, update_auxiliary_state!, nodal_update_auxiliary_state!,
-                        init_state_auxiliary!, init_state_conservative!,
-                        boundary_state!, wavespeed, LocalGeometry
+using ClimateMachine.VariableTemplates
+import ClimateMachine.DGmethods: BalanceLaw,
+                        vars_state_auxiliary,
+                        vars_state_conservative,
+                        vars_state_gradient,
+                        vars_state_gradient_flux,
+                        flux_first_order!,
+                        flux_second_order!,
+                        source!,
+                        compute_gradient_argument!,
+                        compute_gradient_flux!,
+                        update_auxiliary_state!,
+                        nodal_update_auxiliary_state!,
+                        init_state_auxiliary!,
+                        init_state_conservative!,
+                        boundary_state!,
+                        wavespeed,
+                        LocalGeometry
 
 
 # --------------------------------- 2) Define Structs ---------------------------------------
@@ -51,8 +62,8 @@ import CLIMA.DGmethods: BalanceLaw,
 # Introduce needed variables into SoilModel struct
 Base.@kwdef struct SoilModelMoisture{Fκ, Fiθ, Fsθ, Fih, Fiψ, Fiθi} <: BalanceLaw #, Fsh, Fiψ, Fsψ} <: BalanceLaw
   # Define kappa (hydraulic conductivity)
-  K_s::Fκ         = (state, aux, t) -> 1e-3#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))) #(0.001/(60*60*24)) [m/s] typical value taken from Land Surface Model CLiMA, table 2.2, =0.1cm/day (0.34*1.175e6/(1.175+abs.(aux.h)^4.74)) 
-  
+  K_s::Fκ         = (state, aux, t) -> 1e-3#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))) #(0.001/(60*60*24)) [m/s] typical value taken from Land Surface Model CLiMA, table 2.2, =0.1cm/day (0.34*1.175e6/(1.175+abs.(aux.h)^4.74))
+
   # Define initial and boundary condition parameters
   initialθ::Fiθ = (aux, t) -> 0.1 # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
   surfaceθ::Fsθ = (state, aux, t) -> 0.267 #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
@@ -113,25 +124,25 @@ function  soil_nodal_update_aux!(
   aux::Vars,
   t::Real)
     # flag = "van Genuchten" # - "Brooks and Corey"
-    
+
     # Soil Matric potential - "van Genuchten"
     if flag == "van Genuchten"
         alpha = 0.02 # m-1
         n = 5
-        m = 1 - 1/n 
+        m = 1 - 1/n
     elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
         alpha = 0.02 # m-1
         n = 5
-        m = 1 - 1/n 
+        m = 1 - 1/n
     end
-    
+
     # How much water
     theta_water = state.θ + state.θi
 # @show theta_water
 
     # Get augmented liquid
-    theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water) 
+    theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water)
 
     # Get effective saturation
     S_l = effective_saturation(porosity,theta_l)   # 0.2
@@ -140,10 +151,10 @@ function  soil_nodal_update_aux!(
     ψ_m = matric_potential(flag,alpha,S_l,n,m)
 
     # This function calculates pressure head ψ of a soil
-    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
-  
-    # Get hydraulic head    
-    aux.h = hydraulic_head(aux.z,aux.ψ)        
+    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
+
+    # Get hydraulic head
+    aux.h = hydraulic_head(aux.z,aux.ψ)
     # transform.h = aux.z+((-1/2.7)*(state.θ/1.987)^(-1/3.96))*(1-state.θ/1.987)^(1/3.96)
 
 end
@@ -158,19 +169,19 @@ function compute_gradient_argument!(
     state::Vars,
     aux::Vars,
     t::Real,
-)     
+)
     # flag = "van Genuchten" # - "Brooks and Corey"
-    
+
     # Soil Matric potential - "van Genuchten"
     if flag == "van Genuchten"
         alpha = 0.02 # m-1
         n = 5
-        m = 1 - 1/n 
+        m = 1 - 1/n
     elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
         alpha = 0.02 # m-1
         n = 5
-        m = 1 - 1/n 
+        m = 1 - 1/n
     end
 
     # How much water
@@ -178,7 +189,7 @@ function compute_gradient_argument!(
 # @show theta_water
 
     # Get augmented liquid
-    theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water) 
+    theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water)
 
     # Get effective saturation
     S_l = effective_saturation(porosity,theta_l)   # 0.2
@@ -188,10 +199,10 @@ function compute_gradient_argument!(
     ψ_m = matric_potential(flag,alpha,S_l,n,m)
 
     # This function calculates pressure head ψ of a soil
-    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)  
-  
-    # Get hydraulic head    
-    transform.h = hydraulic_head(aux.z,aux.ψ)        
+    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
+
+    # Get hydraulic head
+    transform.h = hydraulic_head(aux.z,aux.ψ)
 
 end
 
@@ -257,11 +268,11 @@ if state.θi > 0
   # Convert liquid water to ice by freezing (or vice versa)
   F_T = calculate_frozen_water(state.θ,state.θi,soil_T)
   # @show F_T
-else 
+else
   F_T = 0;
   # @show F_T
 end
-  
+
 # Source of ice
 source.θi = F_T/917 # rho_i = 0.917 # g cm-3, density of ice
 source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
@@ -272,7 +283,7 @@ source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
 end
 
 
-# ---------------- 4d) Initialization 
+# ---------------- 4d) Initialization
 
 
 # Initialize z-Profile ### what role does this play? when?
@@ -315,6 +326,6 @@ function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars
     # bottom
     nothing
     #diff⁺.∇h = -diff⁻.∇h
-    #diff⁺.∇θ = -diff⁻.∇θ        
+    #diff⁺.∇θ = -diff⁻.∇θ
   end
 end
