@@ -166,8 +166,7 @@ step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
   state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative)
   aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
-  integral_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_integrals)
-  all_vars = OrderedDict(state_vars..., aux_vars...,integral_vars...)
+  all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
   step[1]+=1
   nothing
