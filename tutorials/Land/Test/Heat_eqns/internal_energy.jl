@@ -1,5 +1,5 @@
 # internal_energy.jl: This function calculates soil internal energy
-function internal_energy(c_s,T,theta_ice) 
+function internal_energy(c_s,T,theta_ice)
 
 # ------------------------------------------------------
 # Input
@@ -9,24 +9,24 @@ function internal_energy(c_s,T,theta_ice)
 # ------------------------------------------------------
 # Output
 #   I_soil                   ! Soil internal energy
-# ------------------------------------------------------   
-    
+# ------------------------------------------------------
+
     # Formula for the  Internal Energy of soil (J m-3):
-    # I(T,theta;porosity) = c_s*(T-T0) - theta_ice*density_ice*Lf_0 
+    # I(T,theta;porosity) = c_s*(T-T0) - theta_ice*density_ice*Lf_0
 
     # Freezing point of water
     T0 = 273.16 # K
-    
+
     # Specific Latent heat of fusion
     Lf_0 = 333.6e3 # J kg-1
-    
+
     # Density of ice
-    density_ice = 917 # kg m-3    
-        
+    density_ice = 917 # kg m-3
+
     # Internal Energy of soil (J m-3):
-    I_soil = c_s*(T-T0) - theta_ice*density_ice*Lf_0 
-    
-    return I_soil   
+    I_soil = c_s*(T-T0) - theta_ice*density_ice*Lf_0
+
+    return I_soil
 end
 
 # ______________________________________________________________________________________________________________________

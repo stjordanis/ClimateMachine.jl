@@ -1,5 +1,5 @@
 # frozen_impedence_factor.jl: This function calculates frozen soil Impedence factor
-function frozen_impedence_factor(theta_ice, porosity) 
+function frozen_impedence_factor(theta_ice, porosity)
 
 # ------------------------------------------------------
 # Input
@@ -8,15 +8,15 @@ function frozen_impedence_factor(theta_ice, porosity)
 # ------------------------------------------------------
 # Output
 #   Gamma_thetai             ! Frozen soil Impedence factor
-# ------------------------------------------------------   
-    
+# ------------------------------------------------------
+
     # Impedence parameter, from Hansson et al. (2004)
-    Omega = 7 
-    
+    Omega = 7
+
     # Impedence factor
-    S_i = theta_ice / porosity 
+    S_i = theta_ice / porosity
     Gamma_thetai = 10^(-Omega*S_i)
-    
+
     return Gamma_thetai
 end
 
