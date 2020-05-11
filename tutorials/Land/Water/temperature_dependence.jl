@@ -1,5 +1,5 @@
 # temperature_dependence.jl: This function calculates temperature dependence of hydraulic conductivity
-function temperature_dependence(soil_T, soil_Tref) 
+function temperature_dependence(soil_T, soil_Tref)
 
 # ------------------------------------------------------
 # Input
@@ -8,16 +8,16 @@ function temperature_dependence(soil_T, soil_Tref)
 # ------------------------------------------------------
 # Output
 #   Theta_T                ! Temperature dependence of hydraulic conductivity
-# ------------------------------------------------------   
-        
+# ------------------------------------------------------
+
     # Formula for Temperature dependence: Theta_T = exp [ γ( T - Tref) ]
-    
+
     # Impedence parameter, from Hansson et al. (2004)
     gamma_temp = 2.64e-2 # K-1 , for Tref = 288 K, implies 30% increase in K for a 10K temp increase
-    
-    # Temperature dependence of hydraulic conductivity 
+
+    # Temperature dependence of hydraulic conductivity
     Theta_T = exp( gamma_temp*( soil_T - soil_Tref) )
-    
+
     return Theta_T
 end
 

@@ -61,10 +61,6 @@ include("calculate_frozen_water.jl")
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
 ######
 
-function get_z(grid)
-    # TODO: this currently uses some internals: provide a better way to do this
-    return reshape(grid.vgeo[(1:(N+1)^2:(N+1)^3),CLIMA.Mesh.Grids.vgeoid.x3id,:],:)*100
-end
 include(joinpath("..","helper_funcs.jl"))
 include(joinpath("..","plotting_funcs.jl"))
 
@@ -106,28 +102,25 @@ flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 5 # Order of polynomial function between each element
 
-# Set domain using Stached Brick Topology
-topl = StackedBrickTopology(MPI.COMM_WORLD, (0.0:1,0.0:1,velems);
-    periodicity = (true,true,false),
-    boundary=((0,0),(0,0),(1,2)))
-grid = DiscontinuousSpectralElementGrid(topl, FloatType = Float64, DeviceArray = Array, polynomialorder = N)
+# Set domain using Stacked Brick
+grid = SingleStackGrid(MPI, velems, N, FT, Array)
 
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
      # Define hydraulic conductivity of soil
-     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h 
+     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
     # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
-    
+
     # Define initial soil moisture
     initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
     surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    
+
     # Define initial and boundary condition parameters
     initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    
+
     # Define initial and boundary condition parameters
     initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    
+
     # Define initial and boundary condition parameters
     initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 
@@ -183,15 +176,15 @@ export_plots(p, joinpath(output_dir, "initial_state_Water.png"))
 mkpath(output_dir)
 
 plots = []
-dims = OrderedDict("z" => collect(get_z(grid)))
+dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
 output_data = DataFile(joinpath(output_dir, "output_data_Water"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state) #; exclude=["θi"])
-  aux_vars = get_vars_from_stack(grid, dg.auxstate, m, vars_aux; exclude=["z"])
+  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative)
+  aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
   all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
   step[1]+=1
@@ -215,37 +208,3 @@ all_data = collect_data(output_data, step[1])
 
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
-
-
-
-# OLD ------------------------ 5) Run model for many time steps and plot ---------------------------------------
-
-# a function for performing interpolation on the DG grid
-# TODO: use CLIMA interpolation once available
-#function interpolate(grid, auxstate, Zprofile)
-#    P = zeros(size(Zprofile))
-#    nelems = size(grid.vgeo, 3)
-#    for elem in 1:nelems
-#        G = grid.vgeo[(1:(N+1)^2:(N+1)^3),CLIMA.Mesh.Grids.vgeoid.x3id,elem]
-#        I = minimum(G) .< Zprofile .<= maximum(G)
-#        M = interpolationmatrix(G, Zprofile[I])
-#        P[I] .= M*auxstate.data[(1:(N+1)^2:(N+1)^3),2,elem]
-#    end
-#    return P
-#end
-
-#t_plot = 24*4 # How many time steps to plot?
-#Zprofile = -0.995:0.01:0 # needs to be in sorted order for contour function
-#Tprofile = zeros(length(Zprofile),t_plot)
-#hours = 0.5:1:t_plot
-
-#for (i,h) in enumerate(hours)
-#    t = solve!(Q, lsrk; timeend=day+h*hour)
-#    Tprofile[:,i] = (interpolate(grid, dg.auxstate, Zprofile))
-#end
-
-#contour(hours, Zprofile.*100, Tprofile,
-#    levels=0:1, xticks=0:4:t_plot, xlimits=(0,t_plot),
-#    xlabel="Time of day (hours)", ylabel="Soil depth (cm)", title="Volumetric water content (m3/m3)")
-
-#savefig(joinpath(output_dir, "contour.png"))

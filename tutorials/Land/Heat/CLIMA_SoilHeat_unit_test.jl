@@ -33,14 +33,32 @@ we write `Y = ρcT` and `F(Y, t) = -λ ∇T`.
 
 # Add necessary CliMA functions and sub-routines
 using StaticArrays
-using CLIMA.VariableTemplates
-import CLIMA.DGmethods: BalanceLaw,
-                        vars_state_auxiliary, vars_state_conservative, vars_state_gradient, vars_state_gradient_flux, vars_integrals, vars_reverse_integrals,
-                        flux_first_order!, flux_second_order!, source!,
-                        compute_gradient_argument!, compute_gradient_flux!, update_auxiliary_state!, nodal_update_auxiliary_state!, integral_load_auxiliary_state!, integral_set_auxiliary_state!, reverse_integral_load_auxiliary_state!, reverse_integral_set_auxiliary_state!,
-                        indefinite_stack_integral!, reverse_indefinite_stack_integral!,
-                        init_state_auxiliary!, init_state_conservative!,
-                        boundary_state!, wavespeed, LocalGeometry
+using ClimateMachine.VariableTemplates
+import ClimateMachine.DGmethods: BalanceLaw,
+                        vars_state_auxiliary,
+                        vars_state_conservative,
+                        vars_state_gradient,
+                        vars_state_gradient_flux,
+                        vars_integrals,
+                        vars_reverse_integrals,
+                        flux_first_order!,
+                        flux_second_order!,
+                        source!,
+                        compute_gradient_argument!,
+                        compute_gradient_flux!,
+                        update_auxiliary_state!,
+                        nodal_update_auxiliary_state!,
+                        integral_load_auxiliary_state!,
+                        integral_set_auxiliary_state!,
+                        reverse_integral_load_auxiliary_state!,
+                        reverse_integral_set_auxiliary_state!,
+                        indefinite_stack_integral!,
+                        reverse_indefinite_stack_integral!,
+                        init_state_auxiliary!,
+                        init_state_conservative!,
+                        boundary_state!,
+                        wavespeed,
+                        LocalGeometry
 
 
 # --------------------------------- 2) Define Structs ---------------------------------------
@@ -69,10 +87,10 @@ end
 #   `D` Diffusion tensor
 vars_integrals(::SoilModel,FT) = @vars(a::FT) # location to store integrands for bottom up integrals
 vars_reverse_integrals(::SoilModel, FT) = @vars(a::FT) # location to store integrands for top down integrals
-vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, FT), a::FT, rev_a::FT) # stored dg.auxstate
-vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows 
+vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, FT), a::FT, rev_a::FT)
+vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows
 vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT}) # stored in dg.diffstate
+vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT})
 
 # integrate over entire temperature profile at tsoi0
 # integrate over entire temperature profile at end of run

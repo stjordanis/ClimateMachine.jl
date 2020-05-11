@@ -45,7 +45,7 @@ function indefinite_stack_integral!(
 
  err = edif - soilvar.gsoi
  if (abs(err) > 1e-03)
-  error ('Soil temperature energy conservation error')
+  error ("Soil temperature energy conservation error")
  end
  return err
 end

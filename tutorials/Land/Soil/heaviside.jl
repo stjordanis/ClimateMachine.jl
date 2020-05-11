@@ -1,18 +1,18 @@
 # heaviside.jl: This function calculates heaviside function
-function heaviside(t) 
+function heaviside(t)
 
 # ------------------------------------------------------
 # Input
-#   t               ! is this value positive or negative?  
+#   t               ! is this value positive or negative?
 # ------------------------------------------------------
 # Output
-#   Hside           ! if 'yes = 1, if 'no' = 0 
-# ------------------------------------------------------   
-    
+#   Hside           ! if 'yes = 1, if 'no' = 0
+# ------------------------------------------------------
+
     # Heaviside function
      Hside = 0.5 * (sign(t) + 1)
- 
-    return Hside     
+
+    return Hside
 end
 
 # ______________________________________________________________________________________________________________________

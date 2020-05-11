@@ -18,7 +18,7 @@ using Requires
   function get_plot(grid, Q, aux, t)
       # TODO:
       # this currently uses some internals: provide a better way to do this
-      gridg = get_z(grid)
+      gridg = get_z(grid, 100)
       Tg = get_data(grid, aux.data)
       return plot(Tg, gridg, ylabel="depth (cm) at t=$(t)", xlabel="T (°K)", yticks=-100:20:0, xlimits=(263.15,303.15), legend=false)
   end

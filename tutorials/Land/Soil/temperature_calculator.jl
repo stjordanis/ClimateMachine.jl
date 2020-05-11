@@ -1,5 +1,5 @@
 # temperature_calculator.jl: This function calculates soil temperature
-function temperature_calculator(c_s,I,theta_ice) 
+function temperature_calculator(c_s,I,theta_ice)
 
 # ------------------------------------------------------
 # Input
@@ -9,23 +9,23 @@ function temperature_calculator(c_s,I,theta_ice)
 # ------------------------------------------------------
 # Output
 #   T_soil             ! Change in Soil temperature
-# ------------------------------------------------------   
-    
+# ------------------------------------------------------
+
     # Formula for the temperature soil (K):
     # T = T0 + [ ( I + theta_ice*density_ice*Lf_0 ) / c_s ]
 
     # Freezing point of water
-    T0 = 0 # 273.15 # K
-    
+    T0 = 273.15 # K
+
     # Specific Latent heat of fusion
     Lf_0 = 333.6e3 # J kg-1
-    
+
     # Density of ice
-    density_ice = 917 # kg m-3    
-        
+    density_ice = 917 # kg m-3
+
     # Temperature of soil (K):
     T_soil = T0 + ( ( I + theta_ice*density_ice*Lf_0 ) / c_s )
-    
+
     return T_soil
 end
 

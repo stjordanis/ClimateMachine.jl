@@ -1,5 +1,5 @@
 # hydraulic_head.jl: This function calculates hydraulic head  h of a soil
-function hydraulic_head(z,ψ) 
+function hydraulic_head(z,ψ)
 
 # ------------------------------------------------------
 # Input
@@ -8,12 +8,12 @@ function hydraulic_head(z,ψ)
 # ------------------------------------------------------
 # Output
 #   h                      ! Soil hydraulic head
-# ------------------------------------------------------   
-        
+# ------------------------------------------------------
+
     # Soil hydraulic head as function of depth and pressure head
     h = z + ψ
-    
-    return h 
+
+    return h
 end
 
 # ______________________________________________________________________________________________________________________
