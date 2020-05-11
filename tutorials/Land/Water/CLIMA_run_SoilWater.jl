@@ -61,10 +61,6 @@ include("calculate_frozen_water.jl")
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
 ######
 
-function get_z(grid)
-    # TODO: this currently uses some internals: provide a better way to do this
-    return reshape(grid.vgeo[(1:(N+1)^2:(N+1)^3),CLIMA.Mesh.Grids.vgeoid.x3id,:],:)*100
-end
 include(joinpath("..","helper_funcs.jl"))
 include(joinpath("..","plotting_funcs.jl"))
 
@@ -183,7 +179,7 @@ export_plots(p, joinpath(output_dir, "initial_state_Water.png"))
 mkpath(output_dir)
 
 plots = []
-dims = OrderedDict("z" => collect(get_z(grid)))
+dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
 output_data = DataFile(joinpath(output_dir, "output_data_Water"))
