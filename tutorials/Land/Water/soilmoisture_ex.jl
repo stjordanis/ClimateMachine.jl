@@ -69,7 +69,6 @@ Q = init_ode_state(dg, FT(0))
 lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 savefig(joinpath(output_dir,"initial_state_W.png"))
 
-plots = []
 dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 

@@ -169,13 +169,8 @@ Q = init_ode_state(dg, Float64(0))
 # initialize ODE solver
 lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
-# Plot initial state
-p = get_plot(grid, Q, dg.auxstate, 0)
-export_plots(p, joinpath(output_dir, "initial_state_Water.png"))
-
 mkpath(output_dir)
 
-plots = []
 dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
