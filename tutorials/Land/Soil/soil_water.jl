@@ -44,7 +44,7 @@ output_dir = joinpath(dirname(dirname(pathof(ClimateMachine))), "output", "land"
 mkpath(output_dir)
 
 # Add soil moisture model
-include("CLIMA_SoilWater.jl")
+include("soil_water_model.jl")
 # Add other functions
 include("soil_water_properties.jl")
 include("frozen_impedence_factor.jl")
