@@ -70,10 +70,6 @@ end
 
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
 
-# Stored in the aux state are:
-#   `coord` coordinate points (needed for BCs)
-#   `u` advection velocity
-#   `D` Diffusion tensor
 vars_state_auxiliary(::SoilModel, FT) = @vars(z::FT, T::FT)
 vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT, θ::FT, θi::FT)
 vars_state_gradient(::SoilModel, FT) = @vars(T::FT)
