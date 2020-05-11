@@ -9,23 +9,23 @@ println("1) Import/Export Needed Functions")
 # Load necessary CliMA subroutines
 using MPI
 using Test
-using CLIMA
+using ClimateMachine
 using Logging
 using Printf
 using NCDatasets
 using LinearAlgebra
 using OrderedCollections
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Writers
-using CLIMA.VTK
-using CLIMA.Mesh.Elements: interpolationmatrix
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Writers
+using ClimateMachine.VTK
+using ClimateMachine.Mesh.Elements: interpolationmatrix
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
 
 using Interpolations
 using DelimitedFiles
@@ -35,16 +35,16 @@ using DelimitedFiles
 ENV["CLIMA_GPU"] = "false"
 
 # Initialize CliMA
-CLIMA.init()
+ClimateMachine.init()
 
 FT = Float64
 
 # Change output directory and save plots there
-output_dir = joinpath(dirname(dirname(pathof(CLIMA))), "output", "land")
+output_dir = joinpath(dirname(dirname(pathof(ClimateMachine))), "output", "land")
 mkpath(output_dir)
 
 # Add soil moisture model
-include("CLIMA_SoilWater.jl")
+include("soil_water_model.jl")
 # Add other functions
 include("soil_water_properties.jl")
 include("frozen_impedence_factor.jl")
@@ -130,8 +130,8 @@ m = SoilModelMoisture(
 dg = DGModel( #
   m, # "PDE part"
   grid,
-  CentralNumericalFluxNonDiffusive(), # penalty terms for discretizations
-  CentralNumericalFluxDiffusive(),
+  CentralNumericalFluxFirstOrder(), # penalty terms for discretizations
+  CentralNumericalFluxSecondOrder(),
   CentralNumericalFluxGradient())
 
 # Minimum spatial and temporal steps
