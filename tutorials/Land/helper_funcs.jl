@@ -25,7 +25,7 @@ function SingleStackGrid(MPI, velems, N_poly, FT, ArrayType)
   topl = StackedBrickTopology(MPI.COMM_WORLD, (0.0:1,0.0:1,velems);
       periodicity = (true,true,false),
       boundary=((0,0),(0,0),(1,2)))
-  grid = DiscontinuousSpectralElementGrid(topl, FloatType = FT, DeviceArray = Array, polynomialorder = N)
+  grid = DiscontinuousSpectralElementGrid(topl, FloatType = FT, DeviceArray = Array, polynomialorder = N_poly)
   return grid
 end
 
