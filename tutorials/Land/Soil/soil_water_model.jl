@@ -120,17 +120,17 @@ function  soil_nodal_update_aux!(
   t::Real)
     # flag = "van Genuchten" # - "Brooks and Corey"
 
-    # Soil Matric potential - "van Genuchten"
-    if flag == "van Genuchten"
-        alpha = 0.02 # m-1
-        n = 5
-        m = 1 - 1/n
-    elseif flag == "Brooks and Corey"
-    # Soil Matric potential - "Brooks and Corey"
-        alpha = 0.02 # m-1
-        n = 5
-        m = 1 - 1/n
-    end
+    # # Soil Matric potential - "van Genuchten"
+    # if flag == "van Genuchten"
+    #     alpha = 0.02 # m-1
+    #     n = 5
+    #     m = 1 - 1/n
+    # elseif flag == "Brooks and Corey"
+    # # Soil Matric potential - "Brooks and Corey"
+    #     alpha = 0.02 # m-1
+    #     n = 5
+    #     m = 1 - 1/n
+    # end
 
     # How much water
     theta_water = state.θ + state.θi
@@ -142,7 +142,7 @@ function  soil_nodal_update_aux!(
     S_l = effective_saturation(porosity,theta_l)   # 0.2
 
     # Get matric potential
-    ψ_m = matric_potential(flag,alpha,S_l,n,m)
+    ψ_m = matric_potential(flag,S_l)
 
     # This function calculates pressure head ψ of a soil
     aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
@@ -166,17 +166,17 @@ function compute_gradient_argument!(
 )
     # flag = "van Genuchten" # - "Brooks and Corey"
 
-    # Soil Matric potential - "van Genuchten"
-    if flag == "van Genuchten"
-        alpha = 0.02 # m-1
-        n = 5
-        m = 1 - 1/n
-    elseif flag == "Brooks and Corey"
-    # Soil Matric potential - "Brooks and Corey"
-        alpha = 0.02 # m-1
-        n = 5
-        m = 1 - 1/n
-    end
+    # # Soil Matric potential - "van Genuchten"
+    # if flag == "van Genuchten"
+    #     alpha = 0.02 # m-1
+    #     n = 5
+    #     m = 1 - 1/n
+    # elseif flag == "Brooks and Corey"
+    # # Soil Matric potential - "Brooks and Corey"
+    #     alpha = 0.02 # m-1
+    #     n = 5
+    #     m = 1 - 1/n
+    # end
 
     # How much water
     theta_water = state.θ + state.θi
@@ -188,7 +188,7 @@ function compute_gradient_argument!(
     S_l = effective_saturation(porosity,theta_l)   # 0.2
 
     # Get matric potential
-    ψ_m = matric_potential(flag,alpha,S_l,n,m)
+    ψ_m = matric_potential(flag,S_l)
 
     # This function calculates pressure head ψ of a soil
     aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)

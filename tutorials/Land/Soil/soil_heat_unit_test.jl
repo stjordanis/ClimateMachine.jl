@@ -73,7 +73,7 @@ end
 t1=1*hour
 t2=t1+10*day
 
-include("CLIMA_SoilHeat_unit_test.jl")
+include("soil_heat_model_unit_test.jl")
 #include("thermal_properties.jl")
 #include("kersten.jl")
 
@@ -181,31 +181,45 @@ println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
 
-#####
-##### 7) Check if analytical solution matches numerical solution
-#####
-#alpha=2.42/2.49e6; %Change
-#L=-1;
-#lambda=(2*k-1)*pi/(2*L);
-#t0=3600;
-#u0=275+10*heaviside(t-t0);
-#g=275;
-#bk1=2/L*int((g-275)*sin(lambda*x),x,0,L);
-#bk2=-10*heaviside(t-t0)*2/L*int(sin(lambda*x),x,0,L);
-#bk=bk1+bk2;
-#f=bk.*exp(-(alpha)*(lambda^2)*t)*sin(lambda*x);
-#figure (1)
-#for t=1:3600*24:3600*24*18
+##### 7) Check if energy fluxes match total energy in column at time t+1
+
+δE=rand(Float64, length(all_data)-1)
+δE_analytical=rand(Float64, length(all_data)-1)
+for i=0:1:length(all_data)-2
+    δE[i+1]=all_data[i+1]["int.a"][19]-all_data[i]["int.a"][19]
+    δE_analytical[i+1]=10*dt*every_x_simulation_time*Δ^2
+end
+
+##### 8) Check if analytical solution matches numerical solution
+
+#syms x
+#syms k
+#syms t
+#syms tau
+#
+#alpha=2.42/2.49e6;
+#L=1;
+#A=-10;
+#B=0;
+#lambda=k*pi/L;
+#g=273.15;
+#a0=(2/L)*int((g-((B-A)/(2*L)*x^2+A*x)),x,0,L);
+#an=(2/L)*int((g-((B-A)/(2*L)*x^2+A*x))*cos(lambda*x),x,0,L);
+#s=an.*exp(-alpha*t*lambda^2)*cos(lambda*x);
+#s1=(B-A)/(2*L)*x^2+A*x+2*(B-A)/(2*L)*alpha*t+a0/2;
+#
+#figure(5)
+#for t=0:day:3*day
 #    x=linspace(0,L,1000);
-#    u=u0+eval(symsum(f,k,1,1000));
-#    u=eval(u);
-#    plot(u,x)
+#    u1=eval(s1);
+#    u=eval(symsum(s,k,1,1000));
+#    plot(u1+u,-x)
 #    hold on
 #end
-#axis([270 290 -1 0])
-#ylabel('Depth [m]')
-#xlabel('Temperature [K]'
-
+#title('Analytical solution, no water, k=2.42 [W/m/k], cv=2.49e6 [J/m3/K]')
+#ylabel('Depth [cm]')
+#xlabel('Temperature [K]')
+#legend('Temperature profile every 1 day, for 10 days, no flux top and bottom BCs','location','NE')
 
 ## Check if Gaussian bump is diffusing at right speed
 

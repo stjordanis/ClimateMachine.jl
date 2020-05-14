@@ -46,22 +46,22 @@ mkpath(output_dir)
 # Add soil moisture model
 include("soil_model.jl")
 # Add heat functions
-include("thermal_properties.jl")
-include("kersten.jl")
-include("heat_capacity.jl")
-include("internal_energy.jl")
-include("temperature_calculator.jl")
+include("Heat/thermal_properties.jl")
+include("Heat/kersten.jl")
+include("Heat/heat_capacity.jl")
+include("Heat/internal_energy.jl")
+include("Heat/temperature_calculator.jl")
 # Add water functions
-include("soil_water_properties.jl")
-include("frozen_impedence_factor.jl")
-include("temperature_dependence.jl")
-include("matric_potential.jl")
-include("pressure_head.jl")
-include("hydraulic_head.jl")
-include("effective_saturation.jl")
-include("augmented_liquid.jl")
-include("calculate_frozen_water.jl")
-include("heaviside.jl")
+include("Water/soil_water_properties.jl")
+include("Water/frozen_impedence_factor.jl")
+include("Water/temperature_dependence.jl")
+include("Water/matric_potential.jl")
+include("Water/pressure_head.jl")
+include("Water/hydraulic_head.jl")
+include("Water/effective_saturation.jl")
+include("Water/augmented_liquid.jl")
+include("Water/calculate_frozen_water.jl")
+include("Water/heaviside.jl")
 
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
@@ -71,7 +71,7 @@ include(joinpath("..","helper_funcs.jl"))
 include(joinpath("..","plotting_funcs.jl"))
 
 # Read in real temperature data
-Real_Data_vector =  readdlm("tutorials/Land/Soil/T_desert_25N_25E.txt", '\t', FT, '\n')
+Real_Data_vector =  readdlm("tutorials/Land/Soil/Heat/T_desert_25N_25E.txt", '\t', FT, '\n')
 Real_Data_vector = [Real_Data_vector...]
 Real_Data_vector = collect(Real_Data_vector)
 
@@ -95,7 +95,7 @@ soil_T_0 = 275 # Read in from heat model {aux.T}
 soil_T_surface = 275 # Read in from heat model {aux.T}
 theta_liq_0 = 0.2 # Read in from water model {state.θ}
 theta_liq_surface = 0.2 # Read in from water model {state.θ}
-theta_ice_0 = 0.02 # Read in from water model {state.θi}
+theta_ice_0 = 0 # Read in from water model {state.θi}
 porosity = 0.8 # Read in from data base
 
 soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site

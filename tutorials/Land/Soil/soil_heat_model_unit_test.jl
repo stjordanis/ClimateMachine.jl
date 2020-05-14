@@ -90,7 +90,7 @@ vars_reverse_integrals(::SoilModel, FT) = @vars(a::FT) # location to store integ
 vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, FT), a::FT, rev_a::FT)
 vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows
 vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT})
+vars_state_gradient_flux(::SoilModel, FT) = @vars(k∇T::SVector{3,FT})
 
 # integrate over entire temperature profile at tsoi0
 # integrate over entire temperature profile at end of run
@@ -182,7 +182,8 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
   )
-  diffusive.∇T = ∇transform.T
+  #diffusive.∇T = ∇transform.T
+  diffusive.k∇T = m.κ(state, aux, t) * ∇transform.T
 end
 # Calculate thermal flux (non-diffusive (?))
 function flux_first_order!(
@@ -203,7 +204,8 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
   )
-   flux.ρcT -= m.κ(state, aux, t) * diffusive.∇T
+   #flux.ρcT -= m.κ(state, aux, t) * diffusive.∇T
+   flux.ρcT -= diffusive.k∇T
    if aux.z == 0
     #@show   aux.T flux.ρcT
     end
@@ -222,9 +224,9 @@ function source!(
     t::Real,
     direction,
 )
-dirac_space=1000000*exp(-(aux.z-(-0.5))^2/(2*(0.1)^2)) #*m.ρc(state, aux, t)/timeend,
-dirac_time=1*exp(-(t-(dt))^2/(2*(dt)^2))
-source.ρcT=dirac_space*dirac_time
+#dirac_space=1000000*exp(-(aux.z-(-0.5))^2/(2*(0.1)^2)) #*m.ρc(state, aux, t)/timeend,
+#dirac_time=1*exp(-(t-(dt))^2/(2*(dt)^2))
+#source.ρcT=dirac_space*dirac_time
   # @show(source.ρcT)
 end
 
@@ -241,30 +243,27 @@ function init_state_conservative!(m::SoilModel, state::Vars, aux::Vars, coords, 
 end
 
 # ---------------- 4e) Boundary Conditions
-
 # Boundary condition function
 function boundary_state!(nf, m::SoilModel, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
   if bctype == 1
-    # surface
-    state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
-    #nothing
+    #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
+    nothing # Newmann 
   elseif bctype == 2
     # bottom
-    nothing
+    nothing # keep like this for Newmann and Dirichlet
   end
 end
 # Boundary condition function - repeated?
  function boundary_state!(nf, m::SoilModel, state⁺::Vars, diff⁺::Vars,
-                          aux⁺::Vars, nM, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
+                          aux⁺::Vars, n̂, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
                           bctype, t, _...)
    if bctype == 1
      # surface
-     #diff⁺.∇T = -10*diff⁻.∇T
-     state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t)
+     diff⁺.k∇T = -n̂*10  # Newmann 
+     #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
    elseif bctype == 2
      # bottom
-     diff⁺.∇T = -diff⁻.∇T
+     diff⁺.k∇T = -diff⁻.k∇T # Newmann 
    end
  end
-

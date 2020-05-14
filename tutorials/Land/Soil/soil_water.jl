@@ -45,19 +45,18 @@ mkpath(output_dir)
 
 # Add soil moisture model
 include("soil_water_model.jl")
-# Add other functions
-include("soil_water_properties.jl")
-include("frozen_impedence_factor.jl")
-include("temperature_dependence.jl")
-include("matric_potential.jl")
-include(joinpath("..", "Water","matric_potential.jl"))
-include("pressure_head.jl")
-include("hydraulic_head.jl")
-include("effective_saturation.jl")
-include("augmented_liquid.jl")
-include("calculate_frozen_water.jl")
-include("heaviside.jl")
 
+# Add water functions
+include("Water/soil_water_properties.jl")
+include("Water/frozen_impedence_factor.jl")
+include("Water/temperature_dependence.jl")
+include("Water/matric_potential.jl")
+include("Water/pressure_head.jl")
+include("Water/hydraulic_head.jl")
+include("Water/effective_saturation.jl")
+include("Water/augmented_liquid.jl")
+include("Water/calculate_frozen_water.jl")
+include("Water/heaviside.jl")
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
 ######
@@ -86,11 +85,11 @@ println("2) Set up domain...")
 
 # Read in state variables and data
 mineral_properties = "Clay"
-soil_T = 260 # Read in from heat model {aux.T}
+soil_T = 280 # Read in from heat model {aux.T}
 soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
 theta_liq_0 = 0.2 # Read in from water model {state.θ}
-theta_liq_surface = 0.3 # Read in from water model {state.θ}
-theta_ice_0 = 0.1 # Read in from water model {state.θi}
+theta_liq_surface = 0.2 # Read in from water model {state.θ}
+theta_ice_0 = 0 # Read in from water model {state.θi}
 h_0 = -30 # Read in from water model {state.θ}
 ψ_0 = -20 # Soil pressure head {aux.h}
 porosity = 0.7 # Read in from data base
@@ -100,7 +99,7 @@ flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
-const velems = 0.0:-2:-10 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
+const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
 const N = 5 # Order of polynomial function between each element
 
 # Set domain using Stacked Brick
@@ -151,7 +150,7 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*day
+const timeend = 3*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
