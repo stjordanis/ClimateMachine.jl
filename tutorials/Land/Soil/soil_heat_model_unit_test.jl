@@ -90,7 +90,8 @@ vars_reverse_integrals(::SoilModel, FT) = @vars(a::FT) # location to store integ
 vars_state_auxiliary(m::SoilModel, FT) = @vars(z::FT, T::FT, int::vars_integrals(m, FT), rev_int::vars_reverse_integrals(m, FT), a::FT, rev_a::FT)
 vars_state_conservative(::SoilModel, FT) = @vars(ρcT::FT) #analytical_flux::FT stored in Q , (\rho  c T) is number rows
 vars_state_gradient(::SoilModel, FT) = @vars(T::FT) # not stored
-vars_state_gradient_flux(::SoilModel, FT) = @vars(k∇T::SVector{3,FT})
+#vars_state_gradient_flux(::SoilModel, FT) = @vars(k∇T::SVector{3,FT})
+vars_state_gradient_flux(::SoilModel, FT) = @vars(∇T::SVector{3,FT})
 
 # integrate over entire temperature profile at tsoi0
 # integrate over entire temperature profile at end of run
@@ -182,8 +183,8 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
   )
-  #diffusive.∇T = ∇transform.T
-  diffusive.k∇T = m.κ(state, aux, t) * ∇transform.T
+  diffusive.∇T = ∇transform.T
+  #diffusive.k∇T = m.κ(state, aux, t) * ∇transform.T
 end
 # Calculate thermal flux (non-diffusive (?))
 function flux_first_order!(
@@ -204,8 +205,8 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
   )
-   #flux.ρcT -= m.κ(state, aux, t) * diffusive.∇T
-   flux.ρcT -= diffusive.k∇T
+   flux.ρcT -= m.κ(state, aux, t) * diffusive.∇T
+   #flux.ρcT -= diffusive.k∇T
    if aux.z == 0
     #@show   aux.T flux.ρcT
     end
@@ -260,10 +261,12 @@ end
                           bctype, t, _...)
    if bctype == 1
      # surface
-     diff⁺.k∇T = -n̂*10  # Newmann 
+     #diff⁺.k∇T = -n̂*10  # Newmann 
+     diff⁺.∇T = -n̂*10  # Newmann 
      #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
    elseif bctype == 2
      # bottom
-     diff⁺.k∇T = -diff⁻.k∇T # Newmann 
+     #diff⁺.k∇T = -diff⁻.k∇T # Newmann 
+     diff⁺.∇T = -diff⁻.∇T # Newmann 
    end
  end

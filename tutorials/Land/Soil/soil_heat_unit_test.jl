@@ -55,11 +55,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 5*day
+const timeend = 1*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 6*hour
+const every_x_simulation_time = 10*minute
 
 ######
 ###### 3) # Add soil model and other functions
@@ -181,16 +181,46 @@ println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
 
-##### 7) Check if energy fluxes match total energy in column at time t+1
+##### 7) Check if energy fluxes match total energy in column 
 
-δE=rand(Float64, length(all_data)-1)
-δE_analytical=rand(Float64, length(all_data)-1)
-for i=0:1:length(all_data)-2
-    δE[i+1]=all_data[i+1]["int.a"][19]-all_data[i]["int.a"][19]
-    δE_analytical[i+1]=10*dt*every_x_simulation_time*Δ^2
+E=rand(Float64, length(all_data)-2)
+for i=2:length(all_data)-1
+    E[i-1]=all_data[i]["int.a"][19]-all_data[1]["int.a"][19]
 end
 
+δE_analytical=rand(Float64, length(all_data)-2)
+#δE_analytical_remain=rand(Float64, length(all_data)-2)
+for i=1:length(all_data)-2
+    δE_analytical[i]=10*2.42*every_x_simulation_time*i
+    #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
+end
+
+# error over time
+error=E-δE_analytical
+rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
+rel_error2=error[end]/(δE_analytical[end])
+#using Plots
+
+# display(plot(x,[E δE_analytical],
+# xlabel = "Time [s]",
+# ylabel = "Energy [J]",
+# label = ["E" "δE_analytical"]))
+
+# L2 Norm, report
+# run with smaller time steps, make plot of error as function of dt
+#||v||2 = sqrt(a1^2 + a2^2 + a3^2)
+
+#p1 = plot(x, y) # Make a line plot
+#p2 = scatter(x, y) # Make a scatter plot
+#p3 = plot(x, y, xlabel = "This one is labelled", lw = 3, title = "Subtitle")
+#p4 = histogram(x, y) # Four histograms each with 10 points? Why not!
+#plot(p1, p2, p3, p4, layout = (2, 2), legend = false)
+
+
 ##### 8) Check if analytical solution matches numerical solution
+
+# plot error at time t, L2 Norm  at that time
+
 
 #syms x
 #syms k
