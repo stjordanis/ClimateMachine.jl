@@ -78,7 +78,7 @@ function config_heldsuarez(FT, poly_order, resolution)
     
     ode_solver = ClimateMachine.IMEXSolverType(
         split_explicit_implicit = true,
-        discrete_splitting = false,
+        discrete_splitting = true,
     )
 
     model = AtmosModel{FT}(

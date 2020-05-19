@@ -490,7 +490,10 @@ end
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
-    return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
+    #return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
+    uN = abs(dot(nM, u)) 
+    ws = uN + soundspeed(m, m.moisture, state, aux) 
+    return MVector(ws, ws, ws, ws, ws, uN)
 end
 
 

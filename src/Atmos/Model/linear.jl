@@ -145,7 +145,8 @@ flux_second_order!(
 ) = nothing
 function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
     ref = aux.ref_state
-    return soundspeed_air(lm.atmos.param_set, ref.T)
+    c = soundspeed_air(lm.atmos.param_set, ref.T) 
+    return MVector(c, c, c, c, c, 0)
 end
 
 function boundary_state!(
