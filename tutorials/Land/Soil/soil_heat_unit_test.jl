@@ -55,11 +55,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*hour
+const timeend = day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 10*minute
+const every_x_simulation_time = 1*hour
 
 ######
 ###### 3) # Add soil model and other functions
@@ -181,24 +181,24 @@ println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
 
-##### 7) Check if energy fluxes match total energy in column 
+##### Energy conservation check
 
-E=rand(Float64, length(all_data)-2)
-for i=2:length(all_data)-1
-    E[i-1]=all_data[i]["int.a"][19]-all_data[1]["int.a"][19]
-end
-
-δE_analytical=rand(Float64, length(all_data)-2)
-#δE_analytical_remain=rand(Float64, length(all_data)-2)
-for i=1:length(all_data)-2
-    δE_analytical[i]=10*2.42*every_x_simulation_time*i
-    #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
-end
-
-# error over time
-error=E-δE_analytical
-rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
-rel_error2=error[end]/(δE_analytical[end])
+#E=rand(Float64, length(all_data)-2)
+#for i=2:length(all_data)-1
+#    E[i-1]=all_data[i]["int.a"][19]-all_data[1]["int.a"][19]
+#end
+#
+#δE_analytical=rand(Float64, length(all_data)-2)
+##δE_analytical_remain=rand(Float64, length(all_data)-2)
+#for i=1:length(all_data)-2
+#    δE_analytical[i]=10*2.42*every_x_simulation_time*i
+#    #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
+#end
+#
+## error over time
+#error=E-δE_analytical
+#rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
+#rel_error2=error[end]/(δE_analytical[end])
 #using Plots
 
 # display(plot(x,[E δE_analytical],
@@ -210,49 +210,54 @@ rel_error2=error[end]/(δE_analytical[end])
 # run with smaller time steps, make plot of error as function of dt
 #||v||2 = sqrt(a1^2 + a2^2 + a3^2)
 
-#p1 = plot(x, y) # Make a line plot
-#p2 = scatter(x, y) # Make a scatter plot
-#p3 = plot(x, y, xlabel = "This one is labelled", lw = 3, title = "Subtitle")
-#p4 = histogram(x, y) # Four histograms each with 10 points? Why not!
-#plot(p1, p2, p3, p4, layout = (2, 2), legend = false)
-
-
-##### 8) Check if analytical solution matches numerical solution
-
-# plot error at time t, L2 Norm  at that time
-
-
-#syms x
-#syms k
-#syms t
-#syms tau
+##### Analytical vs numerical solution
+#using Pkg
+#Pkg.add("SymPy")
+#using SymPy
+#x = Sym("x")
+#k = Sym("k")
+#t = Sym("t")
 #
-#alpha=2.42/2.49e6;
-#L=1;
-#A=-10;
-#B=0;
-#lambda=k*pi/L;
-#g=273.15;
-#a0=(2/L)*int((g-((B-A)/(2*L)*x^2+A*x)),x,0,L);
-#an=(2/L)*int((g-((B-A)/(2*L)*x^2+A*x))*cos(lambda*x),x,0,L);
-#s=an.*exp(-alpha*t*lambda^2)*cos(lambda*x);
-#s1=(B-A)/(2*L)*x^2+A*x+2*(B-A)/(2*L)*alpha*t+a0/2;
+#minute=60
+#hour=60*minute
+#day=24*hour
+#t1=1*hour
+#t2=t1+10*day
 #
-#figure(5)
-#for t=0:day:3*day
-#    x=linspace(0,L,1000);
-#    u1=eval(s1);
-#    u=eval(symsum(s,k,1,1000));
-#    plot(u1+u,-x)
-#    hold on
-#end
-#title('Analytical solution, no water, k=2.42 [W/m/k], cv=2.49e6 [J/m3/K]')
-#ylabel('Depth [cm]')
-#xlabel('Temperature [K]')
-#legend('Temperature profile every 1 day, for 10 days, no flux top and bottom BCs','location','NE')
-
-## Check if Gaussian bump is diffusing at right speed
-
-# To get "T" at timestep 0:
-# all_data[0]["T"][:]
-
+#alpha=2.42/2.49e6
+#L=-1
+#A=10
+#Ap=0
+#B=0
+#Bp=0
+#p=0
+#lambda=k*pi/L
+#f=273.15
+#
+#g=f-A*x-(B-A)*x^2/(2*L)
+#q=p-Ap*x-(Bp-Ap)*x^2/(2*L)+alpha/L*(B-A)
+#a0=(1/L)*-16589/60 #int(g,x,0,L)
+#an=(2/L)*-(10*sinpi(k) - 10*pi*k + (5563*k^2*pi^2*sinpi(k))/20)/(k^3*pi^3) #int(g*cos(lambda*x),x,0,L)
+#A0=(1/L)*-1434252872558301/147573952589676412928 #int(q,x,0,L)
+#An=(2/L)*-(1434252872558301*sinpi(k))/(147573952589676412928*k*pi)#int(q*cos(lambda*x),x,0,L)
+#u1p=A.*x+(B-A).*x^2/(2*L)
+#s1=an.*exp(-alpha*t*lambda^2)*cos(lambda*x)
+#u3p=-(1434252872558301*t)/147573952589676412928 #int(A0,s,0,t)
+#s2=cos(lambda*x)*-(91792183843731264*sinpi(k)*(exp(-(4589609192186563*k^2*t*pi^2)/4722366482869645213696) - 1))/(4589609192186563*k^3*pi^3) #int(An*exp(-alpha*lambda^2*(t-s)),s,0,t)
+#
+#using Plots
+#
+##for t=hour #0:10*minute:hour
+#t=hour
+#x=0:L:1000
+#u1=eval(u1p,x)
+#u2=sum(k-> s1, 1:1000)  #u2=eval(symsum(s1,k,1,1000))
+#u3=eval(u3p)
+#u4=sum(k-> s2, 1:1000)  #u4=eval(symsum(s2,k,1,1000))
+#u=u1+a0+u2+u3+u4 #,'Color',c(i,:),'LineWidth',3)
+##end
+#
+#display(plot(x,u,
+#  xlabel = "Time [s]",
+#ylabel = "Energy [J]",
+#label = ["E" "δE_analytical"]))

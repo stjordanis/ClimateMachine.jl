@@ -18,9 +18,6 @@ where
  - `k` is the hydraulic conductivity (m/s)
  - `h` is the hydraulic head or water potential (m), it is a function of θ
  - `z` is the depth (m)
- - `p` is matric potential (m), p=-(θ/v)^(-M) with Brooks and Corey Formulation
- - `v` is porosity, typical value :
- - `M` is paramter, typical value for sand: 1/0.378, from  BRAUN 2004, p. 1118
 
 To write this in the form
 ```
@@ -58,7 +55,6 @@ import ClimateMachine.DGmethods: BalanceLaw,
 
 # --------------------------------- 2) Define Structs ---------------------------------------
 
-
 """
 Introduce needed variables into SoilModel struct
 
@@ -87,7 +83,6 @@ Base.@kwdef struct SoilModelMoisture{Fκ, Fiθ, Fsθ, Fih, Fiψ, Fiθi} <: Balan
 
 end
 
-
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
 
 vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, h::FT , ψ::FT)
@@ -95,9 +90,7 @@ vars_state_conservative(::SoilModelMoisture, FT) = @vars(θ::FT, θi::FT)
 vars_state_gradient(::SoilModelMoisture, FT) = @vars(h::FT)
 vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT})
 
-
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
-
 # ---------------- 4a) Update states
 
 # Update all auxiliary variables
@@ -111,6 +104,7 @@ function update_auxiliary_state!(
   nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
   return true
 end
+
 # Update all auxiliary nodes
 function  soil_nodal_update_aux!(
   #nodal_update_auxiliary_state
@@ -118,22 +112,9 @@ function  soil_nodal_update_aux!(
   state::Vars,
   aux::Vars,
   t::Real)
-    # flag = "van Genuchten" # - "Brooks and Corey"
-
-    # # Soil Matric potential - "van Genuchten"
-    # if flag == "van Genuchten"
-    #     alpha = 0.02 # m-1
-    #     n = 5
-    #     m = 1 - 1/n
-    # elseif flag == "Brooks and Corey"
-    # # Soil Matric potential - "Brooks and Corey"
-    #     alpha = 0.02 # m-1
-    #     n = 5
-    #     m = 1 - 1/n
-    # end
 
     # How much water
-    theta_water = state.θ + state.θi
+    #theta_water = state.θ + state.θi
 
     # Get augmented liquid
     theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water)
@@ -153,7 +134,6 @@ function  soil_nodal_update_aux!(
 
 end
 
-
 # ---------------- 4b) Calculate state and derivative of theta
 
 # Calculate h based on state variable
@@ -164,19 +144,6 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    # flag = "van Genuchten" # - "Brooks and Corey"
-
-    # # Soil Matric potential - "van Genuchten"
-    # if flag == "van Genuchten"
-    #     alpha = 0.02 # m-1
-    #     n = 5
-    #     m = 1 - 1/n
-    # elseif flag == "Brooks and Corey"
-    # # Soil Matric potential - "Brooks and Corey"
-    #     alpha = 0.02 # m-1
-    #     n = 5
-    #     m = 1 - 1/n
-    # end
 
     # How much water
     theta_water = state.θ + state.θi
@@ -218,7 +185,6 @@ function  flux_first_order!(
     aux::Vars,
     t::Real,
   )
-
 end
 
 # Calculate water flux (diffusive)
@@ -238,7 +204,6 @@ function flux_second_order!(
 end
 
 # ---------------- 4c) Extra Sources
-
 # Introduce sources of energy (e.g. Metabolic heat from microbes)
 function source!(
     m::SoilModelMoisture,
@@ -250,23 +215,21 @@ function source!(
     direction,
 )
 
-# Update sources for ice and liquid
-if state.θi > 0
-  # Convert liquid water to ice by freezing (or vice versa)
-  F_T = calculate_frozen_water(state.θ,state.θi,soil_T)
-else
-  F_T = 0;
+## Update sources for ice and liquid
+#if state.θi > 0
+#  # Convert liquid water to ice by freezing (or vice versa)
+#  F_T = calculate_frozen_water(state.θ,state.θi,soil_T)
+#else
+#  F_T = 0;
+#end
+#
+## Source of ice
+#source.θi = F_T/917 # rho_i = 0.917 # g cm-3, density of ice
+#source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
+
 end
-
-# Source of ice
-source.θi = F_T/917 # rho_i = 0.917 # g cm-3, density of ice
-source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
-
-end
-
 
 # ---------------- 4d) Initialization
-
 
 # Initialize z-Profile ### what role does this play? when?
 function init_state_auxiliary!(m::SoilModelMoisture, aux::Vars, geom::LocalGeometry)
@@ -278,12 +241,10 @@ end
 # Initialize State variables from T to internal energy
 function init_state_conservative!(m::SoilModelMoisture, state::Vars, aux::Vars, coords, t::Real)
   state.θ = m.initialθ(aux, 0)
-  state.θi = m.initialθi(aux, 0)
+#  state.θi = m.initialθi(aux, 0)
 end
 
-
 # ---------------- 4e) Boundary Conditions
-
 
 # Boundary condition function
 function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, aux⁺::Vars,
@@ -306,8 +267,8 @@ function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars
     state⁺.θ = m.surfaceθ(state⁻, aux⁻, t)
   elseif bctype == 2
     # bottom
-    nothing
-    #diff⁺.∇h = -diff⁻.∇h
+    #nothing
+    diff⁺.∇h = -diff⁻.∇h
     #diff⁺.∇θ = -diff⁻.∇θ
   end
 end

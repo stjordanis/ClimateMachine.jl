@@ -262,11 +262,13 @@ end
    if bctype == 1
      # surface
      #diff⁺.k∇T = -n̂*10  # Newmann 
-     diff⁺.∇T = -n̂*10  # Newmann 
+     #diff⁺.∇T = -n̂*10  # Newmann 
      #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
+     nothing
    elseif bctype == 2
      # bottom
      #diff⁺.k∇T = -diff⁻.k∇T # Newmann 
-     diff⁺.∇T = -diff⁻.∇T # Newmann 
+     #diff⁺.∇T = -diff⁻.∇T # Newmann 
+     nothing
    end
  end

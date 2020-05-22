@@ -329,10 +329,10 @@ function boundary_state!(nf, m::SoilModels, state⁺::Vars, diff⁺::Vars,
     nothing
   elseif bctype == 2
     # bottom
-     nothing
+    # nothing
     # diff⁺.∇h = -diff⁻.∇h
     # diff⁺.∇θ = -diff⁻.∇θ
-    # diff⁺.∇T = -diff⁻.∇T
+    diff⁺.∇T = -diff⁻.∇T
   end
 end
 
