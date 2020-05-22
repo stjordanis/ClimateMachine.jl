@@ -57,6 +57,7 @@ include("Water/effective_saturation.jl")
 include("Water/augmented_liquid.jl")
 include("Water/calculate_frozen_water.jl")
 include("Water/heaviside.jl")
+
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
 ######
@@ -77,7 +78,6 @@ include(joinpath("..","plotting_funcs.jl"))
 # # return a data structure that is a callable function
 # Real_continuous_data = TimeContinuousData(Real_time_data, Real_Data_vector)
 
-
 ######
 ###### 2) Set up domain
 ######
@@ -85,13 +85,13 @@ println("2) Set up domain...")
 
 # Read in state variables and data
 mineral_properties = "Clay"
-soil_T = 280 # Read in from heat model {aux.T}
-soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
-theta_liq_0 = 0.2 # Read in from water model {state.θ}
-theta_liq_surface = 0.2 # Read in from water model {state.θ}
-theta_ice_0 = 0 # Read in from water model {state.θi}
-h_0 = -30 # Read in from water model {state.θ}
-ψ_0 = -20 # Soil pressure head {aux.h}
+#soil_T = 280 # Read in from heat model {aux.T}
+#soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
+#theta_liq_0 = 0.2 # Read in from water model {state.θ}
+#theta_liq_surface = 0.2 # Read in from water model {state.θ}
+#theta_ice_0 = 0 # Read in from water model {state.θi}
+#h_0 = -30 # Read in from water model {state.θ}
+#ψ_0 = -20 # Soil pressure head {aux.h}
 porosity = 0.7 # Read in from data base
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
@@ -108,22 +108,21 @@ grid = SingleStackGrid(MPI, velems, N, FT, Array)
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
      # Define hydraulic conductivity of soil
-     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
+     K_s   = (state, aux, t) ->  1e-3, #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
     # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
 
     # Define initial soil moisture
-    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialν = (aux) -> 0.1, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
+    surfaceν = (state, aux, t) -> 0.1, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 
     # Define initial and boundary condition parameters
-    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialh = (aux) -> aux.z #h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 
     # Define initial and boundary condition parameters
-    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    #initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 
     # Define initial and boundary condition parameters
-    initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-
+    #initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 )
 
 # Set up DG scheme
@@ -162,7 +161,6 @@ const every_x_simulation_time = 1*hour
 ######
 println("4) Prep ICs, and time-stepper and output configurations...")
 
-
 # state variable
 Q = init_ode_state(dg, Float64(0))
 
@@ -174,8 +172,7 @@ mkpath(output_dir)
 dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
-output_data = DataFile(joinpath(output_dir, "output_data_Water"))
-
+output_data = DataFile(joinpath(output_dir, "output_data"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
@@ -186,7 +183,6 @@ stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (
   step[1]+=1
   nothing
 end
-
 
 ######
 ###### 5) Solve the equations

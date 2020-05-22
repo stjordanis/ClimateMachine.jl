@@ -60,33 +60,33 @@ Introduce needed variables into SoilModel struct
 
 From Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 """
-Base.@kwdef struct SoilModelMoisture{Fκ, Fiθ, Fsθ, Fih, Fiψ, Fiθi} <: BalanceLaw #, Fsh, Fiψ, Fsψ} <: BalanceLaw
+Base.@kwdef struct SoilModelMoisture{FK_s, Fiν, Fsν, Fih} <: BalanceLaw #, Fsh, Fiψ, Fsψ} <: BalanceLaw
   # Define kappa (hydraulic conductivity)
   #(0.001/(60*60*24)) [m/s] typical value taken from Land Surface Model CLiMA, table 2.2, =0.1cm/day (0.34*1.175e6/(1.175+abs.(aux.h)^4.74))
-  K_s::Fκ         = (state, aux, t) -> 1e-3#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74)))
+  K_s::FK_s        = (state, aux, t) -> 1e-3#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74)))
 
   # Define initial and boundary condition parameters
-  initialθ::Fiθ = (aux, t) -> 0.1 # [m3/m3] constant water content in soil
-  surfaceθ::Fsθ = (state, aux, t) -> 0.267 #267 # [m3/m3] constant flux at surface
+  initialν::Fiν = (aux) -> 0.1 # [m3/m3] constant water content in soil
+  surfaceν::Fsν = (state, aux, t) -> 0.267 #267 # [m3/m3] constant flux at surface
 
   # Define initial and boundary condition parameters
-  initialh::Fih = (aux, t) -> -1 #- aux.z # [m3/m3] constant water content in soil
+  initialh::Fih = (aux) -> aux.z # [m3/m3] constant water content in soil
   #surfaceh::Fsh = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
 
   # Define initial and boundary condition parameters
-  initialψ::Fiψ = (aux, t) -> -1 - aux.z # [m3/m3] constant water content in soil
+  #initialψ::Fiψ = (aux, t) -> -1 - aux.z # [m3/m3] constant water content in soil
   #surfaceψ::Fsψ = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
 
   # Define initial and boundary condition parameters
-  initialθi::Fiθi = (aux, t) -> 0.0 # [m3/m3] constant water content in soil
+  #initialθi::Fiθi = (aux, t) -> 0.0 # [m3/m3] constant water content in soil
   #surfaceψ::Fsψ = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
 
 end
 
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
 
-vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, h::FT , ψ::FT)
-vars_state_conservative(::SoilModelMoisture, FT) = @vars(θ::FT, θi::FT)
+vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, h::FT) #θl::FT
+vars_state_conservative(::SoilModelMoisture, FT) = @vars(ν::FT) #, θi::FT)
 vars_state_gradient(::SoilModelMoisture, FT) = @vars(h::FT)
 vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT})
 
@@ -107,7 +107,6 @@ end
 
 # Update all auxiliary nodes
 function  soil_nodal_update_aux!(
-  #nodal_update_auxiliary_state
   m::SoilModelMoisture,
   state::Vars,
   aux::Vars,
@@ -117,21 +116,21 @@ function  soil_nodal_update_aux!(
     #theta_water = state.θ + state.θi
 
     # Get augmented liquid
-    theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water)
+    #theta_l = augmented_liquid(porosity,S_s,aux.ψ,state.θ)
 
     # Get effective saturation
-    S_l = effective_saturation(porosity,theta_l)   # 0.2
+    S_l = effective_saturation(porosity,state.ν)
 
     # Get matric potential
     ψ_m = matric_potential(flag,S_l)
 
     # This function calculates pressure head ψ of a soil
-    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
+    ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
 
     # Get hydraulic head
-    aux.h = hydraulic_head(aux.z,aux.ψ)
-    # transform.h = aux.z+((-1/2.7)*(state.θ/1.987)^(-1/3.96))*(1-state.θ/1.987)^(1/3.96)
+    aux.h = hydraulic_head(aux.z,ψ)
 
+    #aux.θl = hydraulic_head(aux.z,aux.ψ)
 end
 
 # ---------------- 4b) Calculate state and derivative of theta
@@ -146,22 +145,22 @@ function compute_gradient_argument!(
 )
 
     # How much water
-    theta_water = state.θ + state.θi
+    #theta_water = state.θ + state.θi
 
     # Get augmented liquid
-    theta_l = augmented_liquid(porosity,S_s,aux.ψ,theta_water)
+    #theta_l = augmented_liquid(porosity,S_s,aux.ψ,state.θ)
 
     # Get effective saturation
-    S_l = effective_saturation(porosity,theta_l)   # 0.2
+    S_l = effective_saturation(porosity,state.ν)
 
     # Get matric potential
     ψ_m = matric_potential(flag,S_l)
 
     # This function calculates pressure head ψ of a soil
-    aux.ψ = pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
+    ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
 
     # Get hydraulic head
-    transform.h = hydraulic_head(aux.z,aux.ψ)
+    transform.h = hydraulic_head(aux.z,ψ)
 
 end
 
@@ -198,7 +197,7 @@ function flux_second_order!(
     t::Real,
   )
   # Flux of water
-   flux.θ -= m.K_s(state, aux, t) * diffusive.∇h
+   flux.ν -= m.K_s(state, aux, t) * diffusive.∇h
    if aux.z == 0
    end
 end
@@ -234,13 +233,14 @@ end
 # Initialize z-Profile ### what role does this play? when?
 function init_state_auxiliary!(m::SoilModelMoisture, aux::Vars, geom::LocalGeometry)
   aux.z = geom.coord[3]
-  aux.h = m.initialh(aux, 0) #aux.z+m.initialθ(state, aux, t) #^(-1/0.378))*(-0.3020)
-  aux.ψ = m.initialψ(aux, 0)
+  aux.h = m.initialh(aux) #(aux, 0) #aux.z+m.initialθ(state, aux, t) #^(-1/0.378))*(-0.3020)
+  # aux.θl = 
+  # aux.ψ = m.initialψ(aux, 0)
 end
 
 # Initialize State variables from T to internal energy
 function init_state_conservative!(m::SoilModelMoisture, state::Vars, aux::Vars, coords, t::Real)
-  state.θ = m.initialθ(aux, 0)
+  state.ν = m.initialν(aux) #
 #  state.θi = m.initialθi(aux, 0)
 end
 
@@ -251,7 +251,7 @@ function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
   if bctype == 1
     # surface
-    state⁺.θ= m.surfaceθ(state⁻, aux⁻, t)
+    state⁺.ν= m.surfaceν(state⁻, aux⁻, t)
   elseif bctype == 2
     # bottom
     nothing
@@ -260,15 +260,15 @@ end
 
 # Boundary condition function
 function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars,
-                         aux⁺::Vars, nM, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
+                         aux⁺::Vars, n̂, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
                          bctype, t, _...)
   if bctype == 1
     # surface
-    state⁺.θ = m.surfaceθ(state⁻, aux⁻, t)
+    state⁺.ν = m.surfaceν(state⁻, aux⁻, t)
   elseif bctype == 2
     # bottom
     #nothing
-    diff⁺.∇h = -diff⁻.∇h
-    #diff⁺.∇θ = -diff⁻.∇θ
+    #diff⁺.∇h = -diff⁻.∇h
+    diff⁺.∇h = n̂*1
   end
 end
