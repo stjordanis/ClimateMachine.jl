@@ -180,18 +180,45 @@ solve!(Q, lsrk; timeend=timeend, callbacks=(stcb,))
 println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
+sort!(all_data)
 
 #### Energy conservation check
 
 #using Pkg
 #Pkg.add("SymPy")
-using SymPy
+# using SymPy
 t=0.0:-0.1:-1
 
-E=rand(Float64, length(all_data)-1)
-for i=1:length(all_data)
-   E[i]=all_data[1]["int.a"][end]
-end
+e_total = [x["int.a"][end] for (i,x) in all_data]
+popfirst!(e_total);
+net_flux = [m.bc_flux(1,1,1)*m.κ(1,1,1)*
+    every_x_simulation_time*i +
+    m.ρc(1,1,1)*m.initialT(1)
+    for i in keys(all_data)]
+popfirst!(net_flux);
+
+@show e_total .- net_flux
+err = (e_total .- net_flux) ./ e_total * 100
+@show err
+
+# error over time
+# error=E-δE_analytical
+# rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
+# rel_error2=error[end]/(δE_analytical[end])
+using Plots
+
+x = range(0, stop=timeend, length=length(e_total))
+
+display(plot(x,[e_total net_flux],
+xlabel = "Time [s]",
+ylabel = "Energy [J]",
+label = ["E" "δE_analytical"]))
+
+
+# E=rand(Float64, length(all_data)-1)
+# for i=1:length(all_data)
+#    E[i]=all_data[1]["int.a"][end]
+# end
 
 #E=rand(Float64, length(all_data)-1)
 #for i=2:length(all_data)-1
@@ -205,12 +232,12 @@ end
 #  #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
 #end
 
-δE_analytical=rand(Float64, length(all_data))
-#δE_analytical_remain=rand(Float64, length(all_data)-2)
-for i=1:length(all_data)
-   δE_analytical[i]=10*2.42*every_x_simulation_time*(i)+2.49e6*273.15
-   #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
-end
+# δE_analytical=rand(Float64, length(all_data))
+# #δE_analytical_remain=rand(Float64, length(all_data)-2)
+# for i=1:length(all_data)
+#    δE_analytical[i]=10*2.42*every_x_simulation_time*(i)+2.49e6*273.15
+#    #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
+# end
 
 ## error over time
 #error=E-δE_analytical
@@ -218,11 +245,11 @@ end
 #rel_error2=error[end]/(δE_analytical[end])
 #using Plots
 #
-x = range(0, stop=timeend, length=length(E))
-display(plot(x,[E δE_analytical],
-xlabel = "Time [s]",
-ylabel = "Energy [J]",
-label = ["E" "δE_analytical"]))
+# x = range(0, stop=timeend, length=length(E))
+# display(plot(x,[E δE_analytical],
+# xlabel = "Time [s]",
+# ylabel = "Energy [J]",
+# label = ["E" "δE_analytical"]))
 
 # L2 Norm, report
 # run with smaller time steps, make plot of error as function of dt

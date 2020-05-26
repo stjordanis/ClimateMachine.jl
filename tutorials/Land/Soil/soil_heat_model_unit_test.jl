@@ -9,9 +9,9 @@ Computes diffusive flux `F` in:
 ∂y / ∂t = ∇ ⋅ Flux + Source
 
 ```
-∂(ρcT)   ∂      ∂T
------- = --(λ * --)
-  ∂t     ∂z     ∂z
+∂(ρcT)     ∂       ∂T
+------ = - --(-λ * --)
+  ∂t       ∂z      ∂z
 ```
 where
 
@@ -64,7 +64,7 @@ import ClimateMachine.DGmethods: BalanceLaw,
 # --------------------------------- 2) Define Structs ---------------------------------------
 
 # Introduce needed variables into SoilModel struct
-Base.@kwdef struct SoilModel{Fρc, Fκ, FiT, Fst} <: BalanceLaw
+Base.@kwdef struct SoilModel{Fρc, Fκ, FiT, BCF, Fst} <: BalanceLaw
 
   # Define heat capacity. This is an input to the model now.
   ρc::Fρc       = (state, aux, t) -> 2.49e6   # [ Sand: ρc = 2.49e6 J m-3 K-1 ; Clay: ρc = 2.61e6 J m-3 K-1 ]
@@ -73,6 +73,9 @@ Base.@kwdef struct SoilModel{Fρc, Fκ, FiT, Fst} <: BalanceLaw
 
   # Define kappa (thermal conductivity). This is an input to the model now.
   κ::Fκ         = (state, aux, t) -> 2.42     # [ Sand: λ = 2.42 W m-1 K-1 ; Clay: λ = 1.17 W m-1 K-1 ]
+
+  # Boundary flux
+  bc_flux::BCF  = (state, aux, t) -> 10
 
   # Define initial and boundary condition parameters
   initialT::FiT = (aux) -> 273.15 #aux.z - (aux.z)^2  #  # (5*exp(-(aux.z-0.5)^2/(2*(0.2)^2))) # Initial Temperature. This is an input to the model now.
@@ -185,6 +188,7 @@ function compute_gradient_flux!(
   )
   diffusive.∇T = ∇transform.T
   #diffusive.k∇T = m.κ(state, aux, t) * ∇transform.T
+  #diffusive.neg_κ∇T = -m.κ(state, aux, t) * ∇transform.T
 end
 # Calculate thermal flux (non-diffusive (?))
 function flux_first_order!(
@@ -206,6 +210,7 @@ function flux_second_order!(
     t::Real,
   )
    flux.ρcT -= m.κ(state, aux, t) * diffusive.∇T
+   # flux.ρcT += diffusive.neg_κ∇T
    #flux.ρcT -= diffusive.k∇T
    if aux.z == 0
     #@show   aux.T flux.ρcT
@@ -249,7 +254,7 @@ function boundary_state!(nf, m::SoilModel, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
   if bctype == 1
     #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
-    nothing # Newmann 
+    nothing # Newmann
   elseif bctype == 2
     # bottom
     nothing # keep like this for Newmann and Dirichlet
@@ -261,13 +266,13 @@ end
                           bctype, t, _...)
    if bctype == 1
      # surface
-     #diff⁺.k∇T = -n̂*10  # Newmann 
-     diff⁺.∇T = -n̂*10  # Newmann 
+     #diff⁺.k∇T = -n̂*10  # Newmann
+     diff⁺.∇T = -n̂*m.bc_flux(state⁻, aux⁻, t)  # Newmann
      #state⁺.ρcT = m.ρc(state⁻, aux⁻, t) * m.surfaceT(state⁻, aux⁻, t) # Dirichlet
      elseif bctype == 2
      # bottom
-     #diff⁺.k∇T = -diff⁻.k∇T # Newmann 
-     diff⁺.∇T = -diff⁻.∇T # Newmann 
+     #diff⁺.k∇T = -diff⁻.k∇T # Newmann
+     diff⁺.∇T = -diff⁻.∇T # Newmann
      #nothing
    end
  end
