@@ -55,11 +55,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = day
+const timeend = hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*hour
+const every_x_simulation_time = 10*minute
 
 ######
 ###### 3) # Add soil model and other functions
@@ -181,30 +181,36 @@ println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
 
-##### Energy conservation check
+#### Energy conservation check
 
-#E=rand(Float64, length(all_data)-2)
-#for i=2:length(all_data)-1
-#    E[i-1]=all_data[i]["int.a"][19]-all_data[1]["int.a"][19]
-#end
-#
-#δE_analytical=rand(Float64, length(all_data)-2)
-##δE_analytical_remain=rand(Float64, length(all_data)-2)
-#for i=1:length(all_data)-2
-#    δE_analytical[i]=10*2.42*every_x_simulation_time*i
-#    #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
-#end
-#
-## error over time
-#error=E-δE_analytical
-#rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
-#rel_error2=error[end]/(δE_analytical[end])
-#using Plots
+#using Pkg
+#Pkg.add("SymPy")
+using SymPy
+t=0.0:-0.1:-1
 
-# display(plot(x,[E δE_analytical],
-# xlabel = "Time [s]",
-# ylabel = "Energy [J]",
-# label = ["E" "δE_analytical"]))
+E=rand(Float64, length(all_data)-2)
+for i=2:length(all_data)-1
+   E[i-1]=all_data[i]["int.a"][19]-all_data[1]["int.a"][19]
+end
+
+δE_analytical=rand(Float64, length(all_data)-2)
+#δE_analytical_remain=rand(Float64, length(all_data)-2)
+for i=1:length(all_data)-2
+   δE_analytical[i]=10*2.42*every_x_simulation_time*i
+   #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
+end
+
+# error over time
+error=E-δE_analytical
+rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
+rel_error2=error[end]/(δE_analytical[end])
+using Plots
+
+x = range(0, stop=timeend, length=length(E))
+display(plot(x,[E δE_analytical],
+xlabel = "Time [s]",
+ylabel = "Energy [J]",
+label = ["E" "δE_analytical"]))
 
 # L2 Norm, report
 # run with smaller time steps, make plot of error as function of dt

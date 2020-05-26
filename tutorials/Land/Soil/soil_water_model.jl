@@ -9,12 +9,12 @@ Computes diffusive flux `F` in:
 ∂y / ∂t = ∇ ⋅ Flux + Source
 
 ```
- ∂(θ)    ∂      ∂h
+ ∂(ν)    ∂      ∂h
 ------ = --(k * --)
   ∂t     ∂z     ∂z
 ```
 where
- - `θ` is the volumetric water content of soil (m³/m³), this is state var.
+ - `ν` is the volumetric water content of soil (m³/m³), this is state var.
  - `k` is the hydraulic conductivity (m/s)
  - `h` is the hydraulic head or water potential (m), it is a function of θ
  - `z` is the depth (m)
@@ -25,7 +25,7 @@ To write this in the form
 -- + ∇⋅F(Y,t) = 0
 ∂t
 ```
-we write `Y = θ` and `F(Y, t) =-k ∇h`.
+we write `Y = ν` and `F(Y, t) =-k ∇h`.
 
 """
 
@@ -59,22 +59,27 @@ import ClimateMachine.DGmethods: BalanceLaw,
 Introduce needed variables into SoilModel struct
 
 From Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+
 """
-Base.@kwdef struct SoilModelMoisture{FK_s, Fiν, Fsν, Fih} <: BalanceLaw #, Fsh, Fiψ, Fsψ} <: BalanceLaw
+Base.@kwdef struct SoilModelMoisture{FK_s, Fiν, Fsν, FiS_l, Fiψ_m, Fiψ ,Fih} <: BalanceLaw #, Fsh, Fiψ, Fsψ} <: BalanceLaw
   # Define kappa (hydraulic conductivity)
   #(0.001/(60*60*24)) [m/s] typical value taken from Land Surface Model CLiMA, table 2.2, =0.1cm/day (0.34*1.175e6/(1.175+abs.(aux.h)^4.74))
-  K_s::FK_s        = (state, aux, t) -> 1e-3#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74)))
+  K_s::FK_s        = (state, aux, t) -> 1e-5#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74)))
 
   # Define initial and boundary condition parameters
-  initialν::Fiν = (aux) -> 0.1 # [m3/m3] constant water content in soil
-  surfaceν::Fsν = (state, aux, t) -> 0.267 #267 # [m3/m3] constant flux at surface
+  initialν::Fiν = (state, aux) -> 0.1 # [m3/m3] constant water content in soil
+  surfaceν::Fsν = (state, aux, t) -> 0.1 #267 # [m3/m3] constant flux at surface
 
   # Define initial and boundary condition parameters
-  initialh::Fih = (aux) -> aux.z # [m3/m3] constant water content in soil
+  initialS_l::FiS_l = (aux) -> 0.1
+  initialψ_m::Fiψ_m = (aux) -> -1
+  initialψ::Fiψ = (aux) ->  -1
+ # [m3/m3] constant water content in soil
+  initialh::Fih = (aux) -> -1# [m3/m3] constant water content in soil
+  
   #surfaceh::Fsh = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
 
   # Define initial and boundary condition parameters
-  #initialψ::Fiψ = (aux, t) -> -1 - aux.z # [m3/m3] constant water content in soil
   #surfaceψ::Fsψ = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
 
   # Define initial and boundary condition parameters
@@ -85,7 +90,7 @@ end
 
 # --------------------------------- 3) Define CliMA vars ---------------------------------------
 
-vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, h::FT) #θl::FT
+vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, S_l::FT, ψ_m::FT, ψ::FT, h::FT) #θl::FT
 vars_state_conservative(::SoilModelMoisture, FT) = @vars(ν::FT) #, θi::FT)
 vars_state_gradient(::SoilModelMoisture, FT) = @vars(h::FT)
 vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT})
@@ -119,16 +124,16 @@ function  soil_nodal_update_aux!(
     #theta_l = augmented_liquid(porosity,S_s,aux.ψ,state.θ)
 
     # Get effective saturation
-    S_l = effective_saturation(porosity,state.ν)
+    aux.S_l = effective_saturation(porosity,state.ν)
 
     # Get matric potential
-    ψ_m = matric_potential(flag,S_l)
+    aux.ψ_m = matric_potential(flag,aux.S_l)
 
     # This function calculates pressure head ψ of a soil
-    ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
+    aux.ψ = pressure_head(aux.ψ_m,aux.S_l,porosity,S_s,state.ν)
 
     # Get hydraulic head
-    aux.h = hydraulic_head(aux.z,ψ)
+    aux.h = hydraulic_head(aux.z,aux.ψ)
 
     #aux.θl = hydraulic_head(aux.z,aux.ψ)
 end
@@ -150,17 +155,17 @@ function compute_gradient_argument!(
     # Get augmented liquid
     #theta_l = augmented_liquid(porosity,S_s,aux.ψ,state.θ)
 
-    # Get effective saturation
-    S_l = effective_saturation(porosity,state.ν)
-
-    # Get matric potential
-    ψ_m = matric_potential(flag,S_l)
-
-    # This function calculates pressure head ψ of a soil
-    ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
+    ## Get effective saturation
+#    #S_l = effective_saturation(porosity,state.ν)
+#
+#    ## Get matric potential
+#    #ψ_m = matric_potential(flag,S_l)
+#
+    ## This function calculates pressure head ψ of a soil
+    #ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
 
     # Get hydraulic head
-    transform.h = hydraulic_head(aux.z,ψ)
+    transform.h = hydraulic_head(aux.z,aux.ψ)
 
 end
 
@@ -233,14 +238,16 @@ end
 # Initialize z-Profile ### what role does this play? when?
 function init_state_auxiliary!(m::SoilModelMoisture, aux::Vars, geom::LocalGeometry)
   aux.z = geom.coord[3]
+  aux.S_l = m.initialS_l(aux) 
+  aux.ψ_m = m.initialψ_m(aux)
+  aux.ψ = m.initialψ(aux)
   aux.h = m.initialh(aux) #(aux, 0) #aux.z+m.initialθ(state, aux, t) #^(-1/0.378))*(-0.3020)
   # aux.θl = 
-  # aux.ψ = m.initialψ(aux, 0)
 end
 
 # Initialize State variables from T to internal energy
 function init_state_conservative!(m::SoilModelMoisture, state::Vars, aux::Vars, coords, t::Real)
-  state.ν = m.initialν(aux) #
+  state.ν = m.initialν(state, aux) #
 #  state.θi = m.initialθi(aux, 0)
 end
 

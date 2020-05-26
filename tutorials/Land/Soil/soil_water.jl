@@ -47,16 +47,16 @@ mkpath(output_dir)
 include("soil_water_model.jl")
 
 # Add water functions
-include("Water/soil_water_properties.jl")
-include("Water/frozen_impedence_factor.jl")
-include("Water/temperature_dependence.jl")
+#include("Water/soil_water_properties.jl")
+#include("Water/frozen_impedence_factor.jl")
+#include("Water/temperature_dependence.jl")
 include("Water/matric_potential.jl")
 include("Water/pressure_head.jl")
 include("Water/hydraulic_head.jl")
 include("Water/effective_saturation.jl")
-include("Water/augmented_liquid.jl")
-include("Water/calculate_frozen_water.jl")
-include("Water/heaviside.jl")
+#include("Water/augmented_liquid.jl")
+#include("Water/calculate_frozen_water.jl")
+#include("Water/heaviside.jl")
 
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
@@ -92,10 +92,14 @@ mineral_properties = "Clay"
 #theta_ice_0 = 0 # Read in from water model {state.θi}
 #h_0 = -30 # Read in from water model {state.θ}
 #ψ_0 = -20 # Soil pressure head {aux.h}
-porosity = 0.7 # Read in from data base
+porosity = 0.4 # Read in from data base
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
-
+ν_0 = 0.1
+ν_surface = 0.1
+S_l_0 = effective_saturation(porosity, ν_0)
+ψ_m_0 = matric_potential(flag,S_l_0)
+ψ_0 = pressure_head(ψ_m_0,S_l_0,porosity,S_s,ν_0)
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
@@ -108,22 +112,17 @@ grid = SingleStackGrid(MPI, velems, N, FT, Array)
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
      # Define hydraulic conductivity of soil
-     K_s   = (state, aux, t) ->  1e-3, #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
-    # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
-
+    K_s   = (state, aux, t) ->  1e-5, #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
     # Define initial soil moisture
-    initialν = (aux) -> 0.1, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    surfaceν = (state, aux, t) -> 0.1, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-
+    initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
+    surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
     # Define initial and boundary condition parameters
-    initialh = (aux) -> aux.z #h_0, #100- aux.z  # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-
-    # Define initial and boundary condition parameters
-    #initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-
-    # Define initial and boundary condition parameters
-    #initialθi = (aux, t) -> theta_ice_0  #267 # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
+    initialS_l = (aux) -> S_l_0,
+    initialψ_m = (aux) -> ψ_m_0,
+    initialψ = (aux) -> ψ_0,
+    initialh = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
 )
+
 
 # Set up DG scheme
 dg = DGModel( #
@@ -149,11 +148,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 3*hour
+const timeend = 10*minute
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*hour
+const every_x_simulation_time = 2*minute
 
 
 ######
@@ -201,3 +200,9 @@ all_data = collect_data(output_data, step[1])
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
 
+#using Plots
+#
+#display(plot(x,u,
+# xlabel = "Time [s]",
+#ylabel = "Energy [J]",
+#label = ["E" "δE_analytical"]))
