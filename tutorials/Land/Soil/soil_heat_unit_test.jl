@@ -188,24 +188,36 @@ all_data = collect_data(output_data, step[1])
 using SymPy
 t=0.0:-0.1:-1
 
-E=rand(Float64, length(all_data)-2)
-for i=2:length(all_data)-1
-   E[i-1]=all_data[i]["int.a"][19]-all_data[1]["int.a"][19]
+E=rand(Float64, length(all_data)-1)
+for i=1:length(all_data)
+   E[i]=all_data[1]["int.a"][end]
 end
 
-δE_analytical=rand(Float64, length(all_data)-2)
+#E=rand(Float64, length(all_data)-1)
+#for i=2:length(all_data)-1
+#  E[i-1]=all_data[i]["int.a"][end]-all_data[1]["int.a"][end]
+#end
+
+#δE_analytical=rand(Float64, length(all_data)-2)
+##δE_analytical_remain=rand(Float64, length(all_data)-2)
+#for i=1:length(all_data)-2
+#  δE_analytical[i]=10*2.42*every_x_simulation_time*i
+#  #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
+#end
+
+δE_analytical=rand(Float64, length(all_data))
 #δE_analytical_remain=rand(Float64, length(all_data)-2)
-for i=1:length(all_data)-2
-   δE_analytical[i]=10*2.42*every_x_simulation_time*i
+for i=1:length(all_data)
+   δE_analytical[i]=10*2.42*every_x_simulation_time*(i)+2.49e6*273.15
    #δE_analytical_remain[i]=10*2.42*every_x_simulation_time*i/dt-round(10*2.42*every_x_simulation_time*i/dt)
 end
 
-# error over time
-error=E-δE_analytical
-rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
-rel_error2=error[end]/(δE_analytical[end])
-using Plots
-
+## error over time
+#error=E-δE_analytical
+#rel_error=error[end]/(E[end]+all_data[1]["int.a"][end])
+#rel_error2=error[end]/(δE_analytical[end])
+#using Plots
+#
 x = range(0, stop=timeend, length=length(E))
 display(plot(x,[E δE_analytical],
 xlabel = "Time [s]",
