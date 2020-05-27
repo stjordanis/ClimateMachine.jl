@@ -184,9 +184,9 @@ sort!(all_data)
 
 #### Energy conservation check
 
-#using Pkg
-#Pkg.add("SymPy")
-# using SymPy
+using Pkg
+Pkg.add("SymPy")
+using SymPy
 t=0.0:-0.1:-1
 
 e_total = [x["int.a"][end] for (i,x) in all_data]

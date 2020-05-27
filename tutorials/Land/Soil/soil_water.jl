@@ -96,11 +96,11 @@ porosity = 0.4 # Read in from data base
 S_s = 10e-4  # [ m-1]
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 ν_0 = 0.1
-ν_surface = 0.1
+ν_surface = 0.15
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_m_0 = matric_potential(flag,S_l_0)
 ψ_0 = pressure_head(ψ_m_0,S_l_0,porosity,S_s,ν_0)
-
+println(ψ_0)
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
 const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
@@ -117,9 +117,9 @@ m = SoilModelMoisture(
     initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
     surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
     # Define initial and boundary condition parameters
-    initialS_l = (aux) -> S_l_0,
-    initialψ_m = (aux) -> ψ_m_0,
-    initialψ = (aux) -> ψ_0,
+    #initialS_l = (aux) -> S_l_0,
+    #initialψ_m = (aux) -> ψ_m_0,
+    #initialψ = (aux) -> ψ_0,
     initialh = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
 )
 
@@ -135,7 +135,7 @@ dg = DGModel( #
 # Minimum spatial and temporal steps
 Δ = min_node_distance(grid)
 CFL_bound = (Δ^2 / (2 * 2.42/2.49e6))
-dt = CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
+dt = 10 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
 
 ######
 ###### 3) Define variables for simulation
@@ -148,11 +148,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 10*minute
+const timeend = 1*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 2*minute
+const every_x_simulation_time = minute
 
 
 ######

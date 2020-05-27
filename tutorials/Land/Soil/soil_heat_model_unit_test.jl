@@ -257,7 +257,7 @@ function boundary_state!(nf, m::SoilModel, state⁺::Vars, aux⁺::Vars,
     nothing # Newmann
   elseif bctype == 2
     # bottom
-    nothing # keep like this for Newmann and Dirichlet
+    nothing # Newmann and Dirichlet
   end
 end
 # Boundary condition function - repeated?
