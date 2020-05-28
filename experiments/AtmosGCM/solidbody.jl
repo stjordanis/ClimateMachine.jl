@@ -99,7 +99,7 @@ function main()
     n_horz = 3                               # horizontal element number
     n_vert = 3                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(2*3600)                       # end time (s)
+    timeend = FT(1000*24*3600)               # end time (s)
 
     # Set up driver configuration
     driver_config = config_solidbody(FT, poly_order, (n_horz, n_vert))
