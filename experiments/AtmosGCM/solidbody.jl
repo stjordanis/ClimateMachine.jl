@@ -121,12 +121,18 @@ function main()
     filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            1:size(solver_config.Q, 2),
-            solver_config.dg.grid,
-            filter,
-        )
+        @views begin
+          solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
+          Filters.apply!(
+              solver_config.Q,
+              1:size(solver_config.Q, 2),
+              solver_config.dg.grid,
+              filter,
+          )
+          solver_config.Q.data[:, 1, :] .+= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .+= solver_config.dg.state_auxiliary.data[:, 11, :]
+        end
         nothing
     end
 
