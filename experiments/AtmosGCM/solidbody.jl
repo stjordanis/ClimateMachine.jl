@@ -109,7 +109,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.002,
+        Courant_number = 0.2,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
