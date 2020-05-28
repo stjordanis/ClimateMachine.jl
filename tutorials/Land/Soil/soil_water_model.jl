@@ -125,11 +125,8 @@ function  soil_nodal_update_aux!(
     # Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
 
-    # Get matric potential
-    ψ_m = matric_potential(flag,S_l)
-
     # This function calculates pressure head ψ of a soil
-    ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
+    ψ = pressure_head(S_l,porosity,S_s,state.ν,flag)
 
     # Get hydraulic head
     aux.h = hydraulic_head(aux.z,ψ)
@@ -156,12 +153,9 @@ function compute_gradient_argument!(
 
     ## Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
-#
-#    ## Get matric potential
-    ψ_m = matric_potential(flag,S_l)
-#
+
     ## This function calculates pressure head ψ of a soil
-    ψ = pressure_head(ψ_m,S_l,porosity,S_s,state.ν)
+    ψ = pressure_head(S_l,porosity,S_s,state.ν,flag)
 
     # Get hydraulic head
     transform.h = hydraulic_head(aux.z,ψ)

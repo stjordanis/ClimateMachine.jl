@@ -93,18 +93,17 @@ mineral_properties = "Clay"
 #h_0 = -30 # Read in from water model {state.θ}
 #ψ_0 = -20 # Soil pressure head {aux.h}
 porosity = 0.4 # Read in from data base
-S_s = 10e-4  # [ m-1]
+S_s = 0.1  # [ m-1] ## Check this value !!
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 ν_0 = 0.1
-ν_surface = 0.15
+ν_surface = 0.12
 S_l_0 = effective_saturation(porosity, ν_0)
-ψ_m_0 = matric_potential(flag,S_l_0)
-ψ_0 = pressure_head(ψ_m_0,S_l_0,porosity,S_s,ν_0)
+ψ_0 = pressure_head(S_l_0,porosity,S_s,ν_0,flag)
 println(ψ_0)
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
-const velems = 0.0:-0.2:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
-const N = 5 # Order of polynomial function between each element
+const velems = 0.0:-0.1:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
+const N = 4 # Order of polynomial function between each element
 
 # Set domain using Stacked Brick
 grid = SingleStackGrid(MPI, velems, N, FT, Array)
@@ -140,7 +139,7 @@ dt = 10 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δ
 ######
 ###### 3) Define variables for simulation
 ######
-println("3) Define variables for simulation...")
+println("3) Define variables for simulation...") # move up
 
 # Define time variables
 const minute = 60
@@ -148,11 +147,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*hour
+const timeend = 1*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = minute
+const every_x_simulation_time = hour
 
 
 ######

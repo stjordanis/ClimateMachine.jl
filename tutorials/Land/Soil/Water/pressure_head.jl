@@ -1,5 +1,5 @@
 # pressure_head.jl: This function calculates pressure head ψ of a soil
-function pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
+function pressure_head(S_l,porosity,S_s,theta_l,flag)
 
 # ------------------------------------------------------
 # Input
@@ -15,9 +15,10 @@ function pressure_head(ψ_m,S_l,porosity,S_s,theta_l)
 
     # Soil pressure head as function of saturation level
     if S_l < 1
-        ψ = ψ_m
+    	#println(S_l)
+        ψ = matric_potential(flag,S_l)
     elseif S_l >= 1
-        ψ =  ( theta_l - porosity ) / S_s
+        ψ = (theta_l - porosity) / S_s
     end
 
     return ψ
