@@ -5,8 +5,7 @@ using Random
 using StaticArrays
 using KernelAbstractions: CPU, CUDA
 using ClimateMachine
-using ClimateMachine.LinearSolvers
-using ClimateMachine.ConjugateGradientSolver
+using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays
 using CUDAapi
 using Random
@@ -16,7 +15,6 @@ let
     ClimateMachine.init()
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
-    device = ArrayType == Array ? CPU() : CUDA()
     n = 100
     T = Float64
     A = rand(n, n)
