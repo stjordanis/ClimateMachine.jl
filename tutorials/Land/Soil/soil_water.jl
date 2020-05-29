@@ -92,11 +92,12 @@ mineral_properties = "Clay"
 #theta_ice_0 = 0 # Read in from water model {state.θi}
 #h_0 = -30 # Read in from water model {state.θ}
 #ψ_0 = -20 # Soil pressure head {aux.h}
-porosity = 0.4 # Read in from data base
-S_s = 0.1  # [ m-1] ## Check this value !!
+K_sat  = 0.0443 / (3600*100)
+porosity = 0.495 # Read in from data base
+S_s = 10e-4  # [ m-1] ## Check this value !!
 flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
-ν_0 = 0.1
-ν_surface = 0.12
+ν_0 = 0.24
+ν_surface = porosity-1e-3
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_0 = pressure_head(S_l_0,porosity,S_s,ν_0,flag)
 println(ψ_0)
@@ -111,7 +112,7 @@ grid = SingleStackGrid(MPI, velems, N, FT, Array)
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
      # Define hydraulic conductivity of soil
-    K_s   = (state, aux, t) ->  1e-5, #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
+    K_s   = (state, aux, t) ->  K_sat*124.6/(124.6 + abs(aux.h-aux.z)^1.77), #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
     # Define initial soil moisture
     initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
     surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
@@ -134,7 +135,7 @@ dg = DGModel( #
 # Minimum spatial and temporal steps
 Δ = min_node_distance(grid)
 CFL_bound = (Δ^2 / (2 * 2.42/2.49e6))
-dt = 10 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
+dt = 20 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
 
 ######
 ###### 3) Define variables for simulation
@@ -147,11 +148,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*day
+const timeend = 24*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = hour
+const every_x_simulation_time = 1*day
 
 
 ######

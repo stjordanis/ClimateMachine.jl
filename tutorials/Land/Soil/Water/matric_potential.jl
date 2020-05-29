@@ -17,8 +17,8 @@ function matric_potential(flag,S_l)
     #   m = 1-1/n                ! van Genuchten - exponent
     #   alpha                    ! van Genuchten - inverse reference potential (m-1)
    # if flag == "van Genuchten"
-        alpha = 2 # m-1 ### Check this value!
-        n = 5
+        alpha = 2.6 # m-1
+        n = 1.43
         M = 1 - 1/n
    # elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"

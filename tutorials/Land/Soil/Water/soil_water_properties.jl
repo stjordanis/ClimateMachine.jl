@@ -27,12 +27,11 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
     # Gamma(θ_i) = frozen soil imdepence factor
     Gamma_thetai = frozen_impedence_factor(theta_ice, porosity)
 
-    # K_sat: Global tabulated values from Dai et al. (2019a)
-    # [ Sand: K_sat = 10e-2 m s-1 ; Clay: K_sat = 10e-7 m s-1 ]
+    # K_sat: Currently using values from Bonan's sp_08_01.m; Need to switch to Global tabulated values from Dai et al. (2019a) [ Sand: K_sat = 10e-2 m s-1 ; Clay: K_sat = 10e-7 m s-1 ]
     if mineral_properties == "Sand"
-        K_sat  = 1e-1
+        K_sat  = 34 / (3600*100)
     elseif mineral_properties == "Clay"
-        K_sat  = 1e-6
+        K_sat  = 0.0443 / (3600*100)
     else
         K_sat  = 1e-3
     end
@@ -43,15 +42,15 @@ function soil_water_properties(mineral_properties,soil_T,soil_Tref,theta_liq,the
     # Get effective saturation
     S_l = effective_saturation(porosity,theta_l)
 
-    # Soil Matric potential - "van Genuchten"
+    # Soil Matric potential - "van Genuchten": Currently using values from Bonan's sp_08_01.m;
     if flag == "van Genuchten"
-        alpha = 0.02 # m-1
-        n = 5
+        alpha = 2.6 # m-1
+        n = 1.43
         m = 1 - 1/n
     elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
-        alpha = 0.02 # m-1
-        n = 5
+        alpha = 2.6 # m-1
+        n = 1.43
         m = 1 - 1/n
     end
 

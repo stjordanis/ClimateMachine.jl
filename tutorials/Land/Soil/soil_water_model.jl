@@ -63,7 +63,7 @@ From Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 """
 Base.@kwdef struct SoilModelMoisture{FK_s, Fiν, Fsν, Fih} <: BalanceLaw #FiS_l, Fiψ_m, Fiψ, Fih
   #(0.001/(60*60*24)) [m/s] typical value taken from Land Surface Model CLiMA, table 2.2, =0.1cm/day (0.34*1.175e6/(1.175+abs.(aux.h)^4.74))
-  K_s::FK_s        = (state, aux, t) -> 1e-5#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74)))
+  K_s::FK_s        = (state, aux, t) -> K_sat*124.6/(124.6 + abs(aux.h-aux.z)^1.77)#(1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74)))
 
   # Define initial and boundary condition parameters
   initialν::Fiν = (state, aux) -> ν_0 # [m3/m3] constant water content in soil
