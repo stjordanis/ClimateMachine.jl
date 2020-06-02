@@ -112,7 +112,7 @@ grid = SingleStackGrid(MPI, velems, N, FT, Array)
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
      # Define hydraulic conductivity of soil
-    K_s   = (state, aux, t) ->  K_sat*124.6/(124.6 + abs(aux.h-aux.z)^1.77), #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
+    K_s   = (state, aux, t) -> K_sat-0.5e-7, #K_sat*124.6/(124.6 + abs(0.01*(aux.h-aux.z))^1.77), #K_sat*( (effective_saturation(porosity,state.ν))^(0.5) * ( 1 - ( 1 - (effective_saturation(porosity,state.ν))^(1*m^-1) )^m )^2 ), K_sat-0.5e-7 #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
     # Define initial soil moisture
     initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
     surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
@@ -122,7 +122,6 @@ m = SoilModelMoisture(
     #initialψ = (aux) -> ψ_0,
     initialh = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
 )
-
 
 # Set up DG scheme
 dg = DGModel( #
@@ -134,8 +133,8 @@ dg = DGModel( #
 
 # Minimum spatial and temporal steps
 Δ = min_node_distance(grid)
-CFL_bound = (Δ^2 / (2 * 2.42/2.49e6))
-dt = 20 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
+#CFL_bound = (Δ^2 / (2 * 2.42/2.49e6)) ### SUBSTITUTE
+dt = 10 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
 
 ######
 ###### 3) Define variables for simulation
@@ -148,11 +147,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 24*day
+const timeend = 1*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 1*day
+const every_x_simulation_time = 6*hour
 
 
 ######
@@ -171,7 +170,7 @@ mkpath(output_dir)
 dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
-output_data = DataFile(joinpath(output_dir, "output_data"))
+output_data = DataFile(joinpath(output_dir, "output_data_k_constant"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)

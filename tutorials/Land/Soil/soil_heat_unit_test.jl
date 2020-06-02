@@ -55,11 +55,11 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = hour
+const timeend = 6*day
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 10*minute
+const every_x_simulation_time = day
 
 ######
 ###### 3) # Add soil model and other functions
@@ -180,39 +180,39 @@ solve!(Q, lsrk; timeend=timeend, callbacks=(stcb,))
 println("7) Post-processing...")
 
 all_data = collect_data(output_data, step[1])
-sort!(all_data)
+#sort!(all_data)
 
 #### Energy conservation check
 
-using Pkg
-Pkg.add("SymPy")
-using SymPy
-t=0.0:-0.1:-1
+#using Pkg
+#Pkg.add("SymPy")
+#using SymPy
+#t=0.0:-0.1:-1
+#
+#e_total = [x["int.a"][end] for (i,x) in all_data]
+#popfirst!(e_total);
+#net_flux = [m.bc_flux(1,1,1)*m.κ(1,1,1)*
+#    every_x_simulation_time*i +
+#    m.ρc(1,1,1)*m.initialT(1)
+#    for i in keys(all_data)]
+#popfirst!(net_flux);
+#
+#@show e_total .- net_flux
+#err = (e_total .- net_flux) ./ e_total * 100
+#@show err
 
-e_total = [x["int.a"][end] for (i,x) in all_data]
-popfirst!(e_total);
-net_flux = [m.bc_flux(1,1,1)*m.κ(1,1,1)*
-    every_x_simulation_time*i +
-    m.ρc(1,1,1)*m.initialT(1)
-    for i in keys(all_data)]
-popfirst!(net_flux);
-
-@show e_total .- net_flux
-err = (e_total .- net_flux) ./ e_total * 100
-@show err
-
-# error over time
-# error=E-δE_analytical
-# rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
-# rel_error2=error[end]/(δE_analytical[end])
-using Plots
-
-x = range(0, stop=timeend, length=length(e_total))
-
-display(plot(x,[e_total net_flux],
-xlabel = "Time [s]",
-ylabel = "Energy [J]",
-label = ["E" "δE_analytical"]))
+## error over time
+## error=E-δE_analytical
+## rel_error=error[end]/(E[end]+all_data[1]["int.a"][19])
+## rel_error2=error[end]/(δE_analytical[end])
+#using Plots
+#
+#x = range(0, stop=timeend, length=length(e_total))
+#
+#display(plot(x,[e_total net_flux],
+#xlabel = "Time [s]",
+#ylabel = "Energy [J]",
+#label = ["E" "δE_analytical"]))
 
 
 # E=rand(Float64, length(all_data)-1)
