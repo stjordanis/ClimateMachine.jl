@@ -13,6 +13,8 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
+using ClimateMachine.MPIStateArrays: realview
+using ClimateMachine.ODESolvers: dostep!
 
 using Distributions: Uniform
 using LinearAlgebra
@@ -41,7 +43,7 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     nothing
 end
 
-function config_heldsuarez(FT, poly_order, resolution)
+function config_heldsuarez(FT, poly_order, resolution, split_explicit_implicit)
     # Set up a reference state for linearization of equations
     temp_profile_ref = DecayingTemperatureProfile{FT}(param_set)
     ref_state = HydrostaticState(temp_profile_ref)
@@ -85,6 +87,11 @@ function config_heldsuarez(FT, poly_order, resolution)
         param_set,
         init_heldsuarez!;
         model = model,
+        solver_type = ClimateMachine.IMEXSolverType(;
+            split_explicit_implicit = split_explicit_implicit,
+            discrete_splitting = true,
+            variant = NaiveVariant(),
+        ),
     )
 
     return config
@@ -179,7 +186,7 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float32                             # floating type precision
+    FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
@@ -188,42 +195,86 @@ function main()
     timeend = FT(n_days * day(param_set))    # end time (s)
 
     # Set up driver configuration
-    driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
+    driver_config_false =
+        config_heldsuarez(FT, poly_order, (n_horz, n_vert), false)
+    driver_config_true =
+        config_heldsuarez(FT, poly_order, (n_horz, n_vert), true)
 
     # Set up experiment
-    solver_config = ClimateMachine.SolverConfiguration(
+    solver_config_false = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
-        driver_config,
+        driver_config_false,
         Courant_number = 0.2,
         init_on_cpu = true,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
 
-    # Set up diagnostics
-    dgn_config = config_diagnostics(FT, driver_config)
+    # Set up experiment
+    solver_config_true = ClimateMachine.SolverConfiguration(
+        timestart,
+        timeend,
+        driver_config_true,
+        Courant_number = 0.2,
+        init_on_cpu = true,
+        CFL_direction = HorizontalDirection(),
+        diffdir = HorizontalDirection(),
+    )
 
-    # Set up user-defined callbacks
-    filterorder = 10
-    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
-    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            1:size(solver_config.Q, 2),
-            solver_config.dg.grid,
-            filter,
-        )
-        nothing
+    Q = solver_config_false.Q
+
+    Ql = Array(Q.data)
+    dostep!(Q, solver_config_false.solver, nothing, FT(0))
+    Qfalse = Array(realview(Q))
+    copy!(Q.data, Ql)
+    dostep!(Q, solver_config_true.solver, nothing, FT(0))
+    Qtrue = Array(realview(Q))
+    dQ = (Qfalse - Qtrue)
+    normalized_dQ = dQ ./ max.(1, max.(abs.(Qfalse), abs.(Qtrue)))
+    println()
+    @show extrema(dQ)
+    @show extrema(normalized_dQ)
+
+    QS_true = solver_config_true.solver.Qstages
+    QS_false = solver_config_false.solver.Qstages
+    for s in 1:length(QS_true)
+        QT = Array(QS_true[s])
+        QF = Array(QS_false[s])
+        dQ = (QT - QF)
+        normalized_dQ = dQ ./ max.(1, max.(abs.(QT), abs.(QF)))
+        println()
+        @show s
+        @show extrema(dQ)
+        @show extrema(normalized_dQ)
     end
 
-    # Run the model
-    result = ClimateMachine.invoke!(
-        solver_config;
-        diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
-        check_euclidean_distance = true,
-    )
+    Ql .+= (2 * rand(size(Ql)...) .- 1) .* Ql / 5
+    copy!(Q.data, Ql)
+
+    vert = solver_config_true.solver.rhs_implicit!
+    full = solver_config_false.solver.rhs!
+    rem = solver_config_true.solver.rhs!
+
+    dQfull = similar(Q)
+    dQvert = similar(Q)
+    dQrem = similar(Q)
+
+    vert(dQvert, Q, nothing, FT(0), increment = false)
+    full(dQfull, Q, nothing, FT(0), increment = false)
+    rem(dQrem, Q, nothing, FT(0), increment = false)
+
+    Avert = Array(realview(dQvert))
+    Afull = Array(realview(dQfull))
+    Arem = Array(realview(dQrem))
+
+    dA = (Afull - (Arem + Avert))
+    normalized_dA = dA ./ max.(1, max.(abs.(Afull), abs.(Arem + Avert)))
+    println()
+    @show extrema(dA)
+    @show extrema(normalized_dA)
+
 end
 
 main()
+nothing
