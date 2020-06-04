@@ -141,9 +141,7 @@ N_poly = 5;
 nelem_vert = 10;
 
 # Specify the domain height
-zmax = FT(1);
-
-
+zmax = FT(0);
 # Establish a `ClimateMachine` single stack configuration
 driver_config = ClimateMachine.SingleStackConfiguration(
     "SoilMoistureModel",
@@ -152,6 +150,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     zmax,
     my_param_set,
     m,
+    zmin = -1 ,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
 );
 
@@ -168,7 +167,7 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = FT(2*day)
+const timeend = FT(1*day)
 const t0 = FT(0)
 
 ######
@@ -234,7 +233,7 @@ callback = GenericCallbacks.EveryXSimulationTime(
         mygrid,
         aux,
         vars_state_auxiliary(m, FT);
-        exclude = ["z"],
+        # exclude = ["z"],
     )
     all_vars = OrderedDict(state_vars..., aux_vars...)
     all_data[step[1]] = all_vars
