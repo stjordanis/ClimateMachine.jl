@@ -201,7 +201,7 @@ function SolverConfiguration(
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
         solver =
             ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
-    else # solver_type === IMEXSolverType
+    elseif isa(ode_solver_type, IMEXSolverType)
         vdg = DGModel(
             linmodel,
             grid,
@@ -213,17 +213,46 @@ function SolverConfiguration(
             states_higher_order = dg.states_higher_order,
             direction = VerticalDirection(),
         )
-        solver = ode_solver_type.solver_method(
-            dg,
-            vdg,
-            LinearBackwardEulerSolver(
-                ode_solver_type.linear_solver();
-                isadjustable = false,
-            ),
-            Q;
-            dt = ode_dt,
-            t0 = t0,
-        )
+        if ode_solver_type.split_explicit_implicit
+            remainder_kwargs = (
+                numerical_flux_first_order = (
+                    ode_solver_type.discrete_splitting ?
+                            (
+                        numerical_flux_first_order,
+                        (numerical_flux_first_order,),
+                    ) :
+                            numerical_flux_first_order
+                ),
+            )
+            rem_dg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
+            solver = ode_solver_type.solver_method(
+                rem_dg,
+                vdg,
+                LinearBackwardEulerSolver(
+                    ode_solver_type.linear_solver();
+                    isadjustable = false,
+                ),
+                Q;
+                split_explicit_implicit = true,
+                dt = ode_dt,
+                t0 = t0,
+            )
+        else
+            solver = ode_solver_type.solver_method(
+                dg,
+                vdg,
+                LinearBackwardEulerSolver(
+                    ode_solver_type.linear_solver();
+                    isadjustable = false,
+                ),
+                Q;
+                split_explicit_implicit = false,
+                dt = ode_dt,
+                t0 = t0,
+            )
+        end
+    else
+        error("unknown solver type")
     end
 
     @toc SolverConfiguration

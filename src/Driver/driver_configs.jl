@@ -20,17 +20,59 @@ struct ExplicitSolverType <: AbstractSolverType
         new(solver_method)
 end
 
+"""
+    ClimateMachine.IMEXSolverType(;
+        linear_model = AtmosAcousticGravityLinearModel,
+        linear_solver = ManyColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = false,
+        discrete_splitting = true,
+    )
+
+Specify parameter necessary for configuring the IMEX solvers.
+
+If the parameter `split_explicit_implicit == true` then seperate explicit and
+implicit tendencies are passed to the IMEX routine. If `split_explicit_implicit
+== false` then the full and implicit tendencies are passed and the IMEX solver
+will compute the explicit tendency via subtraction. See
+[`AdditiveRungeKutta`](@ref) for more discussion of this functionality.
+
+If `split_explicit_implicit == true` then there are two options for the
+construction of the explicit tendency.
+
+1. If `discrete_splitting == true` then the explicit tendency is constructed
+   after discretization of the full and implicit models. That is sum of the
+   implicit and explicit tendencies are discretely equivalent (up to round-off
+   error) to the full tendency.
+
+2. If `discrete_splitting == false` then the explicit model is constructed
+   by subtract the implicit model from the full model and then discretizing.
+   Thus it is possible that the implicit and explicit tendencies are not
+   discretely equivalent to the full tendency; this is mainly due to the fact
+   that the numerical fluxes are non-linear functions of solution.
+"""
 struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
+    split_explicit_implicit::Bool
+    discrete_splitting::Bool
     function IMEXSolverType(;
         # FIXME: this is Atmos-specific
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = false,
+        discrete_splitting = true,
     )
-        return new(linear_model, linear_solver, solver_method)
+        @assert discrete_splitting || split_explicit_implicit
+        return new(
+            linear_model,
+            linear_solver,
+            solver_method,
+            split_explicit_implicit,
+            discrete_splitting,
+        )
     end
 end
 
