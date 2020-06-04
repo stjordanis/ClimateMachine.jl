@@ -29,6 +29,8 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 
+using DelimitedFiles
+
 #using Logging
 #using Printf
 #using NCDatasets
@@ -237,6 +239,10 @@ callback = GenericCallbacks.EveryXSimulationTime(
     all_vars = OrderedDict(state_vars..., aux_vars...)
     all_data[step[1]] = all_vars
 
+    open("output_data.txt", "w") do io
+               writedlm(io, all_data)
+    end
+
     step[1] += 1
     nothing
 end;
@@ -267,10 +273,27 @@ z_label = "z [cm]"
 z = get_z(mygrid, z_scale)
 
 output_dir = @__DIR__
+
 export_plot(
     -z,
     all_data,
     ("ν",),
-    joinpath(output_dir, "foo.png"),
+    joinpath(output_dir, "foo_water.png"),
+    z_label,
+);
+
+export_plot(
+    -z,
+    all_data,
+    ("h",),
+    joinpath(output_dir, "foo_h.png"),
+    z_label,
+);
+
+export_plot(
+    -z,
+    all_data,
+    ("κ",),
+    joinpath(output_dir, "foo_K.png"),
     z_label,
 );
