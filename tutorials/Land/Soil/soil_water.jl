@@ -8,43 +8,62 @@ println("1) Import/Export Needed Functions")
 
 # Load necessary CliMA subroutines
 using MPI
-using Test
-using ClimateMachine
-using Logging
-using Printf
-using NCDatasets
-using LinearAlgebra
 using OrderedCollections
+using Plots
+using StaticArrays
+using CLIMAParameters
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const my_param_set = EarthParameterSet()
+
+#using Test
+using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Writers
-using ClimateMachine.VTK
-using ClimateMachine.Mesh.Elements: interpolationmatrix
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
 using ClimateMachine.MPIStateArrays
-using ClimateMachine.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-
-using Interpolations
+using ClimateMachine.VariableTemplates
+using ClimateMachine.SingleStackUtils
 using DelimitedFiles
 
+#using Logging
+#using Printf
+#using NCDatasets
+
+#import ClimateMachine.DGMethods:
+#    vars_state_auxiliary,
+#    vars_state_conservative,
+#    vars_state_gradient,
+#    vars_state_gradient_flux,
+#    source!,
+#    flux_second_order!,
+#    flux_first_order!,
+#    compute_gradient_argument!,
+#    compute_gradient_flux!,
+#    update_auxiliary_state!,
+#    nodal_update_auxiliary_state!,
+#    init_state_auxiliary!,
+#    init_state_conservative!,
+#    boundary_state!
+
 # ENV["GKS_ENCODING"] = "utf-8"
-
-ENV["CLIMA_GPU"] = "false"
-
-# Initialize CliMA
-ClimateMachine.init()
-
 FT = Float64
+# Initialize CliMA
+ClimateMachine.init(; disable_gpu = true);
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+include(joinpath(clima_dir, "docs", "plothelpers.jl"));
+
 
 # Change output directory and save plots there
 output_dir = joinpath(dirname(dirname(pathof(ClimateMachine))), "output", "land")
 mkpath(output_dir)
 
 # Add soil moisture model
-include("soil_water_model.jl")
+include("soil_water_model_new.jl")
 
 # Add water functions
 #include("Water/soil_water_properties.jl")
@@ -54,34 +73,15 @@ include("Water/matric_potential.jl")
 include("Water/pressure_head.jl")
 include("Water/hydraulic_head.jl")
 include("Water/effective_saturation.jl")
+include("Water/hydraulic_conductivity.jl")
 #include("Water/augmented_liquid.jl")
 #include("Water/calculate_frozen_water.jl")
 #include("Water/heaviside.jl")
 
 ######
-###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
+###### 2) Set up system
 ######
-
-include(joinpath("..","helper_funcs.jl"))
-include(joinpath("..","plotting_funcs.jl"))
-
-# # Read in real temperature data
-# Real_Data_vector =  readdlm("examples/Land/Heat/T_desert_25N_25E.txt", '\t', FT, '\n')
-# Real_Data_vector = [Real_Data_vector...]
-# Real_Data_vector = collect(Real_Data_vector)
-
-# # discrete time
-# # Real_time_data = range(0.00,stop=31536000,length= 8760)
-# Real_time_data = range(0.00,stop=31536000,length= length(Real_Data_vector))
-# Real_time_data = collect(Real_time_data)
-
-# # return a data structure that is a callable function
-# Real_continuous_data = TimeContinuousData(Real_time_data, Real_Data_vector)
-
-######
-###### 2) Set up domain
-######
-println("2) Set up domain...")
+println("2) Set up system...")
 
 # Read in state variables and data
 mineral_properties = "Clay"
@@ -101,18 +101,20 @@ flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_0 = pressure_head(S_l_0,porosity,S_s,ν_0,flag)
 println(ψ_0)
-# NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
-# giving an approximate resolution of 5cm
-const velems = 0.0:-0.1:-1 # Elements at: [0.0 -0.2 -0.4 -0.6 -0.8 -1.0] (m)
-const N = 4 # Order of polynomial function between each element
+κ_0 = hydraulic_conductivity(K_sat, S_l_0, ψ_0,0, "Havercamp")# only tested havercamp so far. van Genuchten required very small time step and still had Domain error. Note that this function is called in the solver too, since κ is an auxilary variable. we can think about this, non ideal to define it in both places, also per Elias may not be ideal to have κ be auxiliary.
 
-# Set domain using Stacked Brick
-grid = SingleStackGrid(MPI, velems, N, FT, Array)
+#This is implemented in hydraulic_conductivity now, with flag "Havercamp".
+#function ksat_function(K_sat, head,zed)
+#    return K_sat*124.6/(124.6+abs(100*(head-zed))^1.77)
+#end
+
 
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
-     # Define hydraulic conductivity of soil
-    K_s   = (state, aux, t) -> K_sat-0.5e-7, #K_sat*124.6/(124.6 + abs(0.01*(aux.h-aux.z))^1.77), #K_sat*( (effective_saturation(porosity,state.ν))^(0.5) * ( 1 - ( 1 - (effective_saturation(porosity,state.ν))^(1*m^-1) )^m )^2 ), K_sat-0.5e-7 #soil_water_properties(mineral_properties,soil_T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
+    param_set = my_param_set,
+    # Define hydraulic conductivity of soil
+    #It seems like initial aux variable values cant depend on state.
+    initialκ   = (aux) -> κ_0,
     # Define initial soil moisture
     initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
     surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
@@ -123,23 +125,44 @@ m = SoilModelMoisture(
     initialh = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
 )
 
-# Set up DG scheme
-dg = DGModel( #
-  m, # "PDE part"
-  grid,
-  CentralNumericalFluxFirstOrder(), # penalty terms for discretizations
-  CentralNumericalFluxSecondOrder(),
-  CentralNumericalFluxGradient())
-
-# Minimum spatial and temporal steps
-Δ = min_node_distance(grid)
-#CFL_bound = (Δ^2 / (2 * 2.42/2.49e6)) ### SUBSTITUTE
-dt = 10 #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
-
 ######
 ###### 3) Define variables for simulation
 ######
 println("3) Define variables for simulation...") # move up
+
+
+# # Spatial discretization
+
+# Prescribe polynomial order of basis functions in finite elements
+N_poly = 5;
+
+# Specify the number of vertical elements
+nelem_vert = 10;
+
+# Specify the domain height
+zmax = FT(0);
+
+
+# Establish a `ClimateMachine` single stack configuration
+driver_config = ClimateMachine.SingleStackConfiguration(
+    "SoilMoistureModel",
+    N_poly,
+    nelem_vert,
+    zmax,
+    my_param_set,
+    m;
+    zmin = FT(-1),
+    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+);
+# The domain in z is not zero when zmax is zero - i think there is a typo here:
+#https://github.com/CliMA/ClimateMachine.jl/blob/2b54b01cbc2a9cb015926c4491b91386fdd680ee/src/Driver/driver_configs.jl#L213
+# should be zmax-zmin
+
+# Minimum spatial and temporal steps
+Δ = min_node_distance(driver_config.grid)
+τ = (Δ^2 /K_sat)
+dt = 0.03*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
+
 
 # Define time variables
 const minute = 60
@@ -147,61 +170,121 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = 1*day
-
-# Output frequency:
-# const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 6*hour
-
+const timeend = FT(1*day)
+const t0 = FT(0)
 
 ######
 ###### 4) Prep ICs, and time-stepper and output configurations
 ######
 println("4) Prep ICs, and time-stepper and output configurations...")
+# # Configure a `ClimateMachine` solver.
 
-# state variable
-Q = init_ode_state(dg, Float64(0))
+# This initializes the state vector and allocates memory for the solution in
+# space (`dg` has the model `m`, which describes the PDEs as well as the
+# function used for initialization). This additionally initializes the ODE
+# solver, by default an explicit Low-Storage
+# [Runge-Kutta](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods)
+# method.
 
-# initialize ODE solver
-lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+solver_config =
+    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
+mygrid = solver_config.dg.grid;
+Q = solver_config.Q;
+aux = solver_config.dg.state_auxiliary;
 
-mkpath(output_dir)
+# # Solver hooks / callbacks
 
-dims = OrderedDict("z" => collect(get_z(grid, 100)))
-# run for 8 days (hours?) to get to steady state
+# Define the number of outputs from `t0` to `timeend`
+const n_outputs = 5;
 
-output_data = DataFile(joinpath(output_dir, "output_data_k_constant"))
+# This equates to exports every ceil(Int, timeend/n_outputs) time-step:
+const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
-step = [0]
-stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative)
-  aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
-  all_vars = OrderedDict(state_vars..., aux_vars...)
-  write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
-  step[1]+=1
-  nothing
+# Create a nested dictionary to store the solution:
+all_data = Dict([k => Dict() for k in 0:n_outputs]...)
+# The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
+# allow users to inject code to be executed at specified intervals. In this
+# callback, the state and aux variables are collected, combined into a single
+# `OrderedDict` and written to a NetCDF file (for each output step `step`).
+step = [0];
+callback = GenericCallbacks.EveryXSimulationTime(
+    every_x_simulation_time,
+    solver_config.solver,
+) do (init = false)
+    t = ODESolvers.gettime(
+        solver_config.solver
+    )
+    state_vars = SingleStackUtils.get_vars_from_nodal_stack(
+        mygrid,
+        Q,
+        vars_state_conservative(m, FT),
+    )
+    aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
+        mygrid,
+        aux,
+        vars_state_auxiliary(m, FT);
+        #exclude = ["z"],
+    )
+    all_vars = OrderedDict(state_vars..., aux_vars...)
+    all_vars["t"]= [t]
+    all_data[step[1]] = all_vars
+
+    step[1] += 1
+    nothing
+end;
+
+# # Solve
+
+# This is the main `ClimateMachine` solver invocation. While users do not have
+# access to the time-stepping loop, code may be injected via `user_callbacks`,
+# which is a `Tuple` of [`GenericCallbacks`](@ref).
+ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+#Pull out state etc. at final time step
+t = ODESolvers.gettime(
+    solver_config.solver
+)
+state_vars = SingleStackUtils.get_vars_from_nodal_stack(
+    mygrid,
+    Q,
+    vars_state_conservative(m, FT),
+)
+aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
+    mygrid,
+    aux,
+    vars_state_auxiliary(m, FT);
+)
+all_vars = OrderedDict(state_vars..., aux_vars...);
+all_vars["t"]= [t]
+all_data[n_outputs] = all_vars
+# # Post-processing
+
+# Our solution is stored in the nested dictionary `all_data` whose keys are
+# the output interval. The next level keys are the variable names, and the
+# values are the values along the grid:
+
+
+# To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[0]["T"][:]`
+@show keys(all_data[0])
+
+# Let's plot the solution:
+####
+
+z_scale = 100 # convert from meters to cm
+z_key = "z"
+z_label = "z [cm]"
+#What is get_z - how does this map the grid to z_scale? Just a scalar?
+z = get_z(mygrid, z_scale)
+
+output_dir = @__DIR__
+export_plot(
+    z,
+    all_data,
+    ("ν",),
+    joinpath(output_dir, "foo.png"),
+    z_label,
+);
+
+
+open("./final_step.txt", "w") do io
+    writedlm(io, all_data[n_outputs])
 end
-
-######
-###### 5) Solve the equations
-######
-println("5) Solve the equations...")
-
-solve!(Q, lsrk; timeend=timeend, callbacks=(stcb,))
-
-#####
-##### 6) Post-processing
-#####
-println("6) Post-processing...")
-
-all_data = collect_data(output_data, step[1])
-
-# To get "T" at timestep 0:
-# all_data[0]["T"][:]
-
-#using Plots
-#
-#display(plot(x,u,
-# xlabel = "Time [s]",
-#ylabel = "Energy [J]",
-#label = ["E" "δE_analytical"]))
