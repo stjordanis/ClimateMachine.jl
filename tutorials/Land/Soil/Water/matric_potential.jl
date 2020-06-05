@@ -29,7 +29,11 @@ function matric_potential(flag,S_l)
 
     # Theta(T) = temperature dependence on conductivity
     #if flag == "van Genuchten"
+    if S_l < 1
         ψ_m = -alpha^-1 * S_l^(-1/(n*M)) * (1-S_l^(1/M))^(1/n)
+    else
+        ψ_m = 0
+    end
     #elseif flag == "Brooks and Corey"
     #    M_b = 1/M-1
     #    ψ_b = alpha^-1
