@@ -252,20 +252,24 @@ function main()
     Ql .+= (2 * rand(size(Ql)...) .- 1) .* Ql / 5
     copy!(Q.data, Ql)
 
+    vert = solver_config_true.solver.rhs_implicit!
     full = solver_config_false.solver.rhs!
-    full2 = solver_config_true.solver.rhs!
+    rem = solver_config_true.solver.rhs!
 
     dQfull = similar(Q)
-    dQfull2 = similar(Q)
+    dQvert = similar(Q)
+    dQrem = similar(Q)
 
+    vert(dQvert, Q, nothing, FT(0), increment = false)
     full(dQfull, Q, nothing, FT(0), increment = false)
-    full2(dQfull2, Q, nothing, FT(0), increment = false)
+    rem(dQrem, Q, nothing, FT(0), increment = false)
 
+    Avert = Array(realview(dQvert))
     Afull = Array(realview(dQfull))
-    Afull2 = Array(realview(dQfull2))
+    Arem = Array(realview(dQrem))
 
-    dA = (Afull - Afull2)
-    normalized_dA = dA ./ max.(1, max.(abs.(Afull), abs.(Afull2)))
+    dA = (Afull - (Arem + Avert))
+    normalized_dA = dA ./ max.(1, max.(abs.(Afull), abs.(Arem + Avert)))
     println()
     @show extrema(dA)
     @show extrema(normalized_dA)

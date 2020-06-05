@@ -214,30 +214,32 @@ function SolverConfiguration(
             direction = VerticalDirection(),
         )
         if ode_solver_type.split_explicit_implicit
-            remainder_kwargs = (
-                numerical_flux_first_order = (
-                    ode_solver_type.discrete_splitting ?
-                            (
-                        numerical_flux_first_order,
-                        (numerical_flux_first_order,),
-                    ) :
-                            numerical_flux_first_order
-                ),
-            )
-            rem_dg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
-            function full_dg(dQ, Q, p, t; increment)
-                rem_dg(dQ, Q, p, t; increment = increment)
-                vdg(dQ, Q, p, t; increment = true)
+            # remainder_kwargs = (
+            #     numerical_flux_first_order = (
+            #         ode_solver_type.discrete_splitting ?
+            #                 (
+            #             numerical_flux_first_order,
+            #             (numerical_flux_first_order,),
+            #         ) :
+            #                 numerical_flux_first_order
+            #     ),
+            # )
+            # rem_dg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
+            function rem_dg(dQ, Q, p, t; increment)
+                @assert !increment
+                vdg(dQ, Q, p, t; increment = false)
+                @. dQ.data = -dQ.data
+                dg(dQ, Q, p, t; increment = true)
             end
             solver = ode_solver_type.solver_method(
-                full_dg,
+                rem_dg,
                 vdg,
                 LinearBackwardEulerSolver(
                     ode_solver_type.linear_solver();
                     isadjustable = false,
                 ),
                 Q;
-                split_explicit_implicit = false,
+                split_explicit_implicit = true,
                 dt = ode_dt,
                 t0 = t0,
                 variant = ode_solver_type.variant,
