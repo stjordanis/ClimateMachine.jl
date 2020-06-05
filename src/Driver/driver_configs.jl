@@ -57,6 +57,7 @@ struct IMEXSolverType <: AbstractSolverType
     solver_method::Function
     split_explicit_implicit::Bool
     discrete_splitting::Bool
+    variant
     function IMEXSolverType(;
         # FIXME: this is Atmos-specific
         linear_model = AtmosAcousticGravityLinearModel,
@@ -64,6 +65,7 @@ struct IMEXSolverType <: AbstractSolverType
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = false,
         discrete_splitting = true,
+        variant = LowStorageVariant(),
     )
         @assert discrete_splitting || split_explicit_implicit
         return new(
@@ -72,6 +74,7 @@ struct IMEXSolverType <: AbstractSolverType
             solver_method,
             split_explicit_implicit,
             discrete_splitting,
+            variant,
         )
     end
 end

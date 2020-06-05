@@ -236,6 +236,7 @@ function SolverConfiguration(
                 split_explicit_implicit = true,
                 dt = ode_dt,
                 t0 = t0,
+                variant = ode_solver_type.variant,
             )
         else
             solver = ode_solver_type.solver_method(
@@ -249,6 +250,7 @@ function SolverConfiguration(
                 split_explicit_implicit = false,
                 dt = ode_dt,
                 t0 = t0,
+                variant = ode_solver_type.variant,
             )
         end
     else
