@@ -161,7 +161,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 # Minimum spatial and temporal steps
 Δ = min_node_distance(driver_config.grid)
 τ = (Δ^2 /K_sat)
-dt = 0.03*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
+dt = 0.01*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
 
 
 # Define time variables
