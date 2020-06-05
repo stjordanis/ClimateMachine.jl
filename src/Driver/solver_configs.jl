@@ -225,15 +225,19 @@ function SolverConfiguration(
                 ),
             )
             rem_dg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
+            function full_dg(dQ, Q, p, t; increment)
+                rem_dg(dQ, Q, p, t; increment = increment)
+                vdg(dQ, Q, p, t; increment = true)
+            end
             solver = ode_solver_type.solver_method(
-                rem_dg,
+                full_dg,
                 vdg,
                 LinearBackwardEulerSolver(
                     ode_solver_type.linear_solver();
                     isadjustable = false,
                 ),
                 Q;
-                split_explicit_implicit = true,
+                split_explicit_implicit = false,
                 dt = ode_dt,
                 t0 = t0,
                 variant = ode_solver_type.variant,
