@@ -248,10 +248,10 @@ end
 # Boundary condition function
 function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, aux⁺::Vars,
                          nM, state⁻::Vars, aux⁻::Vars, bctype, t, _...)
-  if bctype == 1
+  if bctype == 2
     # surface
-    state⁺.ν= m.surfaceν(state⁻, aux⁻, t)
-  elseif bctype == 2
+      state⁺.ν= m.surfaceν(state⁻, aux⁻, t)
+  elseif bctype == 1
     # bottom
     nothing
   end
@@ -261,13 +261,13 @@ end
 function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars,
                          aux⁺::Vars, n̂, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
                          bctype, t, _...)
-  if bctype == 1
+  if bctype == 2
     # surface
     state⁺.ν = m.surfaceν(state⁻, aux⁻, t)
-  elseif bctype == 2
+  elseif bctype == 1
     # bottom
     #nothing
     #diff⁺.∇h = -diff⁻.∇h
-    diff⁺.∇h = n̂*1
+    diff⁺.∇h = -n̂*1
   end
 end
