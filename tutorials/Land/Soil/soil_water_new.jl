@@ -28,7 +28,6 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
-
 using DelimitedFiles
 
 #using Logging
@@ -142,6 +141,8 @@ nelem_vert = 10;
 
 # Specify the domain height
 zmax = FT(0);
+
+
 # Establish a `ClimateMachine` single stack configuration
 driver_config = ClimateMachine.SingleStackConfiguration(
     "SoilMoistureModel",
@@ -149,16 +150,18 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     nelem_vert,
     zmax,
     my_param_set,
-    m,
-    zmin = -1 ,
+    m;
+    zmin = FT(-1),
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
 );
-
+# The domain in z is not zero when zmax is zero - i think there is a typo here:
+#https://github.com/CliMA/ClimateMachine.jl/blob/2b54b01cbc2a9cb015926c4491b91386fdd680ee/src/Driver/driver_configs.jl#L213
+# should be zmax-zmin
 
 # Minimum spatial and temporal steps
 Δ = min_node_distance(driver_config.grid)
 τ = (Δ^2 /K_sat)
-dt = 0.01*τ #CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
+dt = 0.01*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
 
 
 # Define time variables
@@ -167,7 +170,7 @@ const hour = 60*minute
 const day = 24*hour
 # const timeend = 1*minute
 # const n_outputs = 25
-const timeend = FT(1*day)
+const timeend = FT(2*day)
 const t0 = FT(0)
 
 ######
@@ -189,20 +192,6 @@ mygrid = solver_config.dg.grid;
 Q = solver_config.Q;
 aux = solver_config.dg.state_auxiliary;
 
-
-state_vars = SingleStackUtils.get_vars_from_nodal_stack(
-    mygrid,
-    Q,
-    vars_state_conservative(m, FT),
-)
-aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
-    mygrid,
-    aux,
-    vars_state_auxiliary(m, FT),
-)
-all_vars = OrderedDict(state_vars..., aux_vars...);
-
-
 # # Solver hooks / callbacks
 
 # Define the number of outputs from `t0` to `timeend`
@@ -213,17 +202,18 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
 # Create a nested dictionary to store the solution:
 all_data = Dict([k => Dict() for k in 0:n_outputs]...)
-all_data[0] = all_vars # store initial condition at ``t=0``
-
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, the state and aux variables are collected, combined into a single
 # `OrderedDict` and written to a NetCDF file (for each output step `step`).
-step = [1];
+step = [0];
 callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
     solver_config.solver,
 ) do (init = false)
+    t = ODESolvers.gettime(
+        solver_config.solver
+    )
     state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         mygrid,
         Q,
@@ -233,14 +223,11 @@ callback = GenericCallbacks.EveryXSimulationTime(
         mygrid,
         aux,
         vars_state_auxiliary(m, FT);
-        # exclude = ["z"],
+        #exclude = ["z"],
     )
     all_vars = OrderedDict(state_vars..., aux_vars...)
+    all_vars["t"]= [t]
     all_data[step[1]] = all_vars
-
-    open("output_data.txt", "w") do io
-               writedlm(io, all_data)
-    end
 
     step[1] += 1
     nothing
@@ -252,12 +239,29 @@ end;
 # access to the time-stepping loop, code may be injected via `user_callbacks`,
 # which is a `Tuple` of [`GenericCallbacks`](@ref).
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
-
+#Pull out state etc. at final time step
+t = ODESolvers.gettime(
+    solver_config.solver
+)
+state_vars = SingleStackUtils.get_vars_from_nodal_stack(
+    mygrid,
+    Q,
+    vars_state_conservative(m, FT),
+)
+aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
+    mygrid,
+    aux,
+    vars_state_auxiliary(m, FT);
+)
+all_vars = OrderedDict(state_vars..., aux_vars...);
+all_vars["t"]= [t]
+all_data[n_outputs] = all_vars
 # # Post-processing
 
 # Our solution is stored in the nested dictionary `all_data` whose keys are
 # the output interval. The next level keys are the variable names, and the
 # values are the values along the grid:
+
 
 # To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[0]["T"][:]`
 @show keys(all_data[0])
@@ -272,27 +276,15 @@ z_label = "z [cm]"
 z = get_z(mygrid, z_scale)
 
 output_dir = @__DIR__
-
 export_plot(
-    -z,
+    z,
     all_data,
     ("ν",),
-    joinpath(output_dir, "foo_water.png"),
+    joinpath(output_dir, "foo.png"),
     z_label,
 );
 
-export_plot(
-    -z,
-    all_data,
-    ("h",),
-    joinpath(output_dir, "foo_h.png"),
-    z_label,
-);
 
-export_plot(
-    -z,
-    all_data,
-    ("κ",),
-    joinpath(output_dir, "foo_K.png"),
-    z_label,
-);
+open("./final_step.txt", "w") do io
+    writedlm(io, all_data[n_outputs])
+end
