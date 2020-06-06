@@ -1,4 +1,7 @@
 #!/usr/bin/env julia --project
+using DoubleFloats
+using GaussQuadrature
+GaussQuadrature.maxiterations[Double64] = 40
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
@@ -19,7 +22,7 @@ using ClimateMachine.ODESolvers: dostep!
 using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
-using Random: rand
+using Random
 using Test
 
 using CLIMAParameters
@@ -141,7 +144,7 @@ function held_suarez_forcing!(
 
     #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
     #for topography, but leave unchanged for calculations of σ involved in T_equil
-    _p0 = 1.01325e5
+    _p0 = FT(1.01325e5)
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
     Δσ = (σ - σ_b) / (1 - σ_b)
@@ -186,7 +189,7 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float64                             # floating type precision
+    FT = Double64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
@@ -201,35 +204,38 @@ function main()
         config_heldsuarez(FT, poly_order, (n_horz, n_vert), true)
 
     # Set up experiment
+    Random.seed!(44)
     solver_config_false = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config_false,
-        Courant_number = 0.2,
+        Courant_number = FT(0.2),
         init_on_cpu = true,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
 
     # Set up experiment
+    Random.seed!(44)
     solver_config_true = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config_true,
-        Courant_number = 0.2,
+        Courant_number = FT(0.2),
         init_on_cpu = true,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
 
-    Q = solver_config_false.Q
+    Qfalse = solver_config_false.Q
+    Qtrue = solver_config_true.Q
+    Q = similar(Qfalse)
 
-    Ql = Array(Q.data)
-    dostep!(Q, solver_config_false.solver, nothing, FT(0))
-    Qfalse = Array(realview(Q))
-    copy!(Q.data, Ql)
-    dostep!(Q, solver_config_true.solver, nothing, FT(0))
-    Qtrue = Array(realview(Q))
+    Ql = Array(Qfalse.data)
+    dostep!(Qfalse, solver_config_false.solver, nothing, FT(0))
+    Qfalse = Array(realview(Qfalse))
+    dostep!(Qtrue, solver_config_true.solver, nothing, FT(0))
+    Qtrue = Array(realview(Qtrue))
     dQ = (Qfalse - Qtrue)
     normalized_dQ = dQ ./ max.(1, max.(abs.(Qfalse), abs.(Qtrue)))
     println()
