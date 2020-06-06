@@ -145,7 +145,8 @@ function  soil_nodal_update_aux!(
 
     # Get hydraulic head
     aux.h = hydraulic_head(aux.z,ψ)
-    aux.κ = hydraulic_conductivity(K_sat,S_l,hydraulic_head(aux.z,ψ), aux.z, "Havercamp")
+    aux.κ = hydraulic_conductivity2(K_sat, ψ, n, α)
+    #aux.κ = hydraulic_conductivity(K_sat,S_l,ψ, aux.z, "Havercamp")
 #    aux.κ = ksat_function(K_sat,hydraulic_head(aux.z,ψ), aux.z)
     #aux.θl = hydraulic_head(aux.z,aux.ψ)
 end

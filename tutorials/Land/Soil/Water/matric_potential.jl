@@ -17,20 +17,25 @@ function matric_potential(flag,S_l)
     #   m = 1-1/n                ! van Genuchten - exponent
     #   alpha                    ! van Genuchten - inverse reference potential (m-1)
    # if flag == "van Genuchten"
-        alpha = 2.6 # m-1
-        n = 1.43
-        M = 1 - 1/n
+        #alpha = 0.5 # m-1
+        #n = 2.0
+        M = 1.0 - 1.0/n
    # elseif flag == "Brooks and Corey"
     # Soil Matric potential - "Brooks and Corey"
    #     alpha = 0.02 # m-1
    #     n = 5
    #     M = 1 - 1/n
    # end
-
+    #Se = (1 + (α * abs(ψ))^n)^-m
+    #Se = (1 + (α * abs(ψ))^n)^-m
     # Theta(T) = temperature dependence on conductivity
     #if flag == "van Genuchten"
-    if S_l < 1
-        ψ_m = -alpha^-1 * S_l^(-1/(n*M)) * (1-S_l^(1/M))^(1/n)
+    #@show S_l
+    if S_l <=0
+        ψ_m = -1e30;
+    elseif S_l < 1
+        ψ_m = (-(-(1 - S_l^(-1.0/M)) * α^(-n))^(1/n))
+        #ψ_m = (-alpha^-1 * S_l^(-1/(n*M)) * (1-S_l^(1/M))^(1/n))/100.0
     else
         ψ_m = 0
     end

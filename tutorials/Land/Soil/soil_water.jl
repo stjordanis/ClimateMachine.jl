@@ -30,6 +30,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using DelimitedFiles
 
+using Revise
 #using Logging
 #using Printf
 #using NCDatasets
@@ -92,17 +93,22 @@ mineral_properties = "Clay"
 #theta_ice_0 = 0 # Read in from water model {state.θi}
 #h_0 = -30 # Read in from water model {state.θ}
 #ψ_0 = -20 # Soil pressure head {aux.h}
-K_sat  = 0.0443 / (3600*100)
-porosity = 0.495 # Read in from data base
-S_s = 10e-4  # [ m-1] ## Check this value !!
-flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
-ν_0 = 0.24
-ν_surface = porosity-1e-3
+const K_sat  = 0.443 / (3600*100)
+const porosity = 0.495 # Read in from data base
+const S_s = 10e-4  # [ m-1] ## Check this value !!
+const flag = "van Genuchten"
+const α=1.0
+const n=1.23
+#flag = "Brooks and Corey"
+#flag = "Havercamp"
+ # "van Genuchten" , "Brooks and Corey"
+ν_0 = 0.34
+ν_surface = porosity#-0.01
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_0 = pressure_head(S_l_0,porosity,S_s,ν_0,flag)
 println(ψ_0)
-κ_0 = hydraulic_conductivity(K_sat, S_l_0, ψ_0,0, "Havercamp")# only tested havercamp so far. van Genuchten required very small time step and still had Domain error. Note that this function is called in the solver too, since κ is an auxilary variable. we can think about this, non ideal to define it in both places, also per Elias may not be ideal to have κ be auxiliary.
-
+#κ_0 = hydraulic_conductivity(K_sat, S_l_0, ψ_0,0, flag)# only tested havercamp so far. van Genuchten required very small time step and still had Domain error. Note that this function is called in the solver too, since κ is an auxilary variable. we can think about this, non ideal to define it in both places, also per Elias may not be ideal to have κ be auxiliary.
+κ_0 = hydraulic_conductivity2(K_sat, ψ_0,  n, α)
 #This is implemented in hydraulic_conductivity now, with flag "Havercamp".
 #function ksat_function(K_sat, head,zed)
 #    return K_sat*124.6/(124.6+abs(100*(head-zed))^1.77)
@@ -161,8 +167,8 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 # Minimum spatial and temporal steps
 Δ = min_node_distance(driver_config.grid)
 τ = (Δ^2 /K_sat)
-dt = 0.01*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
-
+dt = 0.002*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
+@show dt
 
 # Define time variables
 const minute = 60
@@ -195,7 +201,7 @@ aux = solver_config.dg.state_auxiliary;
 # # Solver hooks / callbacks
 
 # Define the number of outputs from `t0` to `timeend`
-const n_outputs = 5;
+const n_outputs = 50;
 
 # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
@@ -275,16 +281,16 @@ z_label = "z [cm]"
 #What is get_z - how does this map the grid to z_scale? Just a scalar?
 z = get_z(mygrid, z_scale)
 
-output_dir = @__DIR__
-export_plot(
-    z,
-    all_data,
-    ("ν",),
-    joinpath(output_dir, "foo.png"),
-    z_label,
-);
-
-
-open("./final_step.txt", "w") do io
-    writedlm(io, all_data[n_outputs])
-end
+#output_dir = @__DIR__
+#export_plot(
+#    z,
+#    all_data,
+#    ("ν",),
+#    joinpath(output_dir, "foo.png"),
+#    z_label,
+#);
+#
+#
+#open("./final_step.txt", "w") do io
+#    writedlm(io, all_data[n_outputs])
+#end

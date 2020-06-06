@@ -17,7 +17,7 @@ function pressure_head(S_l,porosity,S_s,theta_l,flag)
     if S_l < 1
     	#println(S_l)
         ψ = matric_potential(flag,S_l)
-    elseif S_l >= 1
+    else
     	#println(S_l)
         ψ = (theta_l - porosity) / S_s
     end
