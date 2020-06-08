@@ -3,7 +3,7 @@
 using Parameters 
 abstract type AbstractHydraulicsModel end
 
-Base.@kwdef struct vanGenuchten{FT} <: AbstractHydrauliConductivityModel
+Base.@kwdef struct vanGenuchten{FT} <: AbstractHydraulicsModel
     "comment here"
     n::FT = FT(2)
     "comment here"
@@ -29,14 +29,18 @@ function matric_potential(mod::vanGenuchten,S_l)
     @unpack n,m,α = mod;
     if S_l <=0
         ψ_m = -1e30;
-    elseif S_l < 1
+    elseif S_l <= 1
         ψ_m = -((S_l^(-1 / m)-1) * α^(-n))^(1 / n)
         #ψ_m = (-alpha^-1 * S_l^(-1/(n*M)) * (1-S_l^(1/M))^(1/n))
     else
         ψ_m = 0
     end
-
     return ψ_m
+end
+
+function saturation_from_potential(mod::vanGenuchten,ψ)
+    @unpack n,m,α = mod;
+    (1 + (α * abs(ψ))^n)^(-m);
 end
 
 function hydraulic_conductivity2(K_sat, ψ,  n, α)
