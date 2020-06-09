@@ -1,5 +1,5 @@
 " van Genuchten expression for hydraulic conductivity:"
-function hydraulic_conductivity!(mod::vanGenuchten, K_sat::FT, S_l::FT, head::FT, z::FT)
+function hydraulic_conductivity(mod::vanGenuchten, K_sat::FT, S_l::FT, head::FT, z::FT)
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of length. Also a function of state, aux
@@ -20,7 +20,7 @@ end
 
 
 " Brooks and Corey expression for hydraulic conductivity:"
-function hydraulic_conductivity!(mod::BrooksCorey, K_sat::FT, S_l::FT, head::FT, z::FT)
+function hydraulic_conductivity(mod::BrooksCorey, K_sat::FT, S_l::FT, head::FT, z::FT)
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of length. Also a function of state, aux
@@ -40,7 +40,7 @@ function hydraulic_conductivity!(mod::BrooksCorey, K_sat::FT, S_l::FT, head::FT,
 end
 
 " Havercamp expression for hydraulic conductivity:"
-function hydraulic_conductivity!(mod::Havercamp, K_sat::FT, S_l::FT, head::FT, z::FT)
+function hydraulic_conductivity(mod::Havercamp, K_sat::FT, S_l::FT, head::FT, z::FT)
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of meters. Also a function of state, aux
