@@ -25,7 +25,7 @@ function hydraulic_conductivity(mod::BrooksCorey, K_sat::FT, S_l::FT, head::FT, 
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of length. Also a function of state, aux
     #  z  = vertical coordinate, units of length - function of aux
-    @unpack n,m = mod
+    @unpack ψb, m = mod
     FT = typeof(K_sat)
     if S_l < 1.0
         if S_l <= 0.0
