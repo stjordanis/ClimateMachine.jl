@@ -1,6 +1,7 @@
-# # This is a tutorial showing
-# # - how to run the Soil Moisture model (Richard's Equation)
-# # - how to change between a van Genuchten hydraulic model and a Havercamp hydraulic model.
+# # Running the Richard's equation code.
+# This is a tutorial showing
+# - how to run the Soil Moisture model (Richard's Equation)
+# - how to change between a van Genuchten hydraulic model and a Havercamp hydraulic model.
 # The files used are: soil_water_test.jl (the only one you should need to modify), soil_water_model_test.jl (where the boundary conditions are specified, where the balance law is defined), and where the hydraulic model functions and auxiliary functions are defined (Water/water_functions.jl, Water/hydraulic_conductivity_composable.jl, and Water/matric_potential_composable.jl).
 #
 
@@ -71,3 +72,6 @@ WF = waterfunctions(
 
 # There is also the option to use the Brooks and Corey hydraulic model, but it isn't likely that we will use this in CliMA.
 
+#----------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
