@@ -8,21 +8,36 @@ end
 # Specify parameters of them here.
 
 abstract type AbstractHydraulicsModel end
-Base.@kwdef struct vanGenuchten{FT} <: AbstractHydraulicsModel
+#Base.@kwdef struct vanGenuchten{FT} <: AbstractHydraulicsModel
+#    "n - exponent; that then determines the exponent m used in the model."
+#    n::FT = FT(1.43);
+#    m::FT = FT(1.0-1.0/n);
+#    " alpha  - inverse of this carries units in the expression for matric potential "
+#    α::FT = FT(2.6) # inverse meterse
+#end
+
+struct vanGenuchten{FT} <: AbstractHydraulicsModel
+    "Yolo light clay"
     "n - exponent; that then determines the exponent m used in the model."
-    n::FT = FT(1.43);
-    m::FT = FT(1.0-1.0/n);
-    " alpha  - inverse of this carries units in the expression for matric potential "
-    α::FT = FT(2.6) # inverse meterse
+     " alpha  - inverse of this carries units in the expression for matric potential (specify in inverse meters)"
+    n::FT 
+    α::FT
+    m::FT
+    function vanGenuchten{FT}(;n::FT = FT(1.43), α::FT = FT(2.6))
+        new(n, α, FT(1.0-1.0/n))
+    end
 end
 
+
+    
 Base.@kwdef struct BrooksCorey{FT} <: AbstractHydraulicsModel
-    "m - exponent; ψb - units. TBD the representative value"
-    ψb::FT = FT(0.0);
-    m::FT = FT(1.0-1.0/n);
+    "m - exponent; ψb - units. Slightly fudged m to better match Havercamp and VG at α=2.0 and n = 2.1."
+    ψb::FT = FT(0.1656);# in meters
+    m::FT = FT(0.5); #
 end
 
 Base.@kwdef struct Havercamp{FT} <: AbstractHydraulicsModel
+    "Yolo light clay"
     "exponent"
     k::FT = FT(1.77);
     "constant A"
