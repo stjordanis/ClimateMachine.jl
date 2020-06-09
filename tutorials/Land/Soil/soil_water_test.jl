@@ -71,7 +71,7 @@ include("Water/water_functions.jl")
 include("Water/matric_potential_composable.jl")
 include("Water/hydraulic_conductivity_composable.jl")
 WF = waterfunctions(
-    hydraulic_cond = Havercamp{FT}(),
+    hydraulic_cond = vanGenuchten{FT}(),
     matric_pot = vanGenuchten{FT}()
 )
 
@@ -97,7 +97,7 @@ S_s = 10e-4  # [ m-1] ## Check this value !!
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_0 = pressure_head(WF.matric_pot,S_l_0,porosity,S_s,ν_0)
 println(ψ_0)
-κ_0 = hydraulic_conductivity!(WF.hydraulic_cond, K_sat, S_l_0, ψ_0,0.0)
+κ_0 = hydraulic_conductivity(WF.hydraulic_cond, K_sat, S_l_0, ψ_0,0.0)
 
 
 # Load Soil Model in 'm'

@@ -59,7 +59,7 @@ function pressure_head(mod::AbstractHydraulicsModel, S_l,porosity,S_s,theta_l)
 #   ψ                        ! Soil pressure head [m]
 # ------------------------------------------------------
     if S_l < 1
-        ψ = matric_potential!(mod, S_l)
+        ψ = matric_potential(mod, S_l)
     else
         ψ = (theta_l - porosity) / S_s
     end

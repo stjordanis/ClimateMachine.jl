@@ -1,5 +1,5 @@
 " van Genuchten expression for matric potential. Also to be used with Havercamp conductivity. "
-function matric_potential!(mod::vanGenuchten, S_l::FT)
+function matric_potential(mod::vanGenuchten, S_l::FT)
   #  S_l(ν) = effective saturation
     @unpack n, m, α = mod;
     FT = typeof(S_l)
@@ -15,7 +15,7 @@ function matric_potential!(mod::vanGenuchten, S_l::FT)
 end
 
 " Brooks and Corey expression for matric potential:"
-function matric_potential!(mod::BrooksCorey, S_l::FT)
+function matric_potential(mod::BrooksCorey, S_l::FT)
   #  S_l(ν) = effective saturation. This needs to be confirmed.
     @unpack ψb, m = mod;
     FT = typeof(S_l)
