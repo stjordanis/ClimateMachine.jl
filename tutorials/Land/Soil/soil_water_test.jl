@@ -1,9 +1,6 @@
 # --------------------------------- run CLIMA SOIL MODEL -----------------------
 # CLIMA_run_SoilWater.jl: This model simulates soil water dynamics for the CliMA model
 
-######
-###### 1) Import/Export Needed Functions
-######
 println("1) Import/Export Needed Functions")
 
 # Load necessary CliMA subroutines
@@ -12,10 +9,11 @@ using OrderedCollections
 using Plots
 using StaticArrays
 using CLIMAParameters
+using DocStringExtensions
+using CLIMAParameters.Planet: day
 struct EarthParameterSet <: AbstractEarthParameterSet end
-const my_param_set = EarthParameterSet()
+const param_set = EarthParameterSet()
 
-#using Test
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -31,28 +29,8 @@ using ClimateMachine.SingleStackUtils
 using DelimitedFiles
 using Parameters
 
-#using Logging
-#using Printf
-#using NCDatasets
-
-#import ClimateMachine.DGMethods:
-#    vars_state_auxiliary,
-#    vars_state_conservative,
-#    vars_state_gradient,
-#    vars_state_gradient_flux,
-#    source!,
-#    flux_second_order!,
-#    flux_first_order!,
-#    compute_gradient_argument!,
-#    compute_gradient_flux!,
-#    update_auxiliary_state!,
-#    nodal_update_auxiliary_state!,
-#    init_state_auxiliary!,
-#    init_state_conservative!,
-#    boundary_state!
-
-# ENV["GKS_ENCODING"] = "utf-8"
 FT = Float64
+
 # Initialize CliMA
 ClimateMachine.init(; disable_gpu = true);
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
@@ -68,41 +46,51 @@ include("soil_water_model_test.jl")
 
 # Add water functions
 include("Water/water_functions.jl")
-include("Water/matric_potential_composable.jl")
-include("Water/hydraulic_conductivity_composable.jl")
+
+# Determine formulation to use for K and ψ_m
 WF = waterfunctions(
     hydraulic_cond = vanGenuchten{FT}(),
     matric_pot = vanGenuchten{FT}()
 )
 
-# Define time variables
+# Define time variables --- update CLima Parameters package
 const minute = 60
 const hour = 60*minute
-const day = 24*hour
+_day = FT(day(param_set))
 
-######
-###### 2) Set up system
-######
-println("2) Set up system...")
-
-# Read in state variables and data. to be specified using a soil parameters struct and treated as an attribute of the model.
-mineral_properties = "Clay"
-K_sat  = 0.0443 / (3600*100)
+# Move into CLima Parameters package or call it if it already exists like example above with _day
+rho_l = 997 # kg m-3, density of water
+rho_i = 917 # kg m-3, density of ice # EXISTS
+T_f = 273.15 # K, freezing temperature
+Omega = 7 # Impedence parameter, from Hansson et al. (2004)
+T1 = 507.88 # K
+T2 = 149.3 # K
+soil_Tref = 288 # K
+S_s = 10e-4  # [ m-1]
+K_sat  = 0.0443 / (3600*100) # "Clay"
+#K_sat  = 34 / (3600*100) # "Sand"
 porosity = 0.495 # Read in from data base
-S_s = 10e-4  # [ m-1] ## Check this value !!
+#n = 1.43
+#α = 2.6
 
-#IC/BC values  - to be specified/calculated via a BC/IC struct, and treated as an attribute of the model.
+println("2) Prep ICs, and time-stepper and output configurations...")
+# Configure a `ClimateMachine` solver.
+const timeend = FT(1*hour)
+const t0 = FT(0)
+
+println("3) Set up system...")
+# Read in state variables and data. To be specified using a soil parameters struct and treated as an attribute of the model.
+
+#IC/BC values - to be specified/calculated via a BC/IC struct, and treated as an attribute of the model.
 ν_0 = 0.24
 ν_surface = porosity-1e-3
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_0 = pressure_head(WF.matric_pot,S_l_0,porosity,S_s,ν_0)
-println(ψ_0)
 κ_0 = hydraulic_conductivity(WF.hydraulic_cond, K_sat, S_l_0, ψ_0,0.0)
-
 
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
-    param_set = my_param_set,
+    param_set = param_set,
     WF = WF,
     # Define hydraulic conductivity of soil
     initialκ   = (aux) -> κ_0,
@@ -110,13 +98,10 @@ m = SoilModelMoisture(
     initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
     surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
     initialh = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
+    #initialψ_m = (aux) -> ψ_0
 )
 
-######
-###### 3) Define variables for simulation
-######
-println("3) Define variables for simulation...") # move up
-
+println("4) Define variables for simulation...") # move up
 
 # # Spatial discretization
 
@@ -136,7 +121,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     N_poly,
     nelem_vert,
     zmax,
-    my_param_set,
+    param_set,
     m;
     zmin = FT(-1),
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
@@ -145,18 +130,8 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 # Minimum spatial and temporal steps
 Δ = min_node_distance(driver_config.grid)
 τ = (Δ^2 /K_sat)
-dt = 6#0.002*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
+dt = 1#0.002*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
 
-
-
-
-######
-###### 4) Prep ICs, and time-stepper and output configurations
-######
-println("4) Prep ICs, and time-stepper and output configurations...")
-# # Configure a `ClimateMachine` solver.
-const timeend = FT(1*day)
-const t0 = FT(0)
 
 # This initializes the state vector and allocates memory for the solution in
 # space (`dg` has the model `m`, which describes the PDEs as well as the
@@ -174,7 +149,7 @@ aux = solver_config.dg.state_auxiliary;
 # # Solver hooks / callbacks
 
 # Define the number of outputs from `t0` to `timeend`
-const n_outputs = 5;
+const n_outputs = 1;
 
 # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
@@ -246,7 +221,6 @@ all_data[n_outputs] = all_vars
 @show keys(all_data[0])
 
 # Let's plot the solution:
-####
 
 z_scale = 100 # convert from meters to cm
 z_key = "z"
