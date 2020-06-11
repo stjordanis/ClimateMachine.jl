@@ -1,13 +1,34 @@
-abstract type AbstractWater end
-Base.@kwdef struct waterfunctions{HC, MP} <: AbstractWater
-    hydraulic_cond::HC     = vanGenuchten{FT}()
-    matric_pot::MP = vanGenucthen{FT}()
+#### Water function
+
+abstract type AbstractWater{FT<:AbstractFloat} end
+abstract type AbstractHydraulicsModel{FT<:AbstractFloat} end
+
+const AHM = AbstractHydraulicsModel
+
+"""
+    waterfunctions{FT, HC, MP} <: AbstractWater{FT}
+
+Please document
+"""
+Base.@kwdef struct waterfunctions{FT, HC, MP} <: AbstractWater{FT}
+    hydraulic_cond::HC = vanGenuchten{FT}()
+    matric_pot::MP = vanGenuchten{FT}()
 end
+
+function waterfunctions(;
+    hydraulic_cond::AHM{FT} = vanGenuchten{FT}(),
+    matric_pot::AHM{FT} = vanGenuchten{FT}()
+    ) where {FT}
+    return waterfunctions{FT,
+        typeof(hydraulic_cond),
+        typeof(matric_pot)
+        }(hydraulic_cond, matric_pot)
+end
+
 
 # Three possible models to use for matric potential and hydraulic conductivity.
 # Specify parameters of them here.
 
-abstract type AbstractHydraulicsModel end
 #Base.@kwdef struct vanGenuchten{FT} <: AbstractHydraulicsModel
 #    "n - exponent; that then determines the exponent m used in the model."
 #    n::FT = FT(1.43);
@@ -16,71 +37,116 @@ abstract type AbstractHydraulicsModel end
 #    α::FT = FT(2.6) # inverse meterse
 #end
 
-struct vanGenuchten{FT} <: AbstractHydraulicsModel
-    "Yolo light clay"
+"""
+    vanGenuchten{FT} <: AbstractHydraulicsModel{FT}
+
+parameters for Yolo light clay
+"""
+struct vanGenuchten{FT} <: AbstractHydraulicsModel{FT}
     "n - exponent; that then determines the exponent m used in the model."
-     " alpha  - inverse of this carries units in the expression for matric potential (specify in inverse meters)"
-    n::FT 
+    n::FT
+    "inverse of this carries units in the expression for matric potential (specify in inverse meters)"
     α::FT
+    "Exponent parameter"
     m::FT
     function vanGenuchten{FT}(;n::FT = FT(1.43), α::FT = FT(2.6))
-        new(n, α, FT(1.0-1.0/n))
+        new(n, α, 1-1/FT(n))
     end
 end
 
-Base.@kwdef struct BrooksCorey{FT} <: AbstractHydraulicsModel
-    "m - exponent; ψb - units. Slightly fudged m to better match Havercamp and VG at α=2.0 and n = 2.1."
-    ψb::FT = FT(0.1656);# in meters
-    m::FT = FT(0.5); #
+"""
+    BrooksCorey{FT} <: AbstractHydraulicsModel{FT}
+
+Please document
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+Base.@kwdef struct BrooksCorey{FT} <: AbstractHydraulicsModel{FT}
+    "m - exponent; ψb - units. Slightly fudged m to better match Havercamp and VG at α=2.0 and n = 2.1. (meters)"
+    ψb::FT = FT(0.1656);
+    "Please document"
+    m::FT = FT(0.5);
 end
 
-Base.@kwdef struct Haverkamp{FT} <: AbstractHydraulicsModel
-    "Yolo light clay"
-    "exponent"
+"""
+    Haverkamp{FT} <: AbstractHydraulicsModel{FT}
+
+Please document
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+Base.@kwdef struct Haverkamp{FT} <: AbstractHydraulicsModel{FT}
+    "exponent for Yolo light clay"
     k::FT = FT(1.77);
-    "constant A"
-    A::FT = FT(124.6/100.0^k) # cm^k. Our sim is in meters - convert
-    "constant B"
-    B::FT = FT(124.6/100.0^k) # cm^k. Our sim is in meters - convert.
+    "constant A cm^k. Our sim is in meters - convert"
+    A::FT = FT(124.6/100.0^k)
+    "constant B cm^k. Our sim is in meters - convert."
+    B::FT = FT(124.6/100.0^k)
 end
 
 ##General functions
 
-function hydraulic_head(z,ψ)
-    h = z + ψ
-    return h
-end
+hydraulic_head(z,ψ) = z + ψ
 
-function pressure_head(mod::AbstractHydraulicsModel, S_l,porosity,S_s,theta_l)
+"""
+    pressure_head(
+            model::AbstractHydraulicsModel{FT},
+            S_l::FT,
+            porosity::FT,
+            S_s::FT,
+            θ_l::FT
+        ) where {FT}
+
+Please document
+"""
+function pressure_head(
+        model::AbstractHydraulicsModel{FT},
+        S_l::FT,
+        porosity::FT,
+        S_s::FT,
+        θ_l::FT
+    ) where {FT}
     if S_l < 1
-        ψ = matric_potential(mod, S_l)
+        ψ = matric_potential(model, S_l)
     else
-        ψ = (theta_l - porosity) / S_s
+        ψ = (θ_l - porosity) / S_s
     end
     return ψ
 end
 
-function effective_saturation(porosity,theta_l)
-    S_l = theta_l / porosity
-    return S_l
-end
+effective_saturation(porosity::FT, θ_l::FT) where {FT} = θ_l / porosity
 
-" 
+"
+    hydraulic_conductivity(
+            model::vanGenuchten{FT},
+            K_sat::FT,
+            S_l::FT,
+            head::FT,
+            z::FT
+        ) where {FT}
+
 van Genuchten expression for hydraulic conductivity
-
 "
-function hydraulic_conductivity(mod::vanGenuchten, K_sat::FT, S_l::FT, head::FT, z::FT)
+function hydraulic_conductivity(
+        model::vanGenuchten{FT},
+        K_sat::FT,
+        S_l::FT,
+        head::FT,
+        z::FT
+    ) where {FT}
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of length. Also a function of state, aux
     #  z  = vertical coordinate, units of length - function of aux
-    @unpack n, m = mod;
-    FT = typeof(K_sat)
-    if S_l < 1.0
-        if S_l <= 0.0
-            K = FT(0.0)
+    @unpack n, m = model;
+
+    if S_l < 1
+        if S_l <= 0
+            K = FT(0)
         else
-            K = K_sat*sqrt(S_l)*(1.0-(1.0-S_l^(1.0/m))^m)^2.0
+            K = K_sat*sqrt(S_l)*(1-(1-S_l^(1/m))^m)^2
         end
     else
         K = K_sat
@@ -90,21 +156,34 @@ end
 
 
 "
+    hydraulic_conductivity(
+            model::BrooksCorey{FT},
+            K_sat::FT,
+            S_l::FT,
+            head::FT,
+            z::FT
+        ) where {FT}
+
 Brooks and Corey expression for hydraulic conductivity
-
 "
-function hydraulic_conductivity(mod::BrooksCorey, K_sat::FT, S_l::FT, head::FT, z::FT)
+function hydraulic_conductivity(
+        model::BrooksCorey{FT},
+        K_sat::FT,
+        S_l::FT,
+        head::FT,
+        z::FT
+        ) where {FT}
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of length. Also a function of state, aux
     #  z  = vertical coordinate, units of length - function of aux
-    @unpack ψb, m = mod
-    FT = typeof(K_sat)
-    if S_l < 1.0
-        if S_l <= 0.0
-            K = FT(0.0)
+    @unpack ψb, m = model
+
+    if S_l < 1
+        if S_l <= 0
+            K = FT(0)
         else
-            K = K_sat*S_l^(2.0*mod.m+3.0)
+            K = K_sat*S_l^(2 * model.m + 3)
         end
     else
         K = K_sat
@@ -112,20 +191,34 @@ function hydraulic_conductivity(mod::BrooksCorey, K_sat::FT, S_l::FT, head::FT, 
     return K
 end
 
-" 
-Haverkamp expression for hydraulic conductivity
-
 "
-function hydraulic_conductivity(mod::Haverkamp, K_sat::FT, S_l::FT, head::FT, z::FT)
+    hydraulic_conductivity(
+            model::Haverkamp{FT},
+            K_sat::FT,
+            S_l::FT,
+            head::FT,
+            z::FT
+        ) where {FT}
+
+Haverkamp expression for hydraulic conductivity
+"
+function hydraulic_conductivity(
+        model::Haverkamp{FT},
+        K_sat::FT,
+        S_l::FT,
+        head::FT,
+        z::FT
+    ) where {FT}
+
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
   #  head = hydraulic head, units of meters. Also a function of state, aux
     #  z  = vertical coordinate, units of meters - function of aux
-    @unpack k, A, B = mod
-    FT = typeof(K_sat)
+    @unpack k, A, B = model
+
     if S_l<1
         if S_l <= 0
-            K = FT(0.0)
+            K = FT(0)
         else
             K = K_sat*A/(B+abs(head-z)^k)
         end
@@ -135,17 +228,25 @@ function hydraulic_conductivity(mod::Haverkamp, K_sat::FT, S_l::FT, head::FT, z:
     return K
 end
 
-" 
-van Genuchten expression for matric potential. Also to be used with Haverkamp conductivity
-
 "
-function matric_potential(mod::vanGenuchten, S_l::FT)
+    matric_potential(
+            model::vanGenuchten{FT},
+            S_l::FT
+        ) where {FT}
+
+van Genuchten expression for matric potential. Also to be used with Haverkamp conductivity
+"
+function matric_potential(
+        model::vanGenuchten{FT},
+        S_l::FT
+    ) where {FT}
   #  S_l(ν) = effective saturation
-    @unpack n, m, α = mod;
-    FT = typeof(S_l)
+    @unpack n, m, α = model;
+
+    S_l = max(S_l, FT(0))
     if S_l <=0
         ψ_m = -1e30;
-    elseif S_l <= 1
+    elseif  S_l <= 1
         ψ_m = -((S_l^(-1 / m)-1) * α^(-n))^(1 / n)
         #ψ_m = (-alpha^-1 * S_l^(-1/(n*M)) * (1-S_l^(1/M))^(1/n))
     else
@@ -154,18 +255,25 @@ function matric_potential(mod::vanGenuchten, S_l::FT)
     return ψ_m
 end
 
-" 
-Brooks and Corey expression for matric potential
-
 "
-function matric_potential(mod::BrooksCorey, S_l::FT)
-  #  S_l(ν) = effective saturation. This needs to be confirmed.
-    @unpack ψb, m = mod;
-    FT = typeof(S_l)
+    matric_potential(
+            model::BrooksCorey{FT},
+            S_l::FT
+        ) where {FT}
+
+Brooks and Corey expression for matric potential
+"
+function matric_potential(
+        model::BrooksCorey{FT},
+        S_l::FT
+    ) where {FT}
+    #  S_l(ν) = effective saturation. This needs to be confirmed.
+    @unpack ψb, m = model;
+
     if S_l <=0
         ψ_m = -1e30;
     elseif S_l <= 1
-        ψ_m = -ψb*S_l^(-1.0/m)
+        ψ_m = -ψb*S_l^(-1/m)
     else
         ψ_m = ψb
     end
@@ -176,9 +284,9 @@ end
 # Conversion of liquid water to ice by freezing
 
 # "
-# function calculate_frozen_water(theta_liq,theta_ice,T)
+# function calculate_frozen_water(θ_liq,theta_ice,T)
 #     tao_FT = 2e2 #  = max( dt , CFL_bound ), dt = 100 (s) ,  CFL_bound = 200 (s)
-#     F_T = ( rho_l*theta_liq*heaviside( (T_f-T) )  - rho_i*theta_ice*heaviside( (T-T_f) ) ) / tao_FT
+#     F_T = ( rho_l*θ_liq*heaviside( (T_f-T) )  - rho_i*theta_ice*heaviside( (T-T_f) ) ) / tao_FT
 #     return F_T
 # end
 
@@ -192,7 +300,7 @@ end
 #     return Gamma_thetai
 # end
 
-# " 
+# "
 # Heaviside function
 
 # "
@@ -201,7 +309,7 @@ end
 #     return Hside
 # end
 
-# " 
+# "
 # Expression for temperature dependence of hydraulic conductivity
 
 # "

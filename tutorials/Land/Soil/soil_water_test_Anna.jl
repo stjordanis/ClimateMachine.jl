@@ -9,8 +9,11 @@ using OrderedCollections
 using Plots
 using StaticArrays
 using CLIMAParameters
+using DocStringExtensions
+using CLIMAParameters.Planet: day
 struct EarthParameterSet <: AbstractEarthParameterSet end
-const my_param_set = EarthParameterSet()
+const param_set = EarthParameterSet()
+
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -42,7 +45,7 @@ mkpath(output_dir)
 include("soil_water_model_test.jl")
 
 # Add water functions
-include("Water/water_functions.jl")
+include("Water/water_functions_Anna.jl")
 
 # Determine formulation to use for K and ψ_m
 WF = waterfunctions(
@@ -53,7 +56,7 @@ WF = waterfunctions(
 # Define time variables --- update CLima Parameters package
 const minute = 60
 const hour = 60*minute
-const day = 24*hour
+_day = FT(day(param_set))
 
 # Move into CLima Parameters package
 
@@ -88,7 +91,7 @@ S_l_0 = effective_saturation(porosity, ν_0)
 
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
-    param_set = my_param_set,
+    param_set = param_set,
     WF = WF,
     # Define hydraulic conductivity of soil
     initialκ   = (aux) -> κ_0,
@@ -119,7 +122,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     N_poly,
     nelem_vert,
     zmax,
-    my_param_set,
+    param_set,
     m;
     zmin = FT(-1),
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
