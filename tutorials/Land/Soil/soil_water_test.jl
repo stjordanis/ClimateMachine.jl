@@ -49,7 +49,7 @@ include("Water/water_functions.jl")
 
 # Determine formulation to use for K and ψ_m
 WF = waterfunctions(
-    hydraulic_cond = vanGenuchten{FT}(),
+    hydraulic_cond = Haverkamp{FT}(),
     matric_pot = vanGenuchten{FT}()
 )
 
@@ -75,13 +75,11 @@ porosity = 0.495 # Read in from data base
 
 println("2) Prep ICs, and time-stepper and output configurations...")
 # Configure a `ClimateMachine` solver.
-const timeend = FT(1*hour)
+const timeend = FT(1*_day)
 const t0 = FT(0)
 
 println("3) Set up system...")
-# Read in state variables and data. To be specified using a soil parameters struct and treated as an attribute of the model.
-
-#IC/BC values - to be specified/calculated via a BC/IC struct, and treated as an attribute of the model.
+#IC/BC values
 ν_0 = 0.24
 ν_surface = porosity-1e-3
 S_l_0 = effective_saturation(porosity, ν_0)
@@ -92,13 +90,11 @@ S_l_0 = effective_saturation(porosity, ν_0)
 m = SoilModelMoisture(
     param_set = param_set,
     WF = WF,
-    # Define hydraulic conductivity of soil
     initialκ   = (aux) -> κ_0,
-    # Define initial soil moisture
-    initialν = (state, aux) -> ν_0, #theta_liq_0, # [m3/m3] constant water content in soil, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287,
-    surfaceν = (state, aux, t) -> ν_surface, #theta_liq_surface, # [m3/m3] constant flux at surface, from Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
-    initialh = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
-    #initialψ_m = (aux) -> ψ_0
+    initialν = (state, aux) -> ν_0, 
+    surfaceν = (state, aux, t) -> ν_surface,
+    initialh = (aux) -> aux.z + ψ_0 
+
 )
 
 println("4) Define variables for simulation...") # move up
@@ -111,9 +107,9 @@ N_poly = 5;
 # Specify the number of vertical elements
 nelem_vert = 10;
 
-# Specify the domain height
+# Specify the domain boundaries
 zmax = FT(0);
-
+zmin = FT(-1)
 
 # Establish a `ClimateMachine` single stack configuration
 driver_config = ClimateMachine.SingleStackConfiguration(
@@ -123,14 +119,14 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     zmax,
     param_set,
     m;
-    zmin = FT(-1),
+    zmin = zmin,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
 );
 
 # Minimum spatial and temporal steps
 Δ = min_node_distance(driver_config.grid)
 τ = (Δ^2 /K_sat)
-dt = 1#0.002*τ #CFL_bound*0.5 # TODO: check if this is a reasonable expression
+dt = 6# TBD - make automatic
 
 
 # This initializes the state vector and allocates memory for the solution in
@@ -148,8 +144,8 @@ aux = solver_config.dg.state_auxiliary;
 
 # # Solver hooks / callbacks
 
-# Define the number of outputs from `t0` to `timeend`
-const n_outputs = 1;
+# Define the number of outputs from `t0` to `timeend`. Note that t = 0 is considered an output, so we will need to get the output after the integration is done as well.
+const n_outputs = 5;
 
 # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
@@ -225,7 +221,7 @@ all_data[n_outputs] = all_vars
 z_scale = 100 # convert from meters to cm
 z_key = "z"
 z_label = "z [cm]"
-#What is get_z - how does this map the grid to z_scale? Just a scalar?
+
 z = get_z(mygrid, z_scale)
 
 output_dir = @__DIR__

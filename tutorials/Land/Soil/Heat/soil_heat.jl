@@ -1,5 +1,5 @@
 # --------------------------------- run CLIMA SOIL MODEL -----------------------
-# CLIMA_run_SoilWater.jl: This model simulates soil water dynamics for the CliMA model
+# CLIMA_run_SoilHeat.jl: This model simulates soil heat dynamics for the CliMA model
 
 ######
 ###### 1) Import/Export Needed Functions
@@ -43,35 +43,24 @@ FT = Float64
 output_dir = joinpath(dirname(dirname(pathof(ClimateMachine))), "output", "land")
 mkpath(output_dir)
 
-# Add soil moisture model
-include("soil_model.jl")
-# Add heat functions
-include("Heat/thermal_properties.jl")
-include("Heat/kersten.jl")
-include("Heat/heat_capacity.jl")
-include("Heat/internal_energy.jl")
-include("Heat/temperature_calculator.jl")
-# Add water functions
-include("Water/soil_water_properties.jl")
-include("Water/frozen_impedence_factor.jl")
-include("Water/temperature_dependence.jl")
-include("Water/matric_potential.jl")
-include("Water/pressure_head.jl")
-include("Water/hydraulic_head.jl")
-include("Water/effective_saturation.jl")
-include("Water/augmented_liquid.jl")
-include("Water/calculate_frozen_water.jl")
-include("Water/heaviside.jl")
+# Add soil model
+include("soil_heat_model.jl")
+# Add other functions
+include(joinpath("Heat","thermal_properties.jl"))
+include(joinpath("Heat","kersten.jl"))
+include(joinpath("Heat","heat_capacity.jl"))
+include(joinpath("Heat","internal_energy.jl"))
+include(joinpath("Heat","temperature_calculator.jl"))
 
 ######
 ###### Include helper and plotting functions (to be refactored/moved into CLIMA src)
 ######
 
-include(joinpath("..","helper_funcs.jl"))
-include(joinpath("..","plotting_funcs.jl"))
+include("helper_funcs.jl")
+include("plotting_funcs.jl")
 
 # Read in real temperature data
-Real_Data_vector =  readdlm("tutorials/Land/Soil/Heat/T_desert_25N_25E.txt", '\t', FT, '\n')
+Real_Data_vector =  readdlm("tutorials/Land/Heat/T_desert_25N_25E.txt", '\t', FT, '\n')
 Real_Data_vector = [Real_Data_vector...]
 Real_Data_vector = collect(Real_Data_vector)
 
@@ -83,28 +72,16 @@ Real_time_data = collect(Real_time_data)
 # return a data structure that is a callable function
 Real_continuous_data = TimeContinuousData(Real_time_data, Real_Data_vector)
 
-
 ######
 ###### 2) Set up domain
 ######
 println("2) Set up domain...")
 
 # Read in state variables and data
-mineral_properties = "Clay"
-soil_T_0 = 275 # Read in from heat model {aux.T}
-soil_T_surface = 275 # Read in from heat model {aux.T}
-theta_liq_0 = 0.2 # Read in from water model {state.θ}
-theta_liq_surface = 0.2 # Read in from water model {state.θ}
-theta_ice_0 = 0 # Read in from water model {state.θi}
-porosity = 0.8 # Read in from data base
-
-soil_Tref = 282.42 # Soil reference temperature: annual mean temperature of site
-S_s = 10e-4  # [ m-1]
-flag = "van Genuchten" # "van Genuchten" , "Brooks and Corey"
-
-h_0 = -3 # Read in from water model {aux.h}
-ψ_0 = -1 # Soil pressure head {aux.ψ}
-
+theta_liquid_0 = 0.35 # Read in from water model {state.θ}
+theta_ice_0 = 0.05 # Read in from water model {state.θi}
+mineral_properties = "Sand" # Read in from data base
+porosity = 0.5 # Read in from data base
 
 # NOTE: this is using 5 vertical elements, each with a 5th degree polynomial,
 # giving an approximate resolution of 5cm
@@ -114,37 +91,23 @@ const N = 5 # Order of polynomial function between each element
 # Set domain using Stacked Brick
 grid = SingleStackGrid(MPI, velems, N, FT, Array)
 
-# Load Soil Model in 'm'
-m = SoilModels(
-     # Define hydraulic conductivity of soil
-     K_s   = (state, aux, t) ->   soil_water_properties(mineral_properties,aux.T,soil_Tref,state.θ,state.θi,porosity,aux.ψ,S_s,flag), #aux.T,state.θ,state.θi,aux.h
-    # K_s  = (state, aux, t) -> (1e-3*(0.34/(60*60))*1.175e6/((1.175e6+abs.(aux.h-aux.z)^4.74))), #(0.34)
-
-    # Define initial soil moisture
-    initialθ = (aux, t) -> theta_liq_0, # [m3/m3] constant water content in soil
-    surfaceθ = (state, aux, t) -> theta_liq_surface, # [m3/m3] constant flux at surface
-
-    # Define initial and boundary condition parameters
-    initialh = (aux, t) -> h_0, #100- aux.z  # [m3/m3] constant water content in soil
-
-    # Define initial and boundary condition parameters
-    initialψ = (aux, t) -> h_0 - aux.z, # [m3/m3] constant water content in soil
-
-    # Define initial and boundary condition parameters
-    initialθi = (aux, t) -> theta_ice_0,  #267 # [m3/m3] constant flux at surface
-
+# Define SoilModel struct
+m = SoilModel(
     # Define heat capacity of soil
-    ρc = (state, aux, t) ->  heat_capacity(mineral_properties,porosity,state.θ,state.θi ), # state.θ,state.θi
+     ρc = (state, aux, t) -> heat_capacity(mineral_properties,porosity,theta_liquid_0,theta_ice_0 ), # state.θ,state.θi
+    # ρc = (state, aux, t) ->  aux.z > -0.5 ? 2.49e6 : 2.61e6,
 
     # Define thermal conductivity of soil
-    κ   = (state, aux, t) ->   thermal_properties(mineral_properties,porosity,state.θ,state.θi), # state.θ,state.θi
+     κ   = (state, aux, t) ->   thermal_properties(mineral_properties,theta_liquid_0,theta_ice_0), # state.θ,state.θi
+    # κ  = (state, aux, t) ->  aux.z > -0.5 ? 2.42 : 1.17,
 
     # Define initial temperature of soil
-    initialT= (aux, t) -> soil_T_0, # [m3/m3] constant water content in soil
+    initialT = (aux, t) -> (273.15 + 12.0),
 
     # Define surface boundary condition
-    surfaceT = (state, aux, t) ->  soil_T_surface# Real_continuous_data(t) # replace with T_data
-
+    #surfaceT = (state, aux, t) -> (273.15 + 12.0) + 0.5*10.0 * sinpi(2*(t/(60*60)-8)/24)
+    #surfaceT = (state, aux, t) -> (273.15 + 12.0) + 250*(1/sqrt(2*pi*10^2))*exp( -((t/(60*60)-24)^2)/(2*10^2) )
+    surfaceT = (state, aux, t) -> Real_continuous_data(t) # replace with T_data
 )
 
 # Set up DG scheme
@@ -159,6 +122,7 @@ dg = DGModel( #
 Δ = min_node_distance(grid)
 CFL_bound = (Δ^2 / (2 * 2.42/2.49e6))
 dt = CFL_bound*0.5 # TODO: provide a "default" timestep based on  Δx,Δy,Δz
+
 
 ######
 ###### 3) Define variables for simulation
@@ -175,14 +139,13 @@ const timeend = 5*hour
 
 # Output frequency:
 # const every_x_simulation_time = ceil(Int, timeend/n_outputs)
-const every_x_simulation_time = 30*minute
+const every_x_simulation_time = 1*hour
 
 
 ######
 ###### 4) Prep ICs, and time-stepper and output configurations
 ######
 println("4) Prep ICs, and time-stepper and output configurations...")
-
 
 # state variable
 Q = init_ode_state(dg, Float64(0))
@@ -195,12 +158,11 @@ mkpath(output_dir)
 dims = OrderedDict("z" => collect(get_z(grid, 100)))
 # run for 8 days (hours?) to get to steady state
 
-output_data = DataFile(joinpath(output_dir, "output_data_Soil"))
-
+output_data = DataFile(joinpath(output_dir, "output_data"))
 
 step = [0]
 stcb = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time, lsrk) do (init = false)
-  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative)
+  state_vars = get_vars_from_stack(grid, Q, m, vars_state_conservative) # ; exclude=["θi"])
   aux_vars = get_vars_from_stack(grid, dg.state_auxiliary, m, vars_state_auxiliary; exclude=["z"])
   all_vars = OrderedDict(state_vars..., aux_vars...)
   write_data(NetCDFWriter(), output_data(step[1]), dims, all_vars, gettime(lsrk))
@@ -225,4 +187,3 @@ all_data = collect_data(output_data, step[1])
 
 # To get "T" at timestep 0:
 # all_data[0]["T"][:]
-
