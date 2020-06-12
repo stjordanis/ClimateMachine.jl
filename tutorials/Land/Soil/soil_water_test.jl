@@ -75,7 +75,7 @@ porosity = 0.495 # Read in from data base
 
 println("2) Prep ICs, and time-stepper and output configurations...")
 # Configure a `ClimateMachine` solver.
-const timeend = FT(1*_day)
+const timeend = FT(_day)
 const t0 = FT(0)
 
 println("3) Set up system...")
@@ -84,7 +84,7 @@ println("3) Set up system...")
 ν_surface = porosity-1e-3
 S_l_0 = effective_saturation(porosity, ν_0)
 ψ_0 = pressure_head(WF.matric_pot,S_l_0,porosity,S_s,ν_0)
-κ_0 = hydraulic_conductivity(WF.hydraulic_cond, K_sat, S_l_0, ψ_0,0.0)
+κ_0 = hydraulic_conductivity(WF.hydraulic_cond, K_sat, S_l_0, ψ_0)#,0.0)
 
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
@@ -145,7 +145,7 @@ aux = solver_config.dg.state_auxiliary;
 # # Solver hooks / callbacks
 
 # Define the number of outputs from `t0` to `timeend`. Note that t = 0 is considered an output, so we will need to get the output after the integration is done as well.
-const n_outputs = 5;
+const n_outputs = 10;
 
 # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
@@ -229,7 +229,7 @@ export_plot(
     z,
     all_data,
     ("ν",),
-    joinpath(output_dir, "foo.png"),
+    joinpath(output_dir, "moisture_plot.png"),
     z_label,
 );
 

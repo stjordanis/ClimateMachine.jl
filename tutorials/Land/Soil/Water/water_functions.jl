@@ -82,8 +82,6 @@ Base.@kwdef struct Haverkamp{FT} <: AbstractHydraulicsModel{FT}
     k::FT = FT(1.77);
     "constant A cm^k. Our sim is in meters - convert"
     A::FT = FT(124.6/100.0^k)
-    "constant B cm^k. Our sim is in meters - convert."
-    B::FT = FT(124.6/100.0^k)
 end
 
 ##General functions
@@ -123,8 +121,7 @@ effective_saturation(porosity::FT, θ_l::FT) where {FT} = θ_l / porosity
             model::vanGenuchten{FT},
             K_sat::FT,
             S_l::FT,
-            head::FT,
-            z::FT
+            ψ::FT
         ) where {FT}
 
 van Genuchten expression for hydraulic conductivity
@@ -133,13 +130,11 @@ function hydraulic_conductivity(
         model::vanGenuchten{FT},
         K_sat::FT,
         S_l::FT,
-        head::FT,
-        z::FT
+        ψ::FT
     ) where {FT}
   #  S_l(ν) = effective saturation
   #  K_sat = carries the units, constant
-  #  head = hydraulic head, units of length. Also a function of state, aux
-    #  z  = vertical coordinate, units of length - function of aux
+  #  ψ = pressure head, units of length. Also a function of state, aux
     @unpack n, m = model;
 
     if S_l < 1
@@ -160,8 +155,7 @@ end
             model::BrooksCorey{FT},
             K_sat::FT,
             S_l::FT,
-            head::FT,
-            z::FT
+            ψ::FT
         ) where {FT}
 
 Brooks and Corey expression for hydraulic conductivity
@@ -170,20 +164,18 @@ function hydraulic_conductivity(
         model::BrooksCorey{FT},
         K_sat::FT,
         S_l::FT,
-        head::FT,
-        z::FT
+        ψ::FT#
         ) where {FT}
   #  S_l(ν) = effective saturation
-  #  K_sat = carries the units, constant
-  #  head = hydraulic head, units of length. Also a function of state, aux
-    #  z  = vertical coordinate, units of length - function of aux
+    #  K_sat = carries the units, constant
+    #  ψ = pressure head, units of length. Also a function of state, aux
     @unpack ψb, m = model
 
     if S_l < 1
         if S_l <= 0
             K = FT(0)
         else
-            K = K_sat*S_l^(2 * model.m + 3)
+            K = K_sat*S_l^(2 * m + 3)
         end
     else
         K = K_sat
@@ -196,8 +188,7 @@ end
             model::Haverkamp{FT},
             K_sat::FT,
             S_l::FT,
-            head::FT,
-            z::FT
+            ψ::FT,
         ) where {FT}
 
 Haverkamp expression for hydraulic conductivity
@@ -206,21 +197,20 @@ function hydraulic_conductivity(
         model::Haverkamp{FT},
         K_sat::FT,
         S_l::FT,
-        head::FT,
-        z::FT
+        ψ::FT,
     ) where {FT}
 
   #  S_l(ν) = effective saturation
-  #  K_sat = carries the units, constant
-  #  head = hydraulic head, units of meters. Also a function of state, aux
-    #  z  = vertical coordinate, units of meters - function of aux
-    @unpack k, A, B = model
+    #  K_sat = carries the units, constant
+        #  ψ = pressure head, units of length. Also a function of state, aux
+    @unpack k, A = model
 
     if S_l<1
         if S_l <= 0
             K = FT(0)
         else
-            K = K_sat*A/(B+abs(head-z)^k)
+            #K = K_sat*A/(B+abs(head-z)^k)
+            K = K_sat*A/(A+abs(ψ)^k)
         end
     else
         K = K_sat

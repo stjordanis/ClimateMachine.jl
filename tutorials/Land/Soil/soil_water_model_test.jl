@@ -54,31 +54,17 @@ Introduce needed variables into SoilModel struct
 From Bonan, Ch.8, fig 8.8 as in Haverkamp et al. 1977, p.287
 
 """
-Base.@kwdef struct SoilModelMoisture{AbstractParameterSet, AbstractWater, Fκ, Fiν, Fsν, Fih} <: BalanceLaw #FiS_l, Fiψ_m, Fiψ, Fih
+Base.@kwdef struct SoilModelMoisture{AbstractParameterSet, AbstractWater, Fκ, Fiν, Fsν, Fih} <: BalanceLaw 
     "Parameters"
     param_set::AbstractParameterSet = param_set
     WF::AbstractWater = waterfunctions()
-    #(0.001/(60*60*24)) [m/s] typical value taken from Land Surface Model CLiMA, table 2.2, =0.1cm/day (0.34*1.175e6/(1.175+abs.(aux.h)^4.74))
     initialκ::Fκ       = (aux) -> K_sat
   # Define initial and boundary condition parameters
     initialν::Fiν = (state, aux) -> ν_0 # [m3/m3] constant water content in soil
-    surfaceν::Fsν = (state, aux, t) -> ν_surface #267 # [m3/m3] constant flux at surface
+    surfaceν::Fsν = (state, aux, t) -> ν_surface 
 
-  # Define initial and boundary condition parameters
- # initialS_l::FiS_l = (aux) -> 0.1
- # initialψ_m::Fiψ_m = (aux) -> -1
- # initialψ::Fiψ = (aux) ->  -1
- # [m3/m3] constant water content in soil
-    initialh::Fih = (aux) -> aux.z + ψ_0 # [m3/m3] constant water content in soil
+    initialh::Fih = (aux) -> aux.z + ψ_0 # 
 
-  #surfaceh::Fsh = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
-
-  # Define initial and boundary condition parameters
-  #surfaceψ::Fsψ = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
-
-  # Define initial and boundary condition parameters
-  #initialθi::Fiθi = (aux, t) -> 0.0 # [m3/m3] constant water content in soil
-  #surfaceψ::Fsψ = (state, aux, t) -> 100  #267 # [m3/m3] constant flux at surface
 
 end
 
@@ -94,11 +80,8 @@ vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT})
 
 # Initialize z-Profile ### what role does this play? when?
 function init_state_auxiliary!(m::SoilModelMoisture, aux::Vars, geom::LocalGeometry)
-  aux.z = geom.coord[3]
-  #aux.S_l = m.initialS_l(aux) 
-  #aux.ψ_m = m.initialψ_m(aux)x
-    #aux.ψ = m.initialψ(aux)
-    aux.h = m.initialh(aux) #(aux, 0) #aux.z+m.initialθ(state, aux, t) #^(-1/0.378
+    aux.z = geom.coord[3]
+    aux.h = m.initialh(aux) 
     aux.κ = m.initialκ(aux)
 
   # aux.θl = 
@@ -107,7 +90,6 @@ end
 # Initialize State variables
 function init_state_conservative!(m::SoilModelMoisture, state::Vars, aux::Vars, coords, t::Real)
   state.ν = m.initialν(state, aux) #
-#  state.θi = m.initialθi(aux, 0)
 end
 
 
@@ -132,26 +114,13 @@ function  soil_nodal_update_aux!(
   aux::Vars,
   t::Real)
 
-    # How much water    #theta_water = state.θ + state.θi
-
-    # Get augmented liquid
-    #theta_l = augmented_liquid(porosity,S_s,aux.ψ,state.θ)
-
     # Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
-#    if isnan(S_l) | isinf(S_l)
-#        println(t, state.ν)
-#    end
     # This function calculates pressure head ψ of a soil
     ψ = pressure_head(m.WF.matric_pot, S_l,porosity,S_s,state.ν)
-#    if isnan(ψ) | isinf(ψ)
-#        println(t, S_l,S_s,flag,state.ν)
-#    end
     # Get hydraulic head
     aux.h = hydraulic_head(aux.z,ψ)
-    aux.κ = hydraulic_conductivity(m.WF.hydraulic_cond,K_sat,S_l,hydraulic_head(aux.z,ψ), aux.z)#, "Havercamp")
-#    aux.κ = ksat_function(K_sat,hydraulic_head(aux.z,ψ), aux.z)
-    #aux.θl = hydraulic_head(aux.z,aux.ψ)
+    aux.κ = hydraulic_conductivity(m.WF.hydraulic_cond,K_sat,S_l,ψ)
 end
 
 # ---------------- 4c) Calculate state and derivative of theta
@@ -164,21 +133,11 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-
-    # How much water
-    #theta_water = state.θ + state.θi
-
-    # Get augmented liquid
-    #theta_l = augmented_liquid(porosity,S_s,aux.ψ,state.θ)
-
     ## Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
 
     ## This function calculates pressure head ψ of a soil
     ψ = pressure_head(m.WF.matric_pot, S_l,porosity,S_s,state.ν)
-#    if isnan(ψ) | isinf(ψ)
-#        println(t, S_l,S_s,flag,state.ν)
-#    end
     # Get hydraulic head
     transform.h = hydraulic_head(aux.z,ψ)
 
@@ -216,10 +175,7 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
   )
-  # Flux of water
    flux.ν -= aux.κ * diffusive.∇h
-   #if aux.z == 0
-   #end
 end
 
 # ---------------- 4d) Extra Sources
@@ -233,18 +189,6 @@ function source!(
     t::Real,
     direction,
 )
-
-## Update sources for ice and liquid
-#if state.θi > 0
-#  # Convert liquid water to ice by freezing (or vice versa)
-#  F_T = calculate_frozen_water(state.θ,state.θi,soil_T)
-#else
-#  F_T = 0;
-#end
-#
-## Source of ice
-#source.θi = F_T/917 # rho_i = 0.917 # g cm-3, density of ice
-#source.θ = -F_T/997 # rho_l = 0.997 # g cm-3, density of water
 
 end
 
@@ -272,8 +216,6 @@ function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars
     state⁺.ν = m.surfaceν(state⁻, aux⁻, t)
   elseif bctype == 1
     # bottom
-    #nothing
-    #diff⁺.∇h = -diff⁻.∇h
     diff⁺.∇h = -n̂*1
   end
 end
