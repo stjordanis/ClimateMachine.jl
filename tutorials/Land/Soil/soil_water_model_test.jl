@@ -117,7 +117,7 @@ function  soil_nodal_update_aux!(
     # Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
     # This function calculates pressure head ψ of a soil
-    ψ = pressure_head(m.WF.matric_pot, S_l,porosity,S_s,state.ν)
+    ψ = pressure_head(m.WF.matric_pot,porosity,S_s,state.ν)
     # Get hydraulic head
     aux.h = hydraulic_head(aux.z,ψ)
     aux.κ = hydraulic_conductivity(m.WF.hydraulic_cond,K_sat,S_l,ψ)
@@ -137,7 +137,7 @@ function compute_gradient_argument!(
     S_l = effective_saturation(porosity,state.ν)
 
     # This function calculates pressure head ψ of a soil
-    ψ = pressure_head(m.WF.matric_pot, S_l,porosity,S_s,state.ν)
+    ψ = pressure_head(m.WF.matric_pot, porosity,S_s,state.ν)
     # Get hydraulic head
     transform.h = hydraulic_head(aux.z,ψ)#This can't be aux.h here. Why?
 

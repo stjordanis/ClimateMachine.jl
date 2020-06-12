@@ -82,8 +82,8 @@ println("3) Set up system...")
 #IC/BC values
 ν_0 = 0.24
 ν_surface = porosity-1e-3
+ψ_0 = pressure_head(WF.matric_pot,porosity,S_s,ν_0)
 S_l_0 = effective_saturation(porosity, ν_0)
-ψ_0 = pressure_head(WF.matric_pot,S_l_0,porosity,S_s,ν_0)
 κ_0 = hydraulic_conductivity(WF.hydraulic_cond, K_sat, S_l_0, ψ_0)#,0.0)
 
 # Load Soil Model in 'm'
@@ -233,7 +233,7 @@ export_plot(
     z_label,
 );
 
-
-open("./final_step.txt", "w") do io
-    writedlm(io, all_data[n_outputs])
+my_matrix  = hcat([all_data[n_outputs][key] for key in keys(all_data[0]) if key !="t"]...)
+open("./final_step.csv", "w") do io
+    writedlm(io, my_matrix, ',')
 end
