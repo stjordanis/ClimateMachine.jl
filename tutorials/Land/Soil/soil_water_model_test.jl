@@ -115,6 +115,10 @@ function  soil_nodal_update_aux!(
   t::Real)
 
     # Get effective saturation
+#    # For debugging only:
+#    if state.ν < 0
+#        println("Negative moisture content at ", aux.z)
+#    end
     S_l = effective_saturation(porosity,state.ν)
     # This function calculates pressure head ψ of a soil
     ψ = pressure_head(m.WF.matric_pot,porosity,S_s,state.ν)
