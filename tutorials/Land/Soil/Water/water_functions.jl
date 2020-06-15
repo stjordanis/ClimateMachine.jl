@@ -29,25 +29,17 @@ end
 # Three possible models to use for matric potential and hydraulic conductivity.
 # Specify parameters of them here.
 
-#Base.@kwdef struct vanGenuchten{FT} <: AbstractHydraulicsModel
-#    "n - exponent; that then determines the exponent m used in the model."
-#    n::FT = FT(1.43);
-#    m::FT = FT(1.0-1.0/n);
-#    " alpha  - inverse of this carries units in the expression for matric potential "
-#    α::FT = FT(2.6) # inverse meterse
-#end
-
 """
     vanGenuchten{FT} <: AbstractHydraulicsModel{FT}
 
-parameters for Yolo light clay
+parameters for Yolo light clay are the default.
 """
 struct vanGenuchten{FT} <: AbstractHydraulicsModel{FT}
     "n - exponent; that then determines the exponent m used in the model."
     n::FT
-    "inverse of this carries units in the expression for matric potential (specify in inverse meters)"
+    "a constant. The inverse of this carries units in the expression for matric potential (specify in inverse meters)."
     α::FT
-    "Exponent parameter"
+    "Exponent parameter - determined by n"
     m::FT
     function vanGenuchten{FT}(;n::FT = FT(1.43), α::FT = FT(2.6))
         new(n, α, 1-1/FT(n))
@@ -88,24 +80,27 @@ end
 
 hydraulic_head(z,ψ) = z + ψ
 
+
+effective_saturation(porosity::FT, θ_l::FT) where {FT} = θ_l / porosity
+
 """
     pressure_head(
             model::AbstractHydraulicsModel{FT},
-            S_l::FT,
             porosity::FT,
             S_s::FT,
             θ_l::FT
         ) where {FT}
 
-Please document
+Please document.
 """
 function pressure_head(
         model::AbstractHydraulicsModel{FT},
-        S_l::FT,
         porosity::FT,
         S_s::FT,
         θ_l::FT
-    ) where {FT}
+        ) where {FT}
+    
+    S_l = effective_saturation(porosity, θ_l)
     if S_l < 1
         ψ = matric_potential(model, S_l)
     else
@@ -114,7 +109,7 @@ function pressure_head(
     return ψ
 end
 
-effective_saturation(porosity::FT, θ_l::FT) where {FT} = θ_l / porosity
+
 
 "
     hydraulic_conductivity(

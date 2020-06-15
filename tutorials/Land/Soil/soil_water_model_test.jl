@@ -62,8 +62,8 @@ Base.@kwdef struct SoilModelMoisture{AbstractParameterSet, AbstractWater, Fκ, F
   # Define initial and boundary condition parameters
     initialν::Fiν = (state, aux) -> ν_0 # [m3/m3] constant water content in soil
     surfaceν::Fsν = (state, aux, t) -> ν_surface 
+    initialh::Fih = (aux) -> aux.z + ψ_0 #
 
-    initialh::Fih = (aux) -> aux.z + ψ_0 # 
 
 
 end
@@ -73,7 +73,7 @@ end
 vars_state_auxiliary(::SoilModelMoisture, FT) = @vars(z::FT, h::FT,κ::FT) #θl::FT, S_l::FT, ψ_m::FT, ψ::FT,
 vars_state_conservative(::SoilModelMoisture, FT) = @vars(ν::FT) #, θi::FT)
 vars_state_gradient(::SoilModelMoisture, FT) = @vars(h::FT)
-vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(∇h::SVector{3,FT})
+vars_state_gradient_flux(::SoilModelMoisture, FT) = @vars(κ∇h::SVector{3,FT})#really, the flux is - κ∇h
 
 # --------------------------------- 4) CliMA functions needed for simulation -------------------
 # ---------------- 4a) Initialization
@@ -117,7 +117,7 @@ function  soil_nodal_update_aux!(
     # Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
     # This function calculates pressure head ψ of a soil
-    ψ = pressure_head(m.WF.matric_pot, S_l,porosity,S_s,state.ν)
+    ψ = pressure_head(m.WF.matric_pot,porosity,S_s,state.ν)
     # Get hydraulic head
     aux.h = hydraulic_head(aux.z,ψ)
     aux.κ = hydraulic_conductivity(m.WF.hydraulic_cond,K_sat,S_l,ψ)
@@ -133,13 +133,13 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    ## Get effective saturation
+    # Get effective saturation
     S_l = effective_saturation(porosity,state.ν)
 
-    ## This function calculates pressure head ψ of a soil
-    ψ = pressure_head(m.WF.matric_pot, S_l,porosity,S_s,state.ν)
+    # This function calculates pressure head ψ of a soil
+    ψ = pressure_head(m.WF.matric_pot, porosity,S_s,state.ν)
     # Get hydraulic head
-    transform.h = hydraulic_head(aux.z,ψ)
+    transform.h = hydraulic_head(aux.z,ψ)#This can't be aux.h here. Why?
 
 end
 
@@ -152,10 +152,10 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
   )
-  diffusive.∇h = ∇transform.h
+  diffusive.κ∇h = aux.κ*∇transform.h
 end
 
-# Calculate thermal flux (non-diffusive)
+# Calculate water flux (non-diffusive)
 function  flux_first_order!(
     m::SoilModelMoisture,
     flux::Grad,
@@ -175,7 +175,7 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
   )
-   flux.ν -= aux.κ * diffusive.∇h
+   flux.ν -= diffusive.κ∇h
 end
 
 # ---------------- 4d) Extra Sources
@@ -216,6 +216,6 @@ function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars
     state⁺.ν = m.surfaceν(state⁻, aux⁻, t)
   elseif bctype == 1
     # bottom
-    diff⁺.∇h = -n̂*1
+    diff⁺.κ∇h = -n̂*1*aux⁻.κ # we want grad h = z hat
   end
 end
