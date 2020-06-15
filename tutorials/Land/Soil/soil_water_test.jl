@@ -11,9 +11,14 @@ using StaticArrays
 using CLIMAParameters
 using DocStringExtensions
 using CLIMAParameters.Planet: day
+using CLIMAParameters.Planet: ρ_cloud_liq
+using CLIMAParameters.Planet: ρ_cloud_ice
+using CLIMAParameters.Planet: T_freeze
+using CLIMAParameters.Planet: T_surf_ref
 struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
-
+const Earth_param_set = EarthParameterSet()
+# struct LandParameterSet <: AbstractLandParameterSet end
+# const Land_param_set = LandParameterSet()
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -54,48 +59,45 @@ WF = waterfunctions(
     matric_pot = vanGenuchten{FT}()
 )
 
-# Define time variables --- update CLima Parameters package
-const minute = 60
-const hour = 60*minute
-_day = FT(day(param_set))
+# Constants from Parameters Module
+_day = FT(day(Earth_param_set))
+_hour = _day/24
+_minute  = _hour/60
+_ρ_cloud_liq = FT(ρ_cloud_liq(Earth_param_set)) # kg m-3, density of water
+_ρ_cloud_ice = FT(ρ_cloud_ice(Earth_param_set)) # kg m-3, density of ice 
+_T_freeze = FT(T_freeze(Earth_param_set)) # K, freezing temperature
+_T_surf_ref = FT(T_surf_ref(Earth_param_set)) # K, reference temperature
+# _Ω = FT(Ω(Land_param_set)) # (unitless), Impedence parameter, from Hansson et al. (2004)
+# _T1 = FT(T1(Land_param_set)) # K, 507.88
+# _T2 = FT(T2(Land_param_set)) # K, 149.3
 
-# Move into CLima Parameters package or call it if it already exists like example above with _day
-rho_l = 997 # kg m-3, density of water
-rho_i = 917 # kg m-3, density of ice # EXISTS
-T_f = 273.15 # K, freezing temperature
-Omega = 7 # Impedence parameter, from Hansson et al. (2004)
-T1 = 507.88 # K
-T2 = 149.3 # K
-soil_Tref = 288 # K
-S_s = 10e-4  # [ m-1]
-K_sat  = 0.0443 / (3600*100) # "Clay"
+# Constants which will change in space, to import from database
+porosity = 0.495 # m3/m3 Read in from data base
+S_s = 10e-4  # m-1 Read in from data base
+K_sat  = 0.0443 / (3600*100) # "Clay" Read in from data base?
 #K_sat  = 34 / (3600*100) # "Sand"
-porosity = 0.495 # Read in from data base
-#n = 1.43
-#α = 2.6
 
 println("2) Prep ICs, and time-stepper and output configurations...")
 # Configure a `ClimateMachine` solver.
-const timeend = FT(_day)
+const timeend = FT(_hour)
 const t0 = FT(0)
 
 println("3) Set up system...")
 #IC/BC values
 ν_0 = 0.24
-ν_surface = porosity-1e-3
+ν_surface = porosity #+1e-3
 ψ_0 = pressure_head(WF.matric_pot,porosity,S_s,ν_0)
 S_l_0 = effective_saturation(porosity, ν_0)
 κ_0 = hydraulic_conductivity(WF.hydraulic_cond, K_sat, S_l_0, ψ_0)#,0.0)
 
 # Load Soil Model in 'm'
 m = SoilModelMoisture(
-    param_set = param_set,
+    param_set = Earth_param_set,
     WF = WF,
     initialκ   = (aux) -> κ_0,
-    initialν = (state, aux) -> ν_0, 
+    initialν = (state, aux) -> ν_0,
     surfaceν = (state, aux, t) -> ν_surface,
-    initialh = (aux) -> aux.z + ψ_0 
-
+    initialh = (aux) -> aux.z + ψ_0
 )
 
 println("4) Define variables for simulation...") # move up
@@ -118,7 +120,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     N_poly,
     nelem_vert,
     zmax,
-    param_set,
+    Earth_param_set,
     m;
     zmin = zmin,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
@@ -127,8 +129,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 # Minimum spatial and temporal steps
 Δ = min_node_distance(driver_config.grid)
 τ = (Δ^2 /K_sat)
-dt = 6# TBD - make automatic
-
+dt = 1# TBD - make automatic
 
 # This initializes the state vector and allocates memory for the solution in
 # space (`dg` has the model `m`, which describes the PDEs as well as the
@@ -146,7 +147,7 @@ aux = solver_config.dg.state_auxiliary;
 # # Solver hooks / callbacks
 
 # Define the number of outputs from `t0` to `timeend`. Note that t = 0 is considered an output, so we will need to get the output after the integration is done as well.
-const n_outputs = 10;
+const n_outputs = 2;
 
 # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
@@ -212,7 +213,6 @@ all_data[n_outputs] = all_vars
 # Our solution is stored in the nested dictionary `all_data` whose keys are
 # the output interval. The next level keys are the variable names, and the
 # values are the values along the grid:
-
 
 # To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[0]["T"][:]`
 @show keys(all_data[0])
