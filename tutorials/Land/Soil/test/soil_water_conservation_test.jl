@@ -29,14 +29,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using DelimitedFiles
-using CSV
 using Parameters
-#we need to add these since we want to do integrals
-import ClimateMachine.DGMethods:
-    vars_integrals,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    indefinite_stack_integral!
 include("soil_model_base_numerics.jl")
 include("conservation_numerics.jl")
 # Add water functions
@@ -87,7 +80,7 @@ m = SoilModelMoisture(
     initialκ   = (aux) -> κ_0,
     initialν = (state, aux) -> ν_0,
     initialh = (aux) -> aux.z + ψ_0,
-    dirichlet_bc = Dirichlet(NaN, NaN),
+    dirichlet_bc = Dirichlet(nothing, nothing),
     neumann_bc = Neumann(surface_flux, bottom_flux)
 )
 

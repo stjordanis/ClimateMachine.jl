@@ -32,10 +32,9 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using DelimitedFiles
-using CSV
+#using CSV
 using Parameters
 include("soil_model_base_numerics.jl")
-include("regular_numerics.jl")
 # Add water functions
 include("../Water/water_functions.jl")
 
@@ -83,8 +82,8 @@ m = SoilModelMoisture(
     initialκ   = (aux) -> κ_0,
     initialν = (state, aux) -> ν_0,
     initialh = (aux) -> aux.z + ψ_0,
-    dirichlet_bc = Dirichlet(surface_state, NaN),
-    neumann_bc = Neumann(NaN, bottom_flux)
+    dirichlet_bc = Dirichlet(surface_state, nothing),
+    neumann_bc = Neumann(nothing, bottom_flux)
 )
 
 println("4) Define variables for simulation...") # move up
@@ -212,14 +211,15 @@ all_data[n_outputs] = all_vars
 # To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[0]["T"][:]`
 @show keys(all_data[0])
 
-my_matrix  = hcat([all_data[n_outputs][key] for key in keys(all_data[0]) if key !="t"]...)
-open("./final_step.csv", "w") do io
-    writedlm(io, my_matrix, ',')
-end
-bonanfile = "../data1.csv"
-plot(all_data[n_outputs]["θ"],all_data[n_outputs]["z"]*100,label = "Clima")
-plot!(bonan_data[!,1],bonan_data[!,2],label = "Bonan", ylims = [-50,0])
-savefig("./comparison.png")
+#my_matrix  = hcat([all_data[n_outputs][key] for key in keys(all_data[0]) if key !="t"]...)
+#open("./final_step.csv", "w") do io
+#    writedlm(io, my_matrix, ',')
+#end
+#bonanfile = "../data1.csv"
+#bonan_data = CSV.read(bonanfile; header = ["θ","z"],types=Dict(2 => Float64))
+#plot(all_data[n_outputs]["ν"],all_data[n_outputs]["z"]*100,label = "Clima")
+#plot!(bonan_data[!,1],bonan_data[!,2],label = "Bonan", ylims = [-50,0])
+#savefig("./comparison.png")
 
 
 ####need to make an interpolation between bonan points, then eval at clima points to actually compare.

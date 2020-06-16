@@ -10,18 +10,18 @@ function vars_state_auxiliary(::SoilModelMoisture, FT)
     end
 end
 
-#redefine this??
-function update_auxiliary_state!(
-    dg::DGModel,
-    m::SoilModelMoisture,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
-    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
-  return true
-end
+
+#function update_auxiliary_state!(
+#    dg::DGModel,
+#    m::SoilModelMoisture,
+#    Q::MPIStateArray,
+#    t::Real,
+#    elems::UnitRange,
+#)
+#    nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+#    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+#  return true
+#end
 
 #other stuff we need
 function integral_load_auxiliary_state!(

@@ -44,7 +44,11 @@ import ClimateMachine.DGMethods:
     nodal_update_auxiliary_state!,
     init_state_auxiliary!,
     init_state_conservative!,
-    boundary_state!
+    boundary_state!,
+    vars_integrals,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    indefinite_stack_integral!
 
 # --------------------------------- 2) Define Structs ---------------------------------------
 
@@ -105,7 +109,10 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
-  nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+    nodal_update_auxiliary_state!(soil_nodal_update_aux!, dg, m, Q, t, elems)
+    if varsize(vars_integrals(m, FT)) > 0
+        indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+    end
   return true
 end
 
@@ -226,35 +233,35 @@ function boundary_state!(nf, m::SoilModelMoisture, state⁺::Vars, diff⁺::Vars
   end
 end
 
+#
+abstract type bc_values{T <: Union{AbstractFloat,typeof(nothing)}, B <: Union{AbstractFloat,typeof(nothing)}} end
 
-abstract type bc_values{FT <: AbstractFloat} end
-
-mutable struct Dirichlet{FT} <: bc_values{FT}
-    surface_state::FT
-    bottom_state::FT
+mutable struct Dirichlet{T, B} <: bc_values{T, B}
+    surface_state::T
+    bottom_state::B
 end
 #scalars only
-mutable struct Neumann{FT} <: bc_values{FT}
-    "this will be multiplied by the normal vector - TBD is this plus or minus"
-    surface_flux::FT
-    "this will be multiplied by the normal vector  - I think it points out of the domain; in minus zhat."
-    bottom_flux::FT
+mutable struct Neumann{T, B} <: bc_values{T, B}
+    "this will be multiplied by the normal vector at the top - TBD is this plus or minus"
+    surface_flux::T
+    "this will be multiplied by the normal vector at the bottom - I think it points out of the domain; in minus zhat."
+    bottom_flux::B
 end
 
-function top_boundary_conditions!(bc::Neumann{FT}, state⁺::Vars, diff⁺::Vars,
+function top_boundary_conditions!(bc::Neumann{T, B}, state⁺::Vars, diff⁺::Vars,
                                   aux⁺::Vars, n̂, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,
-                                  t) where {FT}
-    if !isnan(bc.surface_flux)
+                                  t) where {T, B}
+    if bc.surface_flux != nothing
         diff⁺.κ∇h = n̂*bc.surface_flux*aux⁻.κ
     else
         nothing
     end
 end
 
-function top_boundary_conditions!(bc::Dirichlet{FT}, state⁺::Vars, aux⁺::Vars,
+function top_boundary_conditions!(bc::Dirichlet{T, B}, state⁺::Vars, aux⁺::Vars,
                                   state⁻::Vars, aux⁻::Vars, t
-                                  ) where {FT}
-    if !isnan(bc.surface_state)
+                                  ) where {T, B}
+    if bc.surface_state != nothing
         state⁺.ν = bc.surface_state
     else
         nothing
@@ -262,20 +269,20 @@ function top_boundary_conditions!(bc::Dirichlet{FT}, state⁺::Vars, aux⁺::Var
 end
 
 
-function bottom_boundary_conditions!(bc::Neumann{FT}, state⁺::Vars, diff⁺::Vars,
+function bottom_boundary_conditions!(bc::Neumann{T, B}, state⁺::Vars, diff⁺::Vars,
                                      aux⁺::Vars, n̂, state⁻::Vars, diff⁻::Vars, aux⁻::Vars,t
-                                     ) where {FT}
-    if !isnan(bc.bottom_flux)
+                                     ) where {T, B}
+    if bc.bottom_flux != nothing
         diff⁺.κ∇h = n̂*bc.bottom_flux*aux⁻.κ
     else
         nothing
     end
 end
 
-function bottom_boundary_conditions!(bc::Dirichlet{FT}, state⁺::Vars, aux⁺::Vars,
+function bottom_boundary_conditions!(bc::Dirichlet{T, B}, state⁺::Vars, aux⁺::Vars,
                                      state⁻::Vars, aux⁻::Vars,t
-                                     ) where {FT}
-    if !isnan(bc.bottom_state)
+                                     ) where {T, B}
+    if bc.bottom_state != nothing
         state⁺.ν = bc.bottom_state
     else
         nothing
