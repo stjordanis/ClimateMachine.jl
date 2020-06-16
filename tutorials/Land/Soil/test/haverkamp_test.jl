@@ -34,7 +34,7 @@ using ClimateMachine.SingleStackUtils
 using DelimitedFiles
 using CSV
 using Parameters
-include("soil_water_model_test.jl")
+include("soil_model_base_numerics.jl")
 include("regular_numerics.jl")
 # Add water functions
 include("../Water/water_functions.jl")
@@ -54,13 +54,6 @@ WF = waterfunctions(
 _day = FT(day(Earth_param_set))
 _hour = _day/24
 _minute  = _hour/60
-_ρ_cloud_liq = FT(ρ_cloud_liq(Earth_param_set)) # kg m-3, density of water
-_ρ_cloud_ice = FT(ρ_cloud_ice(Earth_param_set)) # kg m-3, density of ice 
-_T_freeze = FT(T_freeze(Earth_param_set)) # K, freezing temperature
-_T_surf_ref = FT(T_surf_ref(Earth_param_set)) # K, reference temperature
-# _Ω = FT(Ω(Land_param_set)) # (unitless), Impedence parameter, from Hansson et al. (2004)
-# _T1 = FT(T1(Land_param_set)) # K, 507.88
-# _T2 = FT(T2(Land_param_set)) # K, 149.3
 
 # Constants which will change in space, to import from database
 porosity = 0.495 # m3/m3 Read in from data base

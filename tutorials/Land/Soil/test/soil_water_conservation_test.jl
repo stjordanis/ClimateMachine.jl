@@ -12,9 +12,6 @@ using CLIMAParameters
 using DocStringExtensions
 using CLIMAParameters.Planet: day
 using CLIMAParameters.Planet: ρ_cloud_liq
-using CLIMAParameters.Planet: ρ_cloud_ice
-using CLIMAParameters.Planet: T_freeze
-using CLIMAParameters.Planet: T_surf_ref
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const Earth_param_set = EarthParameterSet()
 # struct LandParameterSet <: AbstractLandParameterSet end
@@ -40,7 +37,7 @@ import ClimateMachine.DGMethods:
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     indefinite_stack_integral!
-include("soil_water_model_test.jl")
+include("soil_model_base_numerics.jl")
 include("conservation_numerics.jl")
 # Add water functions
 include("../Water/water_functions.jl")
@@ -61,9 +58,6 @@ _day = FT(day(Earth_param_set))
 _hour = _day/24
 _minute  = _hour/60
 _ρ_cloud_liq = FT(ρ_cloud_liq(Earth_param_set))
-_ρ_cloud_ice = FT(ρ_cloud_ice(Earth_param_set))
-_T_freeze = FT(T_freeze(Earth_param_set))
-_T_surf_ref = FT(T_surf_ref(Earth_param_set))
 
 # Constants which will change in space, to import from database
 porosity = 0.495 # m3/m3 Read in from data base
@@ -214,6 +208,7 @@ all_data[n_outputs] = all_vars
 
 #Compute expected and actual energy changes as a function of time, using prescribed flux and source terms.
 mass_total = [all_data[i]["int.a"][end] for i in 0:1:n_outputs]
+mass_total = mass_total.*_ρ_cloud_liq
 
 times = [all_data[i]["t"][end] for i in 0:1:n_outputs]
 hydraulic_k_bottom = [all_data[i]["κ"][1] for i in 0:1:n_outputs]
@@ -223,15 +218,16 @@ hydraulic_k_top = [all_data[i]["κ"][end] for i in 0:1:n_outputs]
 integrated_surface_flux = surface_flux*1.0.*hydraulic_k_top.*times
 integrated_bottom_flux = bottom_flux*(-1.0).*hydraulic_k_bottom.*times
 
-net_integrated_flux = (integrated_surface_flux.-integrated_bottom_flux)
+net_integrated_flux = (integrated_surface_flux.-integrated_bottom_flux).*_ρ_cloud_liq
 domain_volume = 1.0
-initial_mass = ν_0*domain_volume
-analytic_mass = initial_mass.+net_integrated_flux
+initial_mass = ν_0*domain_volume*_ρ_cloud_liq
+analytic_mass = (initial_mass.+net_integrated_flux)
 y = (mass_total.-analytic_mass)
 worst_error = maximum(abs.(y))
 
 #assert worst_error is < some threshold TBD
 #add in sources
+#allow temporal dependency in BC?
 
 #plot(times, log10.(abs.(mass_total.-initial_mass)),seriestype = :scatter, markserize = 8, xlabel = "Time (s)", ylabel = "log10(|Δm|)", label = "numerical", ylims = [-8,-4])
 #plot!(times, log10.(abs.(analytic_mass.-initial_mass)),seriestype = :scatter, markersize = 2,label = "expected")
