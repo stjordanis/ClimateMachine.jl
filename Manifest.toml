@@ -170,9 +170,9 @@ version = "1.1.1"
 
 [[CuArrays]]
 deps = ["AbstractFFTs", "Adapt", "CEnum", "CUDAapi", "CUDAdrv", "CUDAnative", "DataStructures", "GPUArrays", "Libdl", "LinearAlgebra", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "TimerOutputs"]
-git-tree-sha1 = "870a4ac61e99c36f42d15e496fd290c841541d90"
+git-tree-sha1 = "1582b74d2322df7dd94549d4ac9d095e0f20e884"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
-version = "2.2.0"
+version = "2.2.1"
 
 [[DataAPI]]
 git-tree-sha1 = "176e23402d80e7743fc26c19c681bfb11246af32"
@@ -651,6 +651,12 @@ deps = ["LinearAlgebra", "Random", "Statistics"]
 git-tree-sha1 = "5c06c0aeb81bef54aed4b3f446847905eb6cbda0"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
 version = "0.12.3"
+
+[[StaticNumbers]]
+deps = ["Requires"]
+git-tree-sha1 = "8fedba0c674686bfa52dba5f68acf916b824f53a"
+uuid = "c5e4b96a-f99f-5557-8ed2-dc63ef9b5131"
+version = "0.3.2"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
