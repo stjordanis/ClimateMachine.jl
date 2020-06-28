@@ -642,7 +642,8 @@ Starting %s
     end
 
     # fini VTK
-    !isnothing(cb_vtk) && GenericCallbacks.call!(cb_vtk, nothing, nothing, nothing, nothing)
+    !isnothing(cb_vtk) &&
+    GenericCallbacks.call!(cb_vtk, nothing, nothing, nothing, nothing)
 
     engf = norm(Q)
     @info @sprintf(
