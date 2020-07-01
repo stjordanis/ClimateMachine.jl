@@ -83,6 +83,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 # - Required for utility of spatial filtering functions (e.g. positivity
 #   preservation)
+using ClimateMachine.Orientations
 using ClimateMachine.Mesh.Filters
 # - Required so functions for computation of temperature profiles.
 using ClimateMachine.TemperatureProfiles
@@ -240,6 +241,18 @@ end
 #md #     `Keywords` are used to specify some arguments (see appropriate source
 #md #     files).
 
+# ## [Diagnostics](@id config_diagnostics)
+# Here we define the diagnostic configuration specific to this problem.
+function config_diagnostics(driver_config)
+    interval = "10000steps"
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+end
+
 function main()
     ## These are essentially arguments passed to the
     ## [`config_densitycurrent`](@ref config-helper) function.  For type
@@ -274,11 +287,27 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
+    dgn_config = config_diagnostics(driver_config)
+    ## Apply a cutoff filter
+    filter = Filters.CutoffFilter(solver_config.dg.grid, 4);
+    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            AtmosFilterPerturbations(driver_config.bl),
+            solver_config.dg.grid,
+            filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
+        )
+        nothing
+    end;
 
     ## Invoke solver (calls `solve!` function for time-integrator), pass the driver, solver and diagnostic config
     ## information.
     result =
-        ClimateMachine.invoke!(solver_config; check_euclidean_distance = true)
+        ClimateMachine.invoke!(solver_config; 
+                               diagnostics_config = dgn_config,
+                               user_callbacks = (cbfilter,),
+                               check_euclidean_distance = true)
 
     ## Check that the solution norm is reasonable.
     @test isapprox(result, FT(1); atol = 1.5e-2)

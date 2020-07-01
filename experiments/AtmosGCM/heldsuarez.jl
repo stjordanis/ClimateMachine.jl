@@ -97,7 +97,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly(c_smag),
-        hyperdiffusion = StandardHyperDiffusion(τ_hyper),
+        #hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
@@ -224,14 +224,25 @@ function main()
 
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
-
+    #=
     ode_solver_type = ClimateMachine.IMEXSolverType(
         splitting_type = HEVISplitting(),
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
     )
-    CFL = FT(0.2)
+    =# 
+    
+    ode_solver_type = MultirateSolverType(;
+        fast_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = ManyColumnLU,
+        implicit_solver_adjustable = false,
+        slow_method = LSRK54CarpenterKennedy,
+        fast_method = LSRK54CarpenterKennedy,
+        timestep_ratio = 100,
+    )
+
+    CFL = FT(0.5)
 
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
@@ -242,7 +253,7 @@ function main()
         init_on_cpu = true,
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
+        diffdir = EveryDirection(),
     )
 
     # Set up diagnostics

@@ -311,6 +311,7 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
+
     dgn_config = config_diagnostics(driver_config)
 
     ## Invoke solver (calls `solve!` function for time-integrator), pass the driver,
