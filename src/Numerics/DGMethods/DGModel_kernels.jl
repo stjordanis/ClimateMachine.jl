@@ -131,13 +131,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_first_order!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_auxiliary,
                 t,
                 (direction,),
             )
@@ -151,19 +147,11 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_gradient_flux,
+                local_state_hyperdiffusion,
+                local_state_auxiliary,
                 t,
             )
 
@@ -197,15 +185,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     fill!(local_flux, -zero(eltype(local_flux)))
                     flux_first_order!(
                         balance_law,
-                        Grad{vars_state(balance_law, Prognostic(), FT)}(
-                            local_flux,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary,
-                        ),
+                        local_flux,
+                        local_state_prognostic,
+                        local_state_auxiliary,
                         t,
                         (HorizontalDirection(),),
                     )
@@ -224,15 +206,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     fill!(local_flux, -zero(eltype(local_flux)))
                     flux_first_order!(
                         balance_law,
-                        Grad{vars_state(balance_law, Prognostic(), FT)}(
-                            local_flux,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary,
-                        ),
+                        local_flux,
+                        local_state_prognostic,
+                        local_state_auxiliary,
                         t,
                         (VerticalDirection(),),
                     )
@@ -262,16 +238,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             fill!(local_source, -zero(eltype(local_source)))
             source!(
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_source,
+                local_state_prognostic,
+                local_state_gradient_flux,
+                local_state_auxiliary,
                 t,
                 (direction,),
             )
@@ -410,13 +380,9 @@ end
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_first_order!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_auxiliary,
                 t,
                 (direction,),
             )
@@ -430,19 +396,11 @@ end
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
                 balance_law,
-                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_flux,
+                local_state_prognostic,
+                local_state_gradient_flux,
+                local_state_hyperdiffusion,
+                local_state_auxiliary,
                 t,
             )
 
@@ -478,16 +436,10 @@ end
             fill!(local_source, -zero(eltype(local_source)))
             source!(
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
+                local_source,
+                local_state_prognostic,
+                local_state_gradient_flux,
+                local_state_auxiliary,
                 t,
                 (direction,),
             )
@@ -688,52 +640,28 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             numerical_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                SVector(normal_vector),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺nondiff,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺nondiff,
-                ),
+                local_flux,
+                normal_vector,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                local_state_prognostic⁺nondiff,
+                local_state_auxiliary⁺nondiff,
                 t,
                 face_direction,
             )
             numerical_flux_second_order!(
                 numerical_flux_second_order,
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
+                local_flux,
                 normal_vector,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux⁻,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺diff,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux⁺,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺diff,
-                ),
+                local_state_prognostic⁻,
+                local_state_gradient_flux⁻,
+                local_state_hyperdiffusion⁻,
+                local_state_auxiliary⁻,
+                local_state_prognostic⁺diff,
+                local_state_gradient_flux⁺,
+                local_state_hyperdiffusion⁺,
+                local_state_auxiliary⁺diff,
                 t,
             )
         else
@@ -755,70 +683,36 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             numerical_boundary_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                SVector(normal_vector),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺nondiff,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺nondiff,
-                ),
+                local_flux,
+                normal_vector,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                local_state_prognostic⁺nondiff,
+                local_state_auxiliary⁺nondiff,
                 bctype,
                 t,
                 face_direction,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic_bottom1,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
+                local_state_prognostic_bottom1,
+                local_state_auxiliary_bottom1,
             )
             numerical_boundary_flux_second_order!(
                 numerical_flux_second_order,
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
+                local_flux,
                 normal_vector,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux⁻,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺diff,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux⁺,
-                ),
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺diff,
-                ),
+                local_state_prognostic⁻,
+                local_state_gradient_flux⁻,
+                local_state_hyperdiffusion⁻,
+                local_state_auxiliary⁻,
+                local_state_prognostic⁺diff,
+                local_state_gradient_flux⁺,
+                local_state_hyperdiffusion⁺,
+                local_state_auxiliary⁺diff,
                 bctype,
                 t,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic_bottom1,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux_bottom1,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
+                local_state_prognostic_bottom1,
+                local_state_gradient_flux_bottom1,
+                local_state_auxiliary_bottom1,
             )
         end
 
@@ -902,15 +796,9 @@ end
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_transform,
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
             @unroll for s in 1:ngradstate
@@ -982,22 +870,10 @@ end
                 )
                 compute_gradient_flux!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                        :,
-                        k,
-                    ]),
+                    local_state_gradient_flux,
+                    local_transform_gradient[:, :, k],
+                    local_state_prognostic[:, k],
+                    local_state_auxiliary[:, k],
                     t,
                 )
 
@@ -1094,15 +970,9 @@ end
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                local_transform,
+                local_state_prognostic[:, k],
+                local_state_auxiliary[:, k],
                 t,
             )
             @unroll for s in 1:ngradstate
@@ -1159,22 +1029,10 @@ end
                 )
                 compute_gradient_flux!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                        :,
-                        k,
-                    ]),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                        :,
-                        k,
-                    ]),
+                    local_state_gradient_flux,
+                    local_transform_gradient[:, :, k],
+                    local_state_prognostic[:, k],
+                    local_state_auxiliary[:, k],
                     t,
                 )
 
@@ -1293,13 +1151,9 @@ end
         fill!(local_transform⁻, -zero(eltype(local_transform⁻)))
         compute_gradient_argument!(
             balance_law,
-            Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁻,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁻,
-            ),
+            local_transform⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
             t,
         )
 
@@ -1315,13 +1169,9 @@ end
         fill!(local_transform⁺, -zero(eltype(local_transform⁺)))
         compute_gradient_argument!(
             balance_law,
-            Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁺),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁺,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁺,
-            ),
+            local_transform⁺,
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
             t,
         )
 
@@ -1335,38 +1185,22 @@ end
                 numerical_flux_gradient,
                 balance_law,
                 local_transform_gradient,
-                SVector(normal_vector),
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁻),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁺),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺,
-                ),
+                normal_vector,
+                local_transform⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                local_transform⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
                 t,
             )
             if num_state_gradient_flux > 0
                 compute_gradient_flux!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(
-                        local_transform_gradient,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic⁻,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary⁻,
-                    ),
+                    local_state_gradient_flux,
+                    local_transform_gradient,
+                    local_state_prognostic⁻,
+                    local_state_auxiliary⁻,
                     t,
                 )
             end
@@ -1386,45 +1220,25 @@ end
                 numerical_flux_gradient,
                 balance_law,
                 local_transform_gradient,
-                SVector(normal_vector),
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁻),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform⁺),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺,
-                ),
+                normal_vector,
+                local_transform⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                local_transform⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
                 bctype,
                 t,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic_bottom1,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
+                local_state_prognostic_bottom1,
+                local_state_auxiliary_bottom1,
             )
             if num_state_gradient_flux > 0
                 compute_gradient_flux!(
                     balance_law,
-                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(
-                        local_transform_gradient,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic⁻,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary⁻,
-                    ),
+                    local_state_gradient_flux,
+                    local_transform_gradient,
+                    local_state_prognostic⁻,
+                    local_state_auxiliary⁻,
                     t,
                 )
             end
@@ -1448,16 +1262,10 @@ end
 
         compute_gradient_flux!(
             balance_law,
-            Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                local_state_prognostic⁻visc,
-            ),
-            Grad{vars_state(balance_law, Gradient(), FT)}(l_nG⁻),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic⁻,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary⁻,
-            ),
+            local_state_prognostic⁻visc,
+            l_nG⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
             t,
         )
 
@@ -1509,10 +1317,8 @@ end
         end
         init_state_prognostic!(
             balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(l_state),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary,
-            ),
+            l_state,
+            local_state_auxiliary,
             coords,
             args...,
         )
@@ -1559,9 +1365,7 @@ See [`BalanceLaw`](@ref) for usage.
 
         init_state_auxiliary!(
             balance_law,
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary,
-            ),
+            local_state_auxiliary,
             LocalGeometry(Val(polyorder), vgeo, n, e),
         )
 
@@ -1619,16 +1423,7 @@ Update the auxiliary state array
                 local_state_auxiliary[s] = state_auxiliary[n, s, e]
             end
 
-            f!(
-                balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
-                t,
-            )
+            f!(balance_law, local_state_prognostic, local_state_auxiliary, t)
 
             @unroll for s in 1:num_state_auxiliary
                 state_auxiliary[n, s, e] = local_state_auxiliary[s]
@@ -1689,15 +1484,9 @@ end
 
             f!(
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
+                local_state_prognostic,
+                local_state_auxiliary,
+                local_state_gradient_flux,
                 t,
             )
 
@@ -1780,17 +1569,9 @@ See [`BalanceLaw`](@ref) for usage.
 
                 integral_load_auxiliary_state!(
                     balance_law,
-                    Vars{vars_state(balance_law, UpwardIntegrals(), FT)}(view(
-                        local_kernel,
-                        :,
-                        k,
-                    )),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic,
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary,
-                    ),
+                    view(local_kernel, :, k),
+                    local_state_prognostic,
+                    local_state_auxiliary,
                 )
 
                 # multiply in the curve jacobian
@@ -1816,17 +1597,8 @@ See [`BalanceLaw`](@ref) for usage.
                 ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
                 integral_set_auxiliary_state!(
                     balance_law,
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, UpwardIntegrals(), FT)}(view(
-                        local_kernel,
-                        :,
-                        k,
-                    )),
+                    view(state_auxiliary, ijk, :, e),
+                    view(local_kernel, :, k),
                 )
                 @unroll for ind_out in 1:nout
                     local_integral[ind_out, k] = local_integral[ind_out, Nq]
@@ -1869,19 +1641,9 @@ end
         et = nvertelem + (eh - 1) * nvertelem
         reverse_integral_load_auxiliary_state!(
             balance_law,
-            Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                state,
-                ijk,
-                :,
-                et,
-            )),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                state_auxiliary,
-                ijk,
-                :,
-                et,
-            )),
+            l_T,
+            view(state, ijk, :, et),
+            view(state_auxiliary, ijk, :, et),
         )
 
         # Loop up the stack of elements
@@ -1891,30 +1653,15 @@ end
                 ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
                 reverse_integral_load_auxiliary_state!(
                     balance_law,
-                    Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                        state,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
+                    l_V,
+                    view(state, ijk, :, e),
+                    view(state_auxiliary, ijk, :, e),
                 )
                 l_V .= l_T .- l_V
                 reverse_integral_set_auxiliary_state!(
                     balance_law,
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
-                        ijk,
-                        :,
-                        e,
-                    )),
-                    Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
+                    view(state_auxiliary, ijk, :, e),
+                    l_V,
                 )
             end
         end
@@ -2175,19 +1922,19 @@ end
             numerical_flux_divergence!(
                 divgradnumpenalty,
                 balance_law,
-                Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_div),
+                l_div,
                 normal_vector,
-                Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁻),
-                Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁺),
+                l_grad⁻,
+                l_grad⁺,
             )
         else
             numerical_boundary_flux_divergence!(
                 divgradnumpenalty,
                 balance_law,
-                Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_div),
+                l_div,
                 normal_vector,
-                Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁻),
-                Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁺),
+                l_grad⁻,
+                l_grad⁺,
                 bctype,
             )
         end
@@ -2313,12 +2060,10 @@ end
         )
         transform_post_gradient_laplacian!(
             balance_law,
-            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                local_state_hyperdiffusion,
-            ),
-            Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad_lap),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:]),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:]),
+            local_state_hyperdiffusion,
+            l_grad_lap,
+            local_state_prognostic,
+            local_state_auxiliary,
             t,
         )
         @unroll for s in 1:nhyperviscstate
@@ -2421,12 +2166,10 @@ end
         )
         transform_post_gradient_laplacian!(
             balance_law,
-            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                local_state_hyperdiffusion,
-            ),
-            Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad_lap),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:]),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:]),
+            local_state_hyperdiffusion,
+            l_grad_lap,
+            local_state_prognostic,
+            local_state_auxiliary,
             t,
         )
         @unroll for s in 1:nhyperviscstate
@@ -2547,48 +2290,28 @@ end
             numerical_flux_higher_order!(
                 hyperviscnumflux,
                 balance_law,
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
+                local_state_hyperdiffusion,
                 normal_vector,
-                Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_lap⁻),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_lap⁺),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺,
-                ),
+                l_lap⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                l_lap⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
                 t,
             )
         else
             numerical_boundary_flux_higher_order!(
                 hyperviscnumflux,
                 balance_law,
-                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                    local_state_hyperdiffusion,
-                ),
+                local_state_hyperdiffusion,
                 normal_vector,
-                Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_lap⁻),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁻,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_lap⁺),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺,
-                ),
+                l_lap⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
+                l_lap⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
                 bctype,
                 t,
             )
@@ -2655,15 +2378,9 @@ end
         Δx = pointwise_courant[n, e]
         c = local_courant(
             balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                local_state_prognostic,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary,
-            ),
-            Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                local_state_gradient_flux,
-            ),
+            local_state_prognostic,
+            local_state_auxiliary,
+            local_state_gradient_flux,
             Δx,
             Δt,
             simtime,
