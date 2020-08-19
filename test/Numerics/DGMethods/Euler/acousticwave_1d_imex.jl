@@ -1,4 +1,5 @@
 using ClimateMachine
+using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
     StackedCubedSphereTopology, cubedshellwarp, grid1d
@@ -49,7 +50,7 @@ const output_vtk = false
 const ntracers = 1
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(parse_clargs=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
@@ -66,8 +67,8 @@ function main()
     expected_result[Float32] = 9.5066030866432000e+13
     expected_result[Float64] = 9.5073452847149594e+13
 
-    for FT in (Float32, Float64)
-        for split_explicit_implicit in (false, true)
+    for FT in (Float64,)
+        for split_explicit_implicit in (true,)
             result = run(
                 mpicomm,
                 polynomialorder,
@@ -151,7 +152,7 @@ function run(
     # determine the time step
     element_size = (setup.domain_height / numelem_vert)
     acoustic_speed = soundspeed_air(model.param_set, FT(setup.T_ref))
-    dt_factor = 445
+    dt_factor = 1
     dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
     # Adjust the time step so we exactly hit 1 hour for VTK output
     dt = 60 * 60 / ceil(60 * 60 / dt)
@@ -159,7 +160,20 @@ function run(
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = ManyColumnLU()
+    #linearsolver = ManyColumnLU()
+    Nq = polynomialorder + 1
+    ncolumns = 6 * numelem_horz ^ 2 * Nq ^ 2
+    nstate = number_states(model, Prognostic())
+    dofs_per_column = nstate * Nq * numelem_vert
+    linearsolver = BatchedGeneralizedMinimalResidual(
+                    Q,
+                    dofs_per_column,
+                    ncolumns,
+                    M = 30,
+                    atol = FT(1e-6),
+                    rtol = FT(1e-6),
+                )
+    #linearsolver = GeneralizedMinimalResidual(Q, M = 30, atol = FT(1e-6), rtol=FT(1e-6))
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
