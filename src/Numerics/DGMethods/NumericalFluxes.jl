@@ -5,6 +5,7 @@ export NumericalFluxGradient,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
     RoeNumericalFlux,
+    LMARNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -235,7 +236,6 @@ function numerical_flux_first_order!(
     penalty =
         max_wavespeed .* (parent(state_prognostic⁻) - parent(state_prognostic⁺))
 
-    # TODO: should this operate on ΔQ or penalty?
     update_penalty!(
         numerical_flux,
         balance_law,
@@ -251,6 +251,7 @@ function numerical_flux_first_order!(
 
     fluxᵀn .+= penalty / 2
 end
+
 
 """
     CentralNumericalFluxFirstOrder() <: NumericalFluxFirstOrder
@@ -319,6 +320,19 @@ A numerical flux based on the approximate Riemann solver of Roe
 Requires a custom implementation for the balance law.
 """
 struct RoeNumericalFlux <: NumericalFluxFirstOrder end
+
+"""
+    LMARNumericalFlux() <: NumericalFluxFirstOrder
+
+A numerical flux based on the upwind approximation of Chen et al (2013)
+
+# Usage
+
+    LMARNumericalFlux()
+
+Requires a custom implementation for the balance law.
+"""
+struct LMARNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder

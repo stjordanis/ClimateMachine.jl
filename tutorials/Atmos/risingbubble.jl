@@ -69,6 +69,7 @@
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Atmos: LMARNumericalFlux
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
@@ -251,6 +252,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_risingbubble!,      # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
+        numerical_flux_first_order = LMARNumericalFlux(),
     )
     return config
 end
@@ -298,7 +300,7 @@ function main()
     ## CFL = FT(15)
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
+    CFL = FT(0.5)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
