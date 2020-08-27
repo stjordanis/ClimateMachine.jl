@@ -973,22 +973,8 @@ function numerical_flux_first_order!(
     )
     c⁺ = soundspeed_air(ts⁺)
 
-    ρ̃ = sqrt(ρ⁻ * ρ⁺)
-    ũ = roe_average(ρ⁻, ρ⁺, u⁻, u⁺)
-    h̃ = roe_average(ρ⁻, ρ⁺, h⁻, h⁺)
-    c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
-
-    ũᵀn = ũ' * normal_vector
-    ũc̃⁻ = ũ - c̃ * normal_vector
-    ũc̃⁺ = ũ + c̃ * normal_vector
-
-    Δρ = ρ⁺ - ρ⁻
-    Δp = p⁺ - p⁻
-    Δu = u⁺ - u⁻
-    Δuᵀn = Δu' * normal_vector
-
-    p_half = 1/2 * (p⁺ + p⁻) - (ρ⁻*c⁻)/2 * (u⁺ - u⁻)' * normal_vector
-    u_half = 1/2 * (u⁺ + u⁻)'*normal_vector - 1/ρ⁻/2/c⁻*(p⁺ - p⁻)
+    p_half = 1/2 * (p⁺ + p⁻) - (ρ⁻*c⁻)/2 * (uᵀn⁺ - uᵀn⁻)
+    u_half = 1/2 * (uᵀn⁺ + uᵀn⁻) - 1/ρ⁻/2/c⁻*(p⁺ - p⁻)
 
     ρ_b = u_half > FT(0) ? ρ⁻ : ρ⁺
     ρu_b = u_half > FT(0) ? ρu⁻ : ρu⁺
