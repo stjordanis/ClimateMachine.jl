@@ -1006,6 +1006,7 @@ function sponge_viscosity_modifier!(
     m::UpperAtmosSponge,
     ν,
     D_t,
+    τ,
     aux::Vars,
 )
     z = altitude(bl.orientation, bl.param_set, aux)
@@ -1014,6 +1015,7 @@ function sponge_viscosity_modifier!(
         β_sponge = m.α_max * sinpi(r / 2)^m.γ
         ν += β_sponge * ν
         D_t += β_sponge * D_t
+        τ += β_sponge * τ
     end
 end
 
