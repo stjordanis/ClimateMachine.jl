@@ -122,7 +122,7 @@ function run(
 
     dx = min_node_distance(grid)
     dt = dx^4 / 25 / sum(D)
-    @info "time step" dt
+    #@info "time step" dt
     dt = outputtime / ceil(Int64, outputtime / dt)
 
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D))
@@ -136,77 +136,13 @@ function run(
     )
 
     Q = init_ode_state(dg, FT(0))
+    dQ = similar(Q)
+    dg(dQ, Q, nothing, FT(0))
 
-    lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+    ϵ = FT(1e-5)
+    dQfd = (init_ode_state(dg, FT(ϵ)) .- Q) ./ ϵ 
 
-    eng0 = norm(Q)
-    @info @sprintf """Starting
-    norm(Q₀) = %.16e""" eng0
-
-    # Set up the information callback
-    starttime = Ref(now())
-    cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s = false)
-        if s
-            starttime[] = now()
-        else
-            energy = norm(Q)
-            @info @sprintf(
-                """Update
-                simtime = %.16e
-                runtime = %s
-                norm(Q) = %.16e""",
-                gettime(lsrk),
-                Dates.format(
-                    convert(Dates.DateTime, Dates.now() - starttime[]),
-                    Dates.dateformat"HH:MM:SS",
-                ),
-                energy
-            )
-        end
-    end
-    callbacks = (cbinfo,)
-    if ~isnothing(vtkdir)
-        # create vtk dir
-        mkpath(vtkdir)
-
-        vtkstep = 0
-        # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model, "hyperdiffusion")
-
-        # setup the output callback
-        cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
-            vtkstep += 1
-            Qe = init_ode_state(dg, gettime(lsrk))
-            do_output(
-                mpicomm,
-                vtkdir,
-                vtkstep,
-                dg,
-                Q,
-                Qe,
-                model,
-                "hyperdiffusion",
-            )
-        end
-        callbacks = (callbacks..., cbvtk)
-    end
-
-    solve!(Q, lsrk; timeend = timeend, callbacks = callbacks)
-
-    # Print some end of the simulation information
-    engf = norm(Q)
-    Qe = init_ode_state(dg, FT(timeend))
-
-    engfe = norm(Qe)
-    errf = euclidean_distance(Q, Qe)
-    @info @sprintf """Finished
-    norm(Q)                 = %.16e
-    norm(Q) / norm(Q₀)      = %.16e
-    norm(Q) - norm(Q₀)      = %.16e
-    norm(Q - Qe)            = %.16e
-    norm(Q - Qe) / norm(Qe) = %.16e
-    """ engf engf / eng0 engf - eng0 errf errf / engfe
-    errf
+    @info "Relative error" norm(dQ .- dQfd) / norm(dQfd)
 end
 
 using Test
@@ -219,7 +155,6 @@ let
         integration_testing || ClimateMachine.Settings.integration_testing ? 3 :
         1
 
-    polynomialorder = 4
     base_num_elem = 4
 
     expected_result = Dict()
@@ -243,7 +178,7 @@ let
     expected_result[3, 2, Float64, VerticalDirection] = 6.3744013545812925e-02
     expected_result[3, 3, Float64, VerticalDirection] = 9.0891011404938341e-04
 
-    numlevels = integration_testing ? 3 : 1
+    numlevels = 3 #integration_testing ? 3 : 1
     for FT in (Float64,)
         D =
             1 // 100 * SMatrix{3, 3, FT}(
@@ -259,9 +194,10 @@ let
             )
 
         result = zeros(FT, numlevels)
-        for dim in (2, 3)
+        for polynomialorder in (3,4,5)
+        for dim in (3,)
             for direction in
-                (EveryDirection, HorizontalDirection, VerticalDirection)
+                (HorizontalDirection,)
                 for l in 1:numlevels
                     Ne = 2^(l - 1) * base_num_elem
                     xrange = range(FT(0); length = Ne + 1, stop = FT(2pi))
@@ -275,14 +211,14 @@ let
                     timeend = 1
                     outputtime = 1
 
-                    @info (ArrayType, FT, dim, direction)
+                    @info "Running" polynomialorder l
                     vtkdir = output ?
                         "vtk_hyperdiffusion" *
                     "_poly$(polynomialorder)" *
                     "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
                     "_level$(l)" :
                         nothing
-                    result[l] = run(
+                    run(
                         mpicomm,
                         ArrayType,
                         dim,
@@ -296,17 +232,18 @@ let
                         outputtime,
                     )
 
-                    @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
+                    #@test result[l] ≈ FT(expected_result[dim, l, FT, direction])
                 end
-                @info begin
-                    msg = ""
-                    for l in 1:(numlevels - 1)
-                        rate = log2(result[l]) - log2(result[l + 1])
-                        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-                    end
-                    msg
-                end
+                # @info begin
+                #     msg = ""
+                #     for l in 1:(numlevels - 1)
+                #         rate = log2(result[l]) - log2(result[l + 1])
+                #         msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                #     end
+                #     msg
+                # end
             end
+        end
         end
     end
 end
