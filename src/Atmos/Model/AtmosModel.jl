@@ -909,6 +909,7 @@ function numerical_flux_first_order!(
 ) where {S, A}
     @assert balance_law.moisture isa DryModel
 
+    #=
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
         balance_law,
@@ -921,13 +922,10 @@ function numerical_flux_first_order!(
         t,
         direction,
     )
+    =# 
 
     FT = eltype(fluxᵀn)
     param_set = balance_law.param_set
-    _cv_d::FT = cv_d(param_set)
-    _T_0::FT = T_0(param_set)
-
-    Φ = gravitational_potential(balance_law, state_auxiliary⁻)
 
     ρ⁻ = state_conservative⁻.ρ
     ρu⁻ = state_conservative⁻.ρu
@@ -941,14 +939,13 @@ function numerical_flux_first_order!(
 
     u⁻ = ρu⁻ / ρ⁻
     uᵀn⁻ = u⁻' * normal_vector
-    e⁻ = ρe⁻ / ρ⁻
-    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
     p⁻ = pressure(
         balance_law,
         balance_law.moisture,
         state_conservative⁻,
         state_auxiliary⁻,
     )
+    p⁻ -= state_auxiliary⁻.ref_state.p 
     c⁻ = soundspeed_air(ts⁻)
 
     ρ⁺ = state_conservative⁺.ρ
@@ -963,38 +960,36 @@ function numerical_flux_first_order!(
 
     u⁺ = ρu⁺ / ρ⁺
     uᵀn⁺ = u⁺' * normal_vector
-    e⁺ = ρe⁺ / ρ⁺
-    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
     p⁺ = pressure(
         balance_law,
         balance_law.moisture,
         state_conservative⁺,
         state_auxiliary⁺,
     )
+    p⁺ -= state_auxiliary⁺.ref_state.p 
     c⁺ = soundspeed_air(ts⁺)
 
-    p_half = 1/2 * (p⁺ + p⁻) - (ρ⁻*c⁻)/2 * (uᵀn⁺ - uᵀn⁻)
-    u_half = 1/2 * (uᵀn⁺ + uᵀn⁻) - 1/ρ⁻/2/c⁻*(p⁺ - p⁻)
+    # Eqn (49), (50, β the tuning parameter
+    β = FT(1)
+    u_half = 1/2 * (uᵀn⁺ + uᵀn⁻) - β * 1/(ρ⁻ + ρ⁺)/c⁻*(p⁺ - p⁻)
+    p_half = 1/2 * (p⁺ + p⁻) - β * ((ρ⁻ + ρ⁺) * c⁻)/4 * (uᵀn⁺ - uᵀn⁻)
 
+    # Eqn (46), (47)
     ρ_b = u_half > FT(0) ? ρ⁻ : ρ⁺
     ρu_b = u_half > FT(0) ? ρu⁻ : ρu⁺
     ρe_b = u_half > FT(0) ? ρe⁻ : ρe⁺
-
-    fluxᵀn.ρ +=  ρ_b * u_half
-    fluxᵀn.ρu += ρu_b * u_half + p_half * normal_vector
-    fluxᵀn.ρe += ρe_b * u_half 
+    
+    fluxᵀn.ρ  = ρ_b * u_half
+    fluxᵀn.ρu = ρu_b * u_half + p_half * normal_vector
+    fluxᵀn.ρe = ρe_b * u_half
 
     if !(balance_law.tracers isa NoTracers)
-        
         ρχ⁻ = state_conservative⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
-
         ρχ⁺ = state_conservative⁺.tracers.ρχ
         χ⁺ = ρχ⁺ / ρ⁺
-        
         ρχ_b = u_half > FT(0) ? ρχ⁻ : ρχ⁺
-
-        fluxᵀn.tracers.ρχ += ρχ_b * u_half
+        fluxᵀn.tracers.ρχ = ρχ_b * u_half 
     end
 end
 end # module
