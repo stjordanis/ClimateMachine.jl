@@ -69,7 +69,7 @@
 using ClimateMachine
 ClimateMachine.init(parse_clargs=true)
 using ClimateMachine.Atmos
-using ClimateMachine.Atmos: LMARNumericalFlux
+using ClimateMachine.Atmos: AUSMNumericalFlux
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
@@ -171,7 +171,8 @@ function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe_tot
-    state.tracers.ρχ = ρχ
+
+    #state.tracers.ρχ = ρχ
 end
 
 # ## [Model Configuration](@id config-helper)
@@ -236,7 +237,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         turbulence = SmagorinskyLilly(_C_smag),        # Turbulence closure model
         moisture = DryModel(),                         # Exclude moisture variables
         source = (Gravity(),),                         # Gravity is the only source term here
-        tracers = NTracers{ntracers, FT}(δ_χ),         # Tracer model with diffusivity coefficients
+        tracers = NoTracers(),
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the
@@ -252,7 +253,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_risingbubble!,      # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
-        numerical_flux_first_order = LMARNumericalFlux(),
+        numerical_flux_first_order = AUSMNumericalFlux(),
     )
     return config
 end
@@ -300,7 +301,7 @@ function main()
     ## CFL = FT(15)
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(0.5)
+    CFL = FT(0.2)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
