@@ -69,7 +69,7 @@
 using ClimateMachine
 ClimateMachine.init(parse_clargs=true)
 using ClimateMachine.Atmos
-using ClimateMachine.Atmos: AUSMNumericalFlux
+using ClimateMachine.Atmos: AUSMNumericalFlux, LMARNumericalFlux
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
@@ -126,7 +126,7 @@ function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     ## Define bubble center and background potential temperature
     xc::FT = 5000
     yc::FT = 1000
-    zc::FT = 2000
+    zc::FT = 5000
     r = sqrt((x - xc)^2 + (z - zc)^2)
     rc::FT = 2000
     θamplitude::FT = 2
@@ -253,7 +253,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_risingbubble!,      # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
-        numerical_flux_first_order = AUSMNumericalFlux(),
+        numerical_flux_first_order = LMARNumericalFlux(),
     )
     return config
 end
@@ -293,9 +293,9 @@ function main()
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
     ymax = FT(500)
-    zmax = FT(10000)
+    zmax = FT(20000)
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(2000)
 
     ## Use up to 20 if ode_solver is the multi-rate LRRK144.
     ## CFL = FT(15)
