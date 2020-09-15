@@ -327,3 +327,89 @@ function numerical_flux_first_order!(
     fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
     fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
 end
+
+function numerical_flux_first_order!(
+    numerical_flux::LMARNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    @assert balance_law.atmos.moisture isa DryModel
+    
+    atmos = balance_law.atmos
+    param_set = atmos.param_set
+    
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+    #=
+    # Unpack reference parameters on left (minus) side
+    ρu⁻ = state_conservative⁻.ρu
+    ρ⁻ = state_conservative⁻.ρ
+    u⁻ = ρu⁻/ρ⁻
+    uᵀn⁻ = u⁻' * normal_vector
+    ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
+    ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
+    ref_T⁻ = state_auxiliary⁻.ref_state.T
+    ref_p⁻ = state_auxiliary⁻.ref_state.p
+    ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
+    ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
+
+    pL⁻ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_conservative⁻,
+        state_auxiliary⁻,
+    )
+
+    # Unpack reference parameters on right (plus) side
+    ρu⁺ = state_conservative⁺.ρu
+    ρ⁺ = state_conservative⁺.ρ
+    u⁺  = ρu⁺/ρ⁺
+    uᵀn⁺ = u⁺' * normal_vector
+    ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
+    ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
+    ref_T⁺ = state_auxiliary⁺.ref_state.T
+    ref_p⁺ = state_auxiliary⁺.ref_state.p
+    ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
+    ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
+
+    pL⁺ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_conservative⁺,
+        state_auxiliary⁺,
+    )
+
+    # Select +/- state
+    ρ_b = u_half > FT(0) ? ρ⁻ : ρ⁺
+    ρh_b = u_half > FT(0) ? ref_ρ⁻*ref_h⁻ : ref_ρ⁺*_ref_h⁺
+
+    # Compute linearised pressure contribution
+    u_half = 1/2 * (uᵀn⁺ + uᵀn⁻)
+    p_half = 1/2 * (pL⁺ + pL⁻) 
+    
+    # Upwind fluxes for linear terms
+    fluxᵀn.ρ = ρ_b * u_half
+    fluxᵀn.ρu = p_half * normal_vector
+    fluxᵀn.ρe =  ρh_b * u_half
+    =# 
+end

@@ -908,19 +908,6 @@ function numerical_flux_first_order!(
     direction,
 ) where {S, A}
 
-    numerical_flux_first_order!(
-        CentralNumericalFluxFirstOrder(),
-        balance_law,
-        fluxᵀn,
-        normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
-        state_conservative⁺,
-        state_auxiliary⁺,
-        t,
-        direction,
-    )
-
     FT = eltype(fluxᵀn)
     param_set = balance_law.param_set
 
