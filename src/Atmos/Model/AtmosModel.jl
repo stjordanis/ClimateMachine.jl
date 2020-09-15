@@ -73,7 +73,7 @@ import ..DGMethods.NumericalFluxes:
     CentralNumericalFluxDivergence,
     CentralNumericalFluxFirstOrder,
     numerical_flux_first_order!
-using ..DGMethods.NumericalFluxes: RoeNumericalFlux, LMARNumericalFlux, AUSMNumericalFlux
+using ..DGMethods.NumericalFluxes: RoeNumericalFlux, LMARNumericalFlux
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
@@ -998,93 +998,4 @@ function numerical_flux_first_order!(
     end
 end
 
-function numerical_flux_first_order!(
-    numerical_flux::AUSMNumericalFlux,
-    balance_law::AtmosModel,
-    fluxᵀn::Vars{S},
-    normal_vector::SVector,
-    state_conservative⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
-    t,
-    direction,
-) where {S, A}
-    @assert balance_law.moisture isa DryModel
-
-    FT = eltype(fluxᵀn)
-    param_set = balance_law.param_set
-    num_state_prognostic = number_states(balance_law, Prognostic())
-    # Unpack left (⁻) side parameters
-    ρ⁻ = state_conservative⁻.ρ
-    ρu⁻ = state_conservative⁻.ρu
-    ρe⁻ = state_conservative⁻.ρe
-    ts⁻ = thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_conservative⁻,
-        state_auxiliary⁻,
-    )
-    u⁻ = ρu⁻ / ρ⁻
-    uᵀn⁻ = u⁻' * normal_vector
-    p⁻ = pressure(
-        balance_law,
-        balance_law.moisture,
-        state_conservative⁻,
-        state_auxiliary⁻,
-    )
-    e⁻ = ρe⁻ / ρ⁻
-    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
-    if balance_law.ref_state isa HydrostaticState
-        p⁻ -= state_auxiliary⁻.ref_state.p 
-    end
-    c⁻ = soundspeed_air(ts⁻)
-
-    # Unpack right (⁺) side parameters
-    ρ⁺ = state_conservative⁺.ρ
-    ρu⁺ = state_conservative⁺.ρu
-    ρe⁺ = state_conservative⁺.ρe
-    ts⁺ = thermo_state(
-        balance_law,
-        balance_law.moisture,
-        state_conservative⁺,
-        state_auxiliary⁺,
-    )
-    u⁺ = ρu⁺ / ρ⁺
-    uᵀn⁺ = u⁺' * normal_vector
-    p⁺ = pressure(
-        balance_law,
-        balance_law.moisture,
-        state_conservative⁺,
-        state_auxiliary⁺,
-    )
-    e⁺ = ρe⁺ / ρ⁺
-    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
-    if balance_law.ref_state isa HydrostaticState
-        p⁺ -= state_auxiliary⁺.ref_state.p 
-    end
-    c⁺ = soundspeed_air(ts⁺)
-
-    # Interface soundspeed: Eqn(14)
-    c_LR = (c⁺ + c⁻)/2
-    Ma⁻ = dot(u⁻, normal_vector)/c_LR 
-    Ma⁺ = dot(u⁺, normal_vector)/c_LR 
-
-    # Mach number splitting functions: Eqn (9)
-    M⁺ = abs(Ma⁻) > 1 ?  1/2 * (Ma⁻ + abs(Ma⁻)) : 1/4*(Ma⁻ + 1)^2 + 1/8*(Ma⁻^2 - 1)^2
-    M⁻ = abs(Ma⁺) > 1 ?  1/2 * (Ma⁺ - abs(Ma⁺)) : -1/4*(Ma⁺ - 1)^2 - 1/8*(Ma⁺^2 - 1)^2
-    # Interface Mach number: Eqn (8)
-    M_LR = (M⁺ + M⁻) 
-     
-    # Pressure splitting function: Eqn (16)
-    P⁺ = abs(Ma⁻) >= 1 ? 1/2 * (1 + sign(Ma⁻)) : 1/4*(Ma⁻ + 1)^2 * (2 - Ma⁻) + 3/16*(Ma⁻^2 - 1)^2
-    P⁻ = abs(Ma⁺) >= 1 ? 1/2 * (1 - sign(Ma⁺)) : 1/4*(Ma⁺ - 1)^2 * (2 + Ma⁺) - 3/16*(Ma⁺^2 - 1)^2
-    # Interface pressure: Eqn (10)
-    P_LR = P⁺ * p⁻ + P⁻ * p⁺
-    
-    # Sum of convective and pressure fluxes: Eqn (17)
-    fluxᵀn.ρ = M_LR * c_LR * (ρ⁻ + ρ⁺) / 2 - abs(M_LR) * c_LR * (ρ⁺ - ρ⁻) / 2
-    fluxᵀn.ρu = M_LR * c_LR * (ρu⁻ + ρu⁺) / 2 - abs(M_LR) * c_LR * (ρu⁺ - ρu⁻) / 2 .+ P_LR * normal_vector
-    fluxᵀn.ρe = M_LR * c_LR * (ρ⁺*h⁺ + ρ⁻*h⁻) / 2 - abs(M_LR) * c_LR * (ρ⁺*h⁺ - ρ⁻*h⁻) / 2
-end
 end # module

@@ -335,19 +335,6 @@ Requires a custom implementation for the balance law.
 struct LMARNumericalFlux <: NumericalFluxFirstOrder end
 
 """
-    AUSMNumericalFlux() <: NumericalFluxFirstOrder
-
-A numerical flux based on the approximate Riemann solver of Roe
-
-# Usage
-
-    AUSMNumericalFlux()
-
-Requires a custom implementation for the balance law.
-"""
-struct AUSMNumericalFlux <: NumericalFluxFirstOrder end
-
-"""
     NumericalFluxSecondOrder
 
 Any `N <: NumericalFluxSecondOrder` should define the a method for
