@@ -907,7 +907,6 @@ function numerical_flux_first_order!(
     t,
     direction,
 ) where {S, A}
-    @assert balance_law.moisture isa DryModel
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
@@ -987,7 +986,14 @@ function numerical_flux_first_order!(
     fluxᵀn.ρ  = ρ_b * u_half 
     fluxᵀn.ρu = ρu_b * u_half  + p_half * normal_vector
     fluxᵀn.ρe = ρh_b * u_half
-
+    if balance_law.moisture isa EquilMoist
+        ρq⁻ = state_conservative⁻.moisture.ρq_tot
+        q⁻ = ρq⁻ / ρ⁻
+        ρq⁺ = state_conservative⁺.moisture.ρq_tot
+        q⁺ = ρq⁺ / ρ⁺
+        ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+        fluxᵀn.moisture.ρq_tot = ρq_b * u_half 
+    end
     if !(balance_law.tracers isa NoTracers)
         ρχ⁻ = state_conservative⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
