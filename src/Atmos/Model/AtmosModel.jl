@@ -424,6 +424,8 @@ equations.
     flux_moisture!(m.moisture, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
     flux_first_order!(m.turbconv, m, flux, state, aux, t)
+
+    flux.ρu = flux.ρu .* 0
 end
 
 function compute_gradient_argument!(
@@ -545,6 +547,8 @@ function. Contributions from subcomponents are then assembled (pointwise).
     )
     flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
+
+    flux.ρu = flux.ρu .* 0
 end
 
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
@@ -739,6 +743,8 @@ function source!(
     direction,
 )
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
+
+    source.ρu = source.ρu .* 0
 end
 
 @doc """

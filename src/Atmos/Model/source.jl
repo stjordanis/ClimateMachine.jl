@@ -74,6 +74,11 @@ function atmos_source!(
     t::Real,
     direction,
 )
+    @show aux.orientation.∇Φ
+    @show norm(aux.orientation.∇Φ) .- grav(atmos.param_set)
+    @show vertical_unit_vector(atmos, aux)
+    @show sphr_to_cart_vec(atmos.orientation, vertical_unit_vector(atmos, aux), aux)
+    @show sphr_to_cart_vec(atmos.orientation, aux.orientation.∇Φ, aux)
     if atmos.ref_state isa HydrostaticState
         source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     else

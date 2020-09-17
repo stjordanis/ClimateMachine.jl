@@ -737,7 +737,7 @@ struct InterpolationCubedSphere{
         qm1 = poly_order + 1
         toler1 = FT(eps(FT) * vert_range[1] * 2.0) # tolerance for unwarp function
         toler2 = FT(eps(FT) * 4.0)                 # tolerance
-        toler3 = FT(eps(FT) * vert_range[1] * 10.0) # tolerance for Newton-Raphson
+        toler3 = 10^5*eps(FT)/vert_range[1] + 10eps(FT) * vert_range[1] # tolerance for Newton-Raphson
 
         Nel = length(grid.topology.realelems) # # of local elements on the local process
 

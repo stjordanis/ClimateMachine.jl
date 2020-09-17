@@ -24,8 +24,11 @@ using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet: day, planet_radius
+import CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 1
+# CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6
 
 function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
@@ -59,6 +62,8 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         turbulence = ConstantKinematicViscosity(FT(0)),
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
+        # source = (Gravity(),),
+        # source = (),
         source = (Gravity(), Coriolis()),
     )
 
@@ -113,8 +118,9 @@ function main()
         driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
+        # CFL_direction = HorizontalDirection(),
+        # diffdir = HorizontalDirection(),
+        ode_dt = FT(95.49677905926247),
         fixed_number_of_steps = 6,
     )
 
@@ -135,8 +141,9 @@ function main()
         init_driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
+        # CFL_direction = HorizontalDirection(),
+        # diffdir = HorizontalDirection(),
+        ode_dt = FT(95.49677905926247),
     )
 
     # initialization
@@ -149,12 +156,14 @@ function main()
     # Set up user-defined callbacks
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
         @show getsteps(solver_config.solver)
-        relative_error =
-        norm(solver_config.Q .- Qinit) /
-        norm(Qinit)
+        relative_error = norm(solver_config.Q .- Qinit) / norm(Qinit)
+        abs_error = norm(solver_config.Q .- Qinit)
         @info "Relative error = $relative_error"
+        @info "Abs error = $abs_error"
         t = gettime(solver_config.solver)
+        Δt = ODESolvers.getdt(solver_config.solver)
         @info "t = $t"
+        @info "Δt = $Δt"
         nothing
     end
 
@@ -166,10 +175,10 @@ function main()
         check_euclidean_distance = false,
     )
 
-    relative_error =
-        norm(solver_config.Q .- init_solver_config.Q) /
-        norm(init_solver_config.Q)
+    relative_error = norm(solver_config.Q .- Qinit) / norm(Qinit)
+    abs_error = norm(solver_config.Q .- Qinit)
     @info "Relative error = $relative_error"
+    @info "Abs error = $abs_error"
     return solver_config, Qinit
 end
 
@@ -202,3 +211,7 @@ end
 
 solver_config, Qinit = main()
 nothing
+
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+
+include(joinpath(clima_dir, "test", "Atmos", "Model", "plot_solid_body_rotation.jl"))
