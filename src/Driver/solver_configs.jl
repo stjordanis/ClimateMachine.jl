@@ -8,7 +8,7 @@
 
 Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 """
-struct SolverConfiguration{FT}
+mutable struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
     param_set::AbstractParameterSet
@@ -108,7 +108,7 @@ function SolverConfiguration(
     # Create the DG model and initialize the ODE state. If we're restarting,
     # use state data from the checkpoint.
     if Settings.restart_from_num > 0
-        s_Q, s_aux, t0 = Callbacks.read_checkpoint(
+        s_Q, s_aux, t0 = read_checkpoint(
             Settings.checkpoint_dir,
             driver_config.name,
             driver_config.array_type,
