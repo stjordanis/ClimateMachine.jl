@@ -95,7 +95,7 @@ end
 
 function main()
     FT = Float64
-    poly_order = 4
+    poly_order = 3
 
     timestart = FT(0)
     timeend = FT(100)
@@ -108,7 +108,7 @@ function main()
     end
 
     GCM_params = let
-        GCM_resolution = (3, 3)
+        GCM_resolution = (12, 6)
         (GCM_resolution, domain_height)
     end
 
@@ -125,15 +125,16 @@ function main()
         solver_method = LSRK54CarpenterKennedy,
     )
 
-    @testset for config in (LES, GCM)
-        @testset for ode_solver_type in (explicit_solver_type, imex_solver_type)
+    @testset for config in (GCM,)
+        @testset for ode_solver_type in (explicit_solver_type,)
             @testset for numflux in (
-                CentralNumericalFluxFirstOrder(),
-                RoeNumericalFlux(),
-                HLLCNumericalFlux(),
+                RusanovNumericalFlux(), # fails
+                # CentralNumericalFluxFirstOrder(),
+                # RoeNumericalFlux(),
+                # HLLCNumericalFlux(),
             )
                 @testset for temp_profile in (
-                    IsothermalProfile(param_set, FT),
+                    # IsothermalProfile(param_set, FT),
                     DecayingTemperatureProfile{FT}(param_set),
                 )
                     driver_config = config_balanced(
@@ -155,10 +156,25 @@ function main()
                         diffdir = HorizontalDirection(),
                     )
 
+
+
                     Qinit = similar(solver_config.Q)
                     Qinit .= solver_config.Q
 
-                    ClimateMachine.invoke!(solver_config)
+                    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+                        @show getsteps(solver_config.solver)
+                        relative_error = norm(solver_config.Q .- Qinit) / norm(Qinit)
+                        @info "Relative error = $relative_error"
+                        t = gettime(solver_config.solver)
+                        @info "t = $t"
+                        nothing
+                    end
+
+                    ClimateMachine.invoke!(solver_config;
+                        user_callbacks = (cb_print_step,),)
+
+                    t_end = gettime(solver_config.solver)
+                    @info "t_end = $t_end"
 
                     error =
                         euclidean_distance(solver_config.Q, Qinit) / norm(Qinit)

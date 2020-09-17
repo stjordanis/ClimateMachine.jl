@@ -32,15 +32,20 @@ function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
 
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
-    u_0::FT = 0
-    u_sphere = SVector{3, FT}(u_0, 0, 0)
-    u_init = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
-    e_kin::FT = 0.5 * sum(abs2.(u_init))
+    # u_0::FT = 0
+    # u_sphere = SVector{3, FT}(u_0, 0, 0)
+    # u_init = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
+    # e_kin::FT = 0.5 * sum(abs2.(u_init))
 
-    # Assign state variables
+    # # Assign state variables
+    # state.ρ = aux.ref_state.ρ
+    # # state.ρu = u_init
+    # state.ρu = u_init .* 0
+    # state.ρe = aux.ref_state.ρe + state.ρ * e_kin
+
     state.ρ = aux.ref_state.ρ
-    state.ρu = u_init
-    state.ρe = aux.ref_state.ρe + state.ρ * e_kin
+    state.ρu = SVector{3, FT}(0, 0, 0)
+    state.ρe = aux.ref_state.ρe
 
     nothing
 end
@@ -49,16 +54,17 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
 
     # Set up the atmosphere model
     exp_name = "SolidBodyRotation"
-    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    # domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    domain_height = FT(50e3)
 
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_solid_body_rotation!,
         ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis()),
+        source = (Gravity(),),
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -69,6 +75,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         param_set,
         init_solid_body_rotation!;
         model = model,
+        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     )
 
     return config
@@ -83,27 +90,20 @@ function main()
     n_days::FT = 0.05
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
+    @show timeend
 
     # Set up a reference state for linearization of equations
-    temp_profile_default = DecayingTemperatureProfile{FT}(param_set)
-    temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set)
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up driver configuration
-    driver_config =
-        config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), ref_state)
+    driver_config = config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), ref_state)
 
-    # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK54CarpenterKennedy,
     )
 
-    CFL = FT(0.2) # target acoustic CFL number
+    CFL = FT(0.01) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -117,33 +117,13 @@ function main()
         fixed_number_of_steps = 2,
     )
 
-    # initialize using a different ref state (mega-hack)
-    temp_profile_init =
-        DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
-    init_ref_state = HydrostaticState(temp_profile_init)
-
-    init_driver_config = config_solid_body_rotation(
-        FT,
-        poly_order,
-        (n_horz, n_vert),
-        init_ref_state,
-    )
-    init_solver_config = ClimateMachine.SolverConfiguration(
-        timestart,
-        timeend,
-        init_driver_config,
-        Courant_number = CFL,
-        ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
-    )
-
     # initialization
-    solver_config.Q .= init_solver_config.Q
+    Qinit = similar(solver_config.Q)
+    Qinit .= solver_config.Q
 
     relative_error =
-        norm(solver_config.Q .- init_solver_config.Q) /
-        norm(init_solver_config.Q)
+        norm(solver_config.Q .- Qinit) /
+        norm(Qinit)
     @info "Relative error = $relative_error"
 
     # Set up diagnostics
@@ -152,9 +132,11 @@ function main()
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
         @show getsteps(solver_config.solver)
         relative_error =
-        norm(solver_config.Q .- init_solver_config.Q) /
-        norm(init_solver_config.Q)
+        norm(solver_config.Q .- Qinit) /
+        norm(Qinit)
         @info "Relative error = $relative_error"
+        t = gettime(solver_config.solver)
+        @info "t = $t"
         nothing
     end
 
@@ -165,12 +147,14 @@ function main()
         user_callbacks = (cb_print_step,),
         check_euclidean_distance = false,
     )
+    t_end = gettime(solver_config.solver)
+    @info "t_end = $t_end"
 
     relative_error =
-        norm(solver_config.Q .- init_solver_config.Q) /
-        norm(init_solver_config.Q)
+        norm(solver_config.Q .- Qinit) /
+        norm(Qinit)
     @info "Relative error = $relative_error"
-    return solver_config
+    return solver_config, Qinit
 end
 
 function config_diagnostics(FT, driver_config)
@@ -200,4 +184,5 @@ function config_diagnostics(FT, driver_config)
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
-solver_config = main()
+solver_config, Qinit = main();
+nothing
