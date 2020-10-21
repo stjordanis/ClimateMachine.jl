@@ -104,83 +104,19 @@ function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
     dg(tendency, state_prognostic, param, t, true, increment)
 end
 
-function hyperdiff_indexmap(balance_law, ::Type{FT}) where {FT}
-    ns_hyperdiff = number_states(balance_law, Hyperdiffusive())
-    if ns_hyperdiff > 0
-        return varsindices(
-            vars_state(balance_law, Gradient(), FT),
-            fieldnames(vars_state(balance_law, GradientLaplacian(), FT)),
-        )
-    else
-        return nothing
-    end
-end
-
-function compute_volume_gradients!(event, dg, state_prognostic, t)
-    ns_grad_flux = number_states(dg.balance_law, GradientFlux())
-    ns_hyperdiff = number_states(dg.balance_law, Hyperdiffusive())
-    Qhypervisc_grad, _ = dg.states_higher_order
-    if ns_grad_flux > 0 || ns_hyperdiff > 0
-        device = array_device(state_prognostic)
-        dim = dimensionality(dg.grid)
-        N = polynomialorder(dg.grid)
-        Nq = N + 1
-        nrealelem = length(dg.grid.topology.realelems)
-        event = volume_gradients!(device, (Nq, Nq))(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            state_prognostic.data,
-            dg.state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            dg.state_auxiliary.data,
-            dg.grid.vgeo,
-            t,
-            dg.grid.D,
-            Val(hyperdiff_indexmap(balance_law, FT)),
-            dg.grid.topology.realelems,
-            ndrange = (Nq * nrealelem, Nq),
-            dependencies = (event,),
-        )
-    end
-    return nothing
-end
 
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
-    balance_law = dg.balance_law
     device = array_device(state_prognostic)
-
-    grid = dg.grid
-    topology = grid.topology
-
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
-    nrealelem = length(topology.realelems)
-
-    state_gradient_flux = dg.state_gradient_flux
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
-    state_auxiliary = dg.state_auxiliary
 
     FT = eltype(state_prognostic)
-    num_state_prognostic = number_states(balance_law, Prognostic())
-    num_state_gradient_flux = number_states(balance_law, GradientFlux())
-    nhyperviscstate = number_states(balance_law, Hyperdiffusive())
+    num_state_prognostic = number_states(dg.balance_law, Prognostic())
+    num_state_gradient_flux = number_states(dg.balance_law, GradientFlux())
+    nhyperviscstate = number_states(dg.balance_law, Hyperdiffusive())
     num_state_tendency = size(tendency, 2)
 
     @assert num_state_prognostic ≤ num_state_tendency
-
-    Np = dofs_per_element(grid)
-
-    workgroups_volume = (Nq, Nq, Nqk)
-    ndrange_volume = (nrealelem * Nq, Nq, Nqk)
-    workgroups_surface = Nfp
-    ndrange_interior_surface = Nfp * length(grid.interiorelems)
-    ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
 
     if num_state_prognostic < num_state_tendency && β != 1
         # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
@@ -189,24 +125,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     end
 
     communicate =
-        !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
+        !(isstacked(dg.grid.topology) && typeof(dg.direction) <: VerticalDirection)
 
     update_auxiliary_state!(
         dg,
-        balance_law,
+        dg.balance_law,
         state_prognostic,
         t,
         dg.grid.topology.realelems,
     )
-
-    if nhyperviscstate > 0
-        hypervisc_indexmap = varsindices(
-            vars_state(balance_law, Gradient(), FT),
-            fieldnames(vars_state(balance_law, GradientLaplacian(), FT)),
-        )
-    else
-        hypervisc_indexmap = nothing
-    end
 
     exchange_state_prognostic = NoneEvent()
     exchange_state_gradient_flux = NoneEvent()
@@ -215,9 +142,6 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
     comp_stream = Event(device)
 
-    ########################
-    # Gradient Computation #
-    ########################
     if communicate
         exchange_state_prognostic = MPIStateArrays.begin_ghost_exchange!(
             state_prognostic;
@@ -225,31 +149,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         )
     end
 
-    compute_volume_gradients!(comp_stream, dg, state_prognostic, t)
-
     if num_state_gradient_flux > 0 || nhyperviscstate > 0
+        ########################
+        # Gradient Computation #
+        ########################
+        
+        comp_stream = launch_volume_gradients!(dg, state_prognostic, t; dependencies=comp_stream)
 
-        comp_stream = interface_gradients!(device, workgroups_surface)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            dg.numerical_flux_gradient,
-            state_prognostic.data,
-            state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            grid.sgeo,
-            t,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            Val(hypervisc_indexmap),
-            grid.interiorelems;
-            ndrange = ndrange_interior_surface,
-            dependencies = (comp_stream,),
-        )
+        comp_stream = launch_interface_gradients!(dg, state_prognostic, t;
+                                                   surface = :interior, dependencies=comp_stream) 
 
         if communicate
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
@@ -262,7 +170,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
                 dg,
-                balance_law,
+                dg.balance_law,
                 state_prognostic,
                 t,
                 dg.grid.topology.ghostelems,
@@ -270,33 +178,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = Event(device)
         end
 
-        comp_stream = interface_gradients!(device, workgroups_surface)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            dg.numerical_flux_gradient,
-            state_prognostic.data,
-            state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            grid.sgeo,
-            t,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            Val(hypervisc_indexmap),
-            grid.exteriorelems;
-            ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_state_prognostic),
-        )
+        comp_stream = launch_interface_gradients!(dg, state_prognostic, t;
+                                                   surface = :exterior,
+                                                   dependencies=(comp_stream, exchange_state_prognostic)) 
 
         if communicate
             if num_state_gradient_flux > 0
                 exchange_state_gradient_flux =
                     MPIStateArrays.begin_ghost_exchange!(
-                        state_gradient_flux,
+                        dg.state_gradient_flux,
                         dependencies = comp_stream,
                     )
             end
@@ -314,7 +204,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             wait(device, comp_stream)
             update_auxiliary_state_gradient!(
                 dg,
-                balance_law,
+                dg.balance_law,
                 state_prognostic,
                 t,
                 dg.grid.topology.realelems,
@@ -328,39 +218,17 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         # Laplacian Computation #
         #########################
 
-        comp_stream =
-            volume_divergence_of_gradients!(device, workgroups_volume)(
-                balance_law,
-                Val(dim),
-                Val(N),
-                dg.diffusion_direction,
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                grid.vgeo,
-                grid.D,
-                topology.realelems;
-                ndrange = ndrange_volume,
-                dependencies = (comp_stream,),
-            )
+        comp_stream = launch_volume_divergence_of_gradients!(
+          dg,
+          state_prognostic,
+          t; dependencies=comp_stream)
 
-        comp_stream =
-            interface_divergence_of_gradients!(device, workgroups_surface)(
-                balance_law,
-                Val(dim),
-                Val(N),
-                dg.diffusion_direction,
-                CentralNumericalFluxDivergence(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                grid.vgeo,
-                grid.sgeo,
-                grid.vmap⁻,
-                grid.vmap⁺,
-                grid.elemtobndy,
-                grid.interiorelems;
-                ndrange = ndrange_interior_surface,
-                dependencies = (comp_stream,),
-            )
+        comp_stream = launch_interface_divergence_of_gradients!(
+          dg,
+          state_prognostic,
+          t;
+          surface = :interior,
+          dependencies=comp_stream) 
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
@@ -369,24 +237,13 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             )
         end
 
-        comp_stream =
-            interface_divergence_of_gradients!(device, workgroups_surface)(
-                balance_law,
-                Val(dim),
-                Val(N),
-                dg.diffusion_direction,
-                CentralNumericalFluxDivergence(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                grid.vgeo,
-                grid.sgeo,
-                grid.vmap⁻,
-                grid.vmap⁺,
-                grid.elemtobndy,
-                grid.exteriorelems;
-                ndrange = ndrange_exterior_surface,
-                dependencies = (comp_stream, exchange_Qhypervisc_grad),
-            )
+        comp_stream = launch_interface_divergence_of_gradients!(
+          dg,
+          state_prognostic,
+          t;
+          surface = :exterior,
+          dependencies=(comp_stream, exchange_Qhypervisc_grad)
+         )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.begin_ghost_exchange!(
@@ -400,43 +257,12 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         ####################################
 
         comp_stream =
-            volume_gradients_of_laplacians!(device, workgroups_volume)(
-                balance_law,
-                Val(dim),
-                Val(N),
-                dg.diffusion_direction,
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_prognostic.data,
-                state_auxiliary.data,
-                grid.vgeo,
-                grid.ω,
-                grid.D,
-                topology.realelems,
-                t;
-                ndrange = ndrange_volume,
+            launch_volume_gradients_of_laplacians!(dg, state_prognostic, t,
                 dependencies = (comp_stream,),
             )
 
         comp_stream =
-            interface_gradients_of_laplacians!(device, workgroups_surface)(
-                balance_law,
-                Val(dim),
-                Val(N),
-                dg.diffusion_direction,
-                CentralNumericalFluxHigherOrder(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_prognostic.data,
-                state_auxiliary.data,
-                grid.vgeo,
-                grid.sgeo,
-                grid.vmap⁻,
-                grid.vmap⁺,
-                grid.elemtobndy,
-                grid.interiorelems,
-                t;
-                ndrange = ndrange_interior_surface,
+            launch_interface_gradients_of_laplacians!(dg, state_prognostic, t; surface=:interior,
                 dependencies = (comp_stream,),
             )
 
@@ -448,24 +274,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         end
 
         comp_stream =
-            interface_gradients_of_laplacians!(device, workgroups_surface)(
-                balance_law,
-                Val(dim),
-                Val(N),
-                dg.diffusion_direction,
-                CentralNumericalFluxHigherOrder(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_prognostic.data,
-                state_auxiliary.data,
-                grid.vgeo,
-                grid.sgeo,
-                grid.vmap⁻,
-                grid.vmap⁺,
-                grid.elemtobndy,
-                grid.exteriorelems,
-                t;
-                ndrange = ndrange_exterior_surface,
+            launch_interface_gradients_of_laplacians!(dg, state_prognostic, t; surface=:exterior,
                 dependencies = (comp_stream, exchange_Qhypervisc_div),
             )
 
@@ -481,48 +290,12 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     ###################
     # RHS Computation #
     ###################
-    comp_stream = volume_tendency!(device, (Nq, Nq))(
-        balance_law,
-        Val(dim),
-        Val(N),
-        dg.direction,
-        tendency.data,
-        state_prognostic.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
-        grid.vgeo,
-        t,
-        grid.ω,
-        grid.D,
-        topology.realelems,
-        α,
-        β;
-        ndrange = (nrealelem * Nq, Nq),
+    comp_stream = launch_volume_tendency!(dg, tendency, state_prognostic, t, α, β;
         dependencies = (comp_stream,),
     )
 
-    comp_stream = interface_tendency!(device, workgroups_surface)(
-        balance_law,
-        Val(dim),
-        Val(N),
-        dg.direction,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        tendency.data,
-        state_prognostic.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
-        grid.vgeo,
-        grid.sgeo,
-        t,
-        grid.vmap⁻,
-        grid.vmap⁺,
-        grid.elemtobndy,
-        grid.interiorelems,
-        α;
-        ndrange = ndrange_interior_surface,
+    comp_stream = launch_interface_tendency!(dg, tendency, state_prognostic, t, α, β;
+        surface=:interior,
         dependencies = (comp_stream,),
     )
 
@@ -531,7 +304,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             if num_state_gradient_flux > 0
                 exchange_state_gradient_flux =
                     MPIStateArrays.end_ghost_exchange!(
-                        state_gradient_flux;
+                        dg.state_gradient_flux;
                         dependencies = exchange_state_gradient_flux,
                     )
 
@@ -541,7 +314,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 wait(device, exchange_state_gradient_flux)
                 update_auxiliary_state_gradient!(
                     dg,
-                    balance_law,
+                    dg.balance_law,
                     state_prognostic,
                     t,
                     dg.grid.topology.ghostelems,
@@ -565,7 +338,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
                 dg,
-                balance_law,
+                dg.balance_law,
                 state_prognostic,
                 t,
                 dg.grid.topology.ghostelems,
@@ -574,27 +347,8 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         end
     end
 
-    comp_stream = interface_tendency!(device, workgroups_surface)(
-        balance_law,
-        Val(dim),
-        Val(N),
-        dg.direction,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        tendency.data,
-        state_prognostic.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
-        grid.vgeo,
-        grid.sgeo,
-        t,
-        grid.vmap⁻,
-        grid.vmap⁺,
-        grid.elemtobndy,
-        grid.exteriorelems,
-        α;
-        ndrange = ndrange_exterior_surface,
+    comp_stream = launch_interface_tendency!(dg, tendency, state_prognostic, t, α, β;
+        surface=:exterior,
         dependencies = (
             comp_stream,
             exchange_state_prognostic,
@@ -1069,4 +823,307 @@ function continuous_field_gradient!(
         dependencies = (event,),
     )
     wait(device, event)
+end
+
+function hyperdiff_indexmap(balance_law, ::Type{FT}) where {FT}
+    ns_hyperdiff = number_states(balance_law, Hyperdiffusive())
+    if ns_hyperdiff > 0
+        return varsindices(
+            vars_state(balance_law, Gradient(), FT),
+            fieldnames(vars_state(balance_law, GradientLaplacian(), FT)),
+        )
+    else
+        return nothing
+    end
+end
+
+function basic_launch_info(dg::DGModel)
+    device = array_device(dg.state_auxiliary)
+    grid = dg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    Np = dofs_per_element(grid)
+
+    nrealelem = length(topology.realelems)
+    ninteriorelem = length(dg.grid.interiorelems) 
+    nexteriorelem = length(dg.grid.exteriorelems) 
+
+    return (
+        device = device,
+        dim = dim,
+        N = N,
+        Nq = Nq,
+        Nqk = Nqk,
+        Nfp = Nfp,
+        Np = Np,
+        nrealelem = nrealelem,
+        ninteriorelem = ninteriorelem,
+        nexteriorelem = nexteriorelem,
+    )
+end
+
+function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
+    FT = eltype(state_prognostic)
+    Qhypervisc_grad, _ = dg.states_higher_order
+    
+    info = basic_launch_info(dg)
+    workgroup = (info.Nq, info.Nq)
+    ndrange = (info.Nq * info.nrealelem, info.Nq)
+
+    comp_stream = volume_gradients!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.diffusion_direction,
+        state_prognostic.data,
+        dg.state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        dg.state_auxiliary.data,
+        dg.grid.vgeo,
+        t,
+        dg.grid.D,
+        Val(hyperdiff_indexmap(dg.balance_law, FT)),
+        dg.grid.topology.realelems,
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
+    return comp_stream
+end
+
+function launch_interface_gradients!(dg, state_prognostic, t; surface::Symbol, dependencies)
+    @assert surface === :interior || surface === :exterior
+
+    FT = eltype(state_prognostic)
+    Qhypervisc_grad, _ = dg.states_higher_order
+
+    info = basic_launch_info(dg)
+    workgroup = info.Nfp
+    if surface === :interior 
+      elems = dg.grid.interiorelems
+      ndrange = info.Nfp * info.ninteriorelem
+    else
+      elems = dg.grid.exteriorelems
+      ndrange = info.Nfp * info.nexteriorelem
+    end
+
+    comp_stream = interface_gradients!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.diffusion_direction,
+        dg.numerical_flux_gradient,
+        state_prognostic.data,
+        dg.state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        dg.state_auxiliary.data,
+        dg.grid.vgeo,
+        dg.grid.sgeo,
+        t,
+        dg.grid.vmap⁻,
+        dg.grid.vmap⁺,
+        dg.grid.elemtobndy,
+        Val(hyperdiff_indexmap(dg.balance_law, FT)),
+        elems;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
+    return comp_stream
+end
+
+function launch_volume_divergence_of_gradients!(dg, state_prognostic, t; dependencies)
+    Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
+
+    info = basic_launch_info(dg)
+    workgroup = (info.Nq, info.Nq, info.Nqk)
+    ndrange = (info.nrealelem * info.Nq, info.Nq, info.Nqk)
+    
+    comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.diffusion_direction,
+        Qhypervisc_grad.data,
+        Qhypervisc_div.data,
+        dg.grid.vgeo,
+        dg.grid.D,
+        dg.grid.topology.realelems;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
+    return comp_stream
+end
+
+function launch_interface_divergence_of_gradients!(dg, state_prognostic, t; surface::Symbol, dependencies)
+   Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
+   
+   info = basic_launch_info(dg)
+   workgroup = info.Nfp
+   if surface === :interior 
+     elems = dg.grid.interiorelems
+     ndrange = info.Nfp * info.ninteriorelem
+   else
+     elems = dg.grid.exteriorelems
+     ndrange = info.Nfp * info.nexteriorelem
+   end
+
+   comp_stream =
+       interface_divergence_of_gradients!(info.device, workgroup)(
+           dg.balance_law,
+           Val(info.dim),
+           Val(info.N),
+           dg.diffusion_direction,
+           CentralNumericalFluxDivergence(),
+           Qhypervisc_grad.data,
+           Qhypervisc_div.data,
+           dg.grid.vgeo,
+           dg.grid.sgeo,
+           dg.grid.vmap⁻,
+           dg.grid.vmap⁺,
+           dg.grid.elemtobndy,
+           elems;
+           ndrange = ndrange,
+           dependencies = dependencies,
+       )
+    return comp_stream
+end
+
+function launch_volume_gradients_of_laplacians!(dg, state_prognostic, t; dependencies)
+    Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
+    
+    info = basic_launch_info(dg)
+    workgroup = (info.Nq, info.Nq, info.Nqk)
+    ndrange = (info.nrealelem * info.Nq, info.Nq, info.Nqk)
+
+    comp_stream =
+        volume_gradients_of_laplacians!(info.device, workgroup)(
+            dg.balance_law,
+            Val(info.dim),
+            Val(info.N),
+            dg.diffusion_direction,
+            Qhypervisc_grad.data,
+            Qhypervisc_div.data,
+            state_prognostic.data,
+            dg.state_auxiliary.data,
+            dg.grid.vgeo,
+            dg.grid.ω,
+            dg.grid.D,
+            dg.grid.topology.realelems,
+            t;
+            ndrange = ndrange,
+            dependencies = dependencies,
+        )
+    return comp_stream
+end
+
+function launch_interface_gradients_of_laplacians!(dg, state_prognostic, t; surface::Symbol, dependencies)
+    @assert surface === :interior || surface === :exterior
+    Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
+
+    info = basic_launch_info(dg)
+    workgroup = info.Nfp
+    if surface === :interior 
+      elems = dg.grid.interiorelems
+      ndrange = info.Nfp * info.ninteriorelem
+    else
+      elems = dg.grid.exteriorelems
+      ndrange = info.Nfp * info.nexteriorelem
+    end
+
+    comp_stream = interface_gradients_of_laplacians!(info.device, workgroup)(
+                dg.balance_law,
+                Val(info.dim),
+                Val(info.N),
+                dg.diffusion_direction,
+                CentralNumericalFluxHigherOrder(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_prognostic.data,
+                dg.state_auxiliary.data,
+                dg.grid.vgeo,
+                dg.grid.sgeo,
+                dg.grid.vmap⁻,
+                dg.grid.vmap⁺,
+                dg.grid.elemtobndy,
+                elems,
+                t;
+                ndrange = ndrange,
+                dependencies = dependencies,
+            )
+    return comp_stream
+end
+
+function launch_volume_tendency!(dg, tendency, state_prognostic, t, α, β; dependencies)
+    Qhypervisc_grad, _ = dg.states_higher_order
+    
+    info = basic_launch_info(dg)
+    workgroup = (info.Nq, info.Nq)
+    ndrange = (info.Nq * info.nrealelem, info.Nq)
+
+    comp_stream = volume_tendency!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.direction,
+        tendency.data,
+        state_prognostic.data,
+        dg.state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        dg.state_auxiliary.data,
+        dg.grid.vgeo,
+        t,
+        dg.grid.ω,
+        dg.grid.D,
+        dg.grid.topology.realelems,
+        α,
+        β;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
+    return comp_stream
+end
+#
+function launch_interface_tendency!(dg, tendency, state_prognostic, t, α, β; surface::Symbol, dependencies)
+    @assert surface === :interior || surface === :exterior
+    Qhypervisc_grad, _ = dg.states_higher_order
+
+    info = basic_launch_info(dg)
+    workgroup = info.Nfp
+    if surface === :interior 
+      elems = dg.grid.interiorelems
+      ndrange = info.Nfp * info.ninteriorelem
+    else
+      elems = dg.grid.exteriorelems
+      ndrange = info.Nfp * info.nexteriorelem
+    end
+
+    comp_stream = interface_tendency!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.direction,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        tendency.data,
+        state_prognostic.data,
+        dg.state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        dg.state_auxiliary.data,
+        dg.grid.vgeo,
+        dg.grid.sgeo,
+        t,
+        dg.grid.vmap⁻,
+        dg.grid.vmap⁺,
+        dg.grid.elemtobndy,
+        elems,
+        α;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
+    return comp_stream
 end
