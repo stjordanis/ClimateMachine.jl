@@ -125,7 +125,10 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     end
 
     communicate =
-        !(isstacked(dg.grid.topology) && typeof(dg.direction) <: VerticalDirection)
+        !(
+            isstacked(dg.grid.topology) &&
+            typeof(dg.direction) <: VerticalDirection
+        )
 
     update_auxiliary_state!(
         dg,
@@ -153,11 +156,21 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         ########################
         # Gradient Computation #
         ########################
-        
-        comp_stream = launch_volume_gradients!(dg, state_prognostic, t; dependencies=comp_stream)
 
-        comp_stream = launch_interface_gradients!(dg, state_prognostic, t;
-                                                   surface = :interior, dependencies=comp_stream) 
+        comp_stream = launch_volume_gradients!(
+            dg,
+            state_prognostic,
+            t;
+            dependencies = comp_stream,
+        )
+
+        comp_stream = launch_interface_gradients!(
+            dg,
+            state_prognostic,
+            t;
+            surface = :interior,
+            dependencies = comp_stream,
+        )
 
         if communicate
             exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
@@ -178,9 +191,13 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_state_prognostic = Event(device)
         end
 
-        comp_stream = launch_interface_gradients!(dg, state_prognostic, t;
-                                                   surface = :exterior,
-                                                   dependencies=(comp_stream, exchange_state_prognostic)) 
+        comp_stream = launch_interface_gradients!(
+            dg,
+            state_prognostic,
+            t;
+            surface = :exterior,
+            dependencies = (comp_stream, exchange_state_prognostic),
+        )
 
         if communicate
             if num_state_gradient_flux > 0
@@ -219,16 +236,19 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         #########################
 
         comp_stream = launch_volume_divergence_of_gradients!(
-          dg,
-          state_prognostic,
-          t; dependencies=comp_stream)
+            dg,
+            state_prognostic,
+            t;
+            dependencies = comp_stream,
+        )
 
         comp_stream = launch_interface_divergence_of_gradients!(
-          dg,
-          state_prognostic,
-          t;
-          surface = :interior,
-          dependencies=comp_stream) 
+            dg,
+            state_prognostic,
+            t;
+            surface = :interior,
+            dependencies = comp_stream,
+        )
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
@@ -238,12 +258,12 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         end
 
         comp_stream = launch_interface_divergence_of_gradients!(
-          dg,
-          state_prognostic,
-          t;
-          surface = :exterior,
-          dependencies=(comp_stream, exchange_Qhypervisc_grad)
-         )
+            dg,
+            state_prognostic,
+            t;
+            surface = :exterior,
+            dependencies = (comp_stream, exchange_Qhypervisc_grad),
+        )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.begin_ghost_exchange!(
@@ -256,15 +276,20 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         # Hyperdiffusive terms computation #
         ####################################
 
-        comp_stream =
-            launch_volume_gradients_of_laplacians!(dg, state_prognostic, t,
-                dependencies = (comp_stream,),
-            )
+        comp_stream = launch_volume_gradients_of_laplacians!(
+            dg,
+            state_prognostic,
+            t,
+            dependencies = (comp_stream,),
+        )
 
-        comp_stream =
-            launch_interface_gradients_of_laplacians!(dg, state_prognostic, t; surface=:interior,
-                dependencies = (comp_stream,),
-            )
+        comp_stream = launch_interface_gradients_of_laplacians!(
+            dg,
+            state_prognostic,
+            t;
+            surface = :interior,
+            dependencies = (comp_stream,),
+        )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
@@ -273,10 +298,13 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             )
         end
 
-        comp_stream =
-            launch_interface_gradients_of_laplacians!(dg, state_prognostic, t; surface=:exterior,
-                dependencies = (comp_stream, exchange_Qhypervisc_div),
-            )
+        comp_stream = launch_interface_gradients_of_laplacians!(
+            dg,
+            state_prognostic,
+            t;
+            surface = :exterior,
+            dependencies = (comp_stream, exchange_Qhypervisc_div),
+        )
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
@@ -290,12 +318,24 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     ###################
     # RHS Computation #
     ###################
-    comp_stream = launch_volume_tendency!(dg, tendency, state_prognostic, t, α, β;
+    comp_stream = launch_volume_tendency!(
+        dg,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
         dependencies = (comp_stream,),
     )
 
-    comp_stream = launch_interface_tendency!(dg, tendency, state_prognostic, t, α, β;
-        surface=:interior,
+    comp_stream = launch_interface_tendency!(
+        dg,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        surface = :interior,
         dependencies = (comp_stream,),
     )
 
@@ -347,8 +387,14 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         end
     end
 
-    comp_stream = launch_interface_tendency!(dg, tendency, state_prognostic, t, α, β;
-        surface=:exterior,
+    comp_stream = launch_interface_tendency!(
+        dg,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        surface = :exterior,
         dependencies = (
             comp_stream,
             exchange_state_prognostic,
@@ -851,8 +897,8 @@ function basic_launch_info(dg::DGModel)
     Np = dofs_per_element(grid)
 
     nrealelem = length(topology.realelems)
-    ninteriorelem = length(dg.grid.interiorelems) 
-    nexteriorelem = length(dg.grid.exteriorelems) 
+    ninteriorelem = length(dg.grid.interiorelems)
+    nexteriorelem = length(dg.grid.exteriorelems)
 
     return (
         device = device,
@@ -871,7 +917,7 @@ end
 function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     FT = eltype(state_prognostic)
     Qhypervisc_grad, _ = dg.states_higher_order
-    
+
     info = basic_launch_info(dg)
     workgroup = (info.Nq, info.Nq)
     ndrange = (info.Nq * info.nrealelem, info.Nq)
@@ -896,7 +942,13 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     return comp_stream
 end
 
-function launch_interface_gradients!(dg, state_prognostic, t; surface::Symbol, dependencies)
+function launch_interface_gradients!(
+    dg,
+    state_prognostic,
+    t;
+    surface::Symbol,
+    dependencies,
+)
     @assert surface === :interior || surface === :exterior
 
     FT = eltype(state_prognostic)
@@ -904,12 +956,12 @@ function launch_interface_gradients!(dg, state_prognostic, t; surface::Symbol, d
 
     info = basic_launch_info(dg)
     workgroup = info.Nfp
-    if surface === :interior 
-      elems = dg.grid.interiorelems
-      ndrange = info.Nfp * info.ninteriorelem
+    if surface === :interior
+        elems = dg.grid.interiorelems
+        ndrange = info.Nfp * info.ninteriorelem
     else
-      elems = dg.grid.exteriorelems
-      ndrange = info.Nfp * info.nexteriorelem
+        elems = dg.grid.exteriorelems
+        ndrange = info.Nfp * info.nexteriorelem
     end
 
     comp_stream = interface_gradients!(info.device, workgroup)(
@@ -936,13 +988,18 @@ function launch_interface_gradients!(dg, state_prognostic, t; surface::Symbol, d
     return comp_stream
 end
 
-function launch_volume_divergence_of_gradients!(dg, state_prognostic, t; dependencies)
+function launch_volume_divergence_of_gradients!(
+    dg,
+    state_prognostic,
+    t;
+    dependencies,
+)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
     workgroup = (info.Nq, info.Nq, info.Nqk)
     ndrange = (info.nrealelem * info.Nq, info.Nq, info.Nqk)
-    
+
     comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
         dg.balance_law,
         Val(info.dim),
@@ -959,108 +1016,131 @@ function launch_volume_divergence_of_gradients!(dg, state_prognostic, t; depende
     return comp_stream
 end
 
-function launch_interface_divergence_of_gradients!(dg, state_prognostic, t; surface::Symbol, dependencies)
-   Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
-   
-   info = basic_launch_info(dg)
-   workgroup = info.Nfp
-   if surface === :interior 
-     elems = dg.grid.interiorelems
-     ndrange = info.Nfp * info.ninteriorelem
-   else
-     elems = dg.grid.exteriorelems
-     ndrange = info.Nfp * info.nexteriorelem
-   end
+function launch_interface_divergence_of_gradients!(
+    dg,
+    state_prognostic,
+    t;
+    surface::Symbol,
+    dependencies,
+)
+    Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
-   comp_stream =
-       interface_divergence_of_gradients!(info.device, workgroup)(
-           dg.balance_law,
-           Val(info.dim),
-           Val(info.N),
-           dg.diffusion_direction,
-           CentralNumericalFluxDivergence(),
-           Qhypervisc_grad.data,
-           Qhypervisc_div.data,
-           dg.grid.vgeo,
-           dg.grid.sgeo,
-           dg.grid.vmap⁻,
-           dg.grid.vmap⁺,
-           dg.grid.elemtobndy,
-           elems;
-           ndrange = ndrange,
-           dependencies = dependencies,
-       )
+    info = basic_launch_info(dg)
+    workgroup = info.Nfp
+    if surface === :interior
+        elems = dg.grid.interiorelems
+        ndrange = info.Nfp * info.ninteriorelem
+    else
+        elems = dg.grid.exteriorelems
+        ndrange = info.Nfp * info.nexteriorelem
+    end
+
+    comp_stream = interface_divergence_of_gradients!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.diffusion_direction,
+        CentralNumericalFluxDivergence(),
+        Qhypervisc_grad.data,
+        Qhypervisc_div.data,
+        dg.grid.vgeo,
+        dg.grid.sgeo,
+        dg.grid.vmap⁻,
+        dg.grid.vmap⁺,
+        dg.grid.elemtobndy,
+        elems;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
     return comp_stream
 end
 
-function launch_volume_gradients_of_laplacians!(dg, state_prognostic, t; dependencies)
+function launch_volume_gradients_of_laplacians!(
+    dg,
+    state_prognostic,
+    t;
+    dependencies,
+)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
-    
+
     info = basic_launch_info(dg)
     workgroup = (info.Nq, info.Nq, info.Nqk)
     ndrange = (info.nrealelem * info.Nq, info.Nq, info.Nqk)
 
-    comp_stream =
-        volume_gradients_of_laplacians!(info.device, workgroup)(
-            dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
-            dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            state_prognostic.data,
-            dg.state_auxiliary.data,
-            dg.grid.vgeo,
-            dg.grid.ω,
-            dg.grid.D,
-            dg.grid.topology.realelems,
-            t;
-            ndrange = ndrange,
-            dependencies = dependencies,
-        )
+    comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.diffusion_direction,
+        Qhypervisc_grad.data,
+        Qhypervisc_div.data,
+        state_prognostic.data,
+        dg.state_auxiliary.data,
+        dg.grid.vgeo,
+        dg.grid.ω,
+        dg.grid.D,
+        dg.grid.topology.realelems,
+        t;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
     return comp_stream
 end
 
-function launch_interface_gradients_of_laplacians!(dg, state_prognostic, t; surface::Symbol, dependencies)
+function launch_interface_gradients_of_laplacians!(
+    dg,
+    state_prognostic,
+    t;
+    surface::Symbol,
+    dependencies,
+)
     @assert surface === :interior || surface === :exterior
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
     workgroup = info.Nfp
-    if surface === :interior 
-      elems = dg.grid.interiorelems
-      ndrange = info.Nfp * info.ninteriorelem
+    if surface === :interior
+        elems = dg.grid.interiorelems
+        ndrange = info.Nfp * info.ninteriorelem
     else
-      elems = dg.grid.exteriorelems
-      ndrange = info.Nfp * info.nexteriorelem
+        elems = dg.grid.exteriorelems
+        ndrange = info.Nfp * info.nexteriorelem
     end
 
     comp_stream = interface_gradients_of_laplacians!(info.device, workgroup)(
-                dg.balance_law,
-                Val(info.dim),
-                Val(info.N),
-                dg.diffusion_direction,
-                CentralNumericalFluxHigherOrder(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_prognostic.data,
-                dg.state_auxiliary.data,
-                dg.grid.vgeo,
-                dg.grid.sgeo,
-                dg.grid.vmap⁻,
-                dg.grid.vmap⁺,
-                dg.grid.elemtobndy,
-                elems,
-                t;
-                ndrange = ndrange,
-                dependencies = dependencies,
-            )
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        dg.diffusion_direction,
+        CentralNumericalFluxHigherOrder(),
+        Qhypervisc_grad.data,
+        Qhypervisc_div.data,
+        state_prognostic.data,
+        dg.state_auxiliary.data,
+        dg.grid.vgeo,
+        dg.grid.sgeo,
+        dg.grid.vmap⁻,
+        dg.grid.vmap⁺,
+        dg.grid.elemtobndy,
+        elems,
+        t;
+        ndrange = ndrange,
+        dependencies = dependencies,
+    )
     return comp_stream
 end
 
-function launch_volume_tendency!(dg, tendency, state_prognostic, t, α, β; dependencies)
+function launch_volume_tendency!(
+    dg,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    dependencies,
+)
     Qhypervisc_grad, _ = dg.states_higher_order
-    
+
     info = basic_launch_info(dg)
     workgroup = (info.Nq, info.Nq)
     ndrange = (info.Nq * info.nrealelem, info.Nq)
@@ -1088,18 +1168,27 @@ function launch_volume_tendency!(dg, tendency, state_prognostic, t, α, β; depe
     return comp_stream
 end
 #
-function launch_interface_tendency!(dg, tendency, state_prognostic, t, α, β; surface::Symbol, dependencies)
+function launch_interface_tendency!(
+    dg,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    surface::Symbol,
+    dependencies,
+)
     @assert surface === :interior || surface === :exterior
     Qhypervisc_grad, _ = dg.states_higher_order
 
     info = basic_launch_info(dg)
     workgroup = info.Nfp
-    if surface === :interior 
-      elems = dg.grid.interiorelems
-      ndrange = info.Nfp * info.ninteriorelem
+    if surface === :interior
+        elems = dg.grid.interiorelems
+        ndrange = info.Nfp * info.ninteriorelem
     else
-      elems = dg.grid.exteriorelems
-      ndrange = info.Nfp * info.nexteriorelem
+        elems = dg.grid.exteriorelems
+        ndrange = info.Nfp * info.nexteriorelem
     end
 
     comp_stream = interface_tendency!(info.device, workgroup)(
