@@ -82,33 +82,31 @@ using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 struct EDMFFilter <: AbstractCustomFilter end
 import ClimateMachine.DGMethods: custom_filter!
 
-function custom_filter!(::EDMFFilter, atmos, state, aux)
+function custom_filter!(::EDMFFilter, bl, state, aux)
     FT = eltype(state)
-    bl = atmos
     a_min = bl.turbconv.subdomains.a_min
-    a_max = bl.turbconv.subdomains.a_max
-    en = state.turbconv.environment
-    en_a = aux.turbconv.environment
     up = state.turbconv.updraft
     N_up = n_updrafts(bl.turbconv)
     ρ_gm = state.ρ
+    ts = recover_thermo_state(bl, state, aux)
     ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
     ρaq_tot_ups = sum(vuntuple(i->up[i].ρaq_tot, N_up))
     ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
     ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+    ρa_en        = ρ_gm - ρa_ups
     ρq_tot_gm   = state.moisture.ρq_tot
     ρaw_en      = - ρaw_ups
-    ρaq_tot_en  = (ρq_tot_gm - ρaq_tot_ups) / (ρ_gm - ρa_ups)
-    θ_liq_en    = en_a.ρaθ_liq / (ρ_gm - ρa_ups)
-    q_tot_en    = ρaq_tot_en / (ρ_gm - ρa_ups)
-    w_en        = ρaw_en / (ρ_gm - ρa_ups)
+    ρaq_tot_en  = (ρq_tot_gm - ρaq_tot_ups) / ρa_en
+    θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
+    q_tot_en    = ρaq_tot_en / ρa_en
+    w_en        = ρaw_en / ρa_en
     @unroll_map(N_up) do i
-        a_up_mask = up[i].ρa < ρ_gm * a_min
-        ρ_area_change = max(a_up_mask * (ρ_gm * a_min - up[i].ρa),FT(0))
-        up[i].ρa      += a_up_mask * ρ_area_change
-        up[i].ρaθ_liq += a_up_mask * θ_liq_en * ρ_area_change
-        up[i].ρaq_tot += a_up_mask * q_tot_en * ρ_area_change
-        up[i].ρaw     += a_up_mask * w_en * ρ_area_change
+        a_up_mask = up[i].ρa < (ρ_gm * a_min)
+        Δρ_area = max(a_up_mask * (ρ_gm * a_min - up[i].ρa), FT(0))
+        up[i].ρa      += a_up_mask * Δρ_area
+        up[i].ρaθ_liq += a_up_mask * θ_liq_en * Δρ_area
+        up[i].ρaq_tot += a_up_mask * q_tot_en * Δρ_area
+        up[i].ρaw     += a_up_mask * w_en * Δρ_area
     end
 end
 
@@ -141,11 +139,14 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(400)
-    CFLmax = FT(5)
+    CFLmax = FT(2)
 
     config_type = SingleStackConfigType
 
     ode_solver_type = ClimateMachine.IMEXSolverType()
+    # ode_solver_type = ClimateMachine.ExplicitSolverType(
+    #     solver_method = LSRK144NiegemannDiehlBusch,
+    # )
 
     N_updrafts = 1
     N_quad = 3
@@ -211,7 +212,10 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
-        @show getsteps(solver_config.solver)
+        # println("---------- ")
+        # @show getsteps(solver_config.solver)
+        # @show ODESolvers.getdt(solver_config.solver)
+        # @show gettime(solver_config.solver)
         apply!(
             EDMFFilter(),
             solver_config.dg.grid,
@@ -238,7 +242,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types)]
+    all_data = [dict_of_nodal_states(solver_config, state_types;interp=true)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -248,7 +252,7 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(all_data, dict_of_nodal_states(solver_config, state_types))
+            push!(all_data, dict_of_nodal_states(solver_config, state_types;interp=true))
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
@@ -281,7 +285,7 @@ function main(::Type{FT}) where {FT}
         check_euclidean_distance = true,
     )
 
-    dons = dict_of_nodal_states(solver_config, state_types)
+    dons = dict_of_nodal_states(solver_config, state_types;interp=true)
     push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
 
@@ -290,10 +294,11 @@ end
 
 solver_config, all_data, time_data, state_types = main(Float64)
 
-include(joinpath(
-    clima_dir,
-    "test",
-    "Atmos",
-    "EDMF",
-    "bomex_edmf_regression_test.jl",
-))
+# include(joinpath(
+#     clima_dir,
+#     "test",
+#     "Atmos",
+#     "EDMF",
+#     "bomex_edmf_regression_test.jl",
+# ))
+nothing
