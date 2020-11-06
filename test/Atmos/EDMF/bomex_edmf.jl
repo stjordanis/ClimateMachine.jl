@@ -78,6 +78,40 @@ function init_state_prognostic!(
     return nothing
 end;
 
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+struct EDMFFilter <: AbstractCustomFilter end
+import ClimateMachine.DGMethods: custom_filter!
+
+function custom_filter!(::EDMFFilter, atmos, state, aux)
+    FT = eltype(state)
+    bl = atmos
+    a_min = bl.turbconv.subdomains.a_min
+    a_max = bl.turbconv.subdomains.a_max
+    en = state.turbconv.environment
+    en_a = aux.turbconv.environment
+    up = state.turbconv.updraft
+    N_up = n_updrafts(bl.turbconv)
+    ρ_gm = state.ρ
+    ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+    ρaq_tot_ups = sum(vuntuple(i->up[i].ρaq_tot, N_up))
+    ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+    ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+    ρq_tot_gm   = state.moisture.ρq_tot
+    ρaw_en      = - ρaw_ups
+    ρaq_tot_en  = (ρq_tot_gm - ρaq_tot_ups) / (ρ_gm - ρa_ups)
+    θ_liq_en    = en_a.ρaθ_liq / (ρ_gm - ρa_ups)
+    q_tot_en    = ρaq_tot_en / (ρ_gm - ρa_ups)
+    w_en        = ρaw_en / (ρ_gm - ρa_ups)
+    @unroll_map(N_up) do i
+        a_up_mask = up[i].ρa < ρ_gm * a_min
+        ρ_area_change = max(a_up_mask * (ρ_gm * a_min - up[i].ρa),FT(0))
+        up[i].ρa      += a_up_mask * ρ_area_change
+        up[i].ρaθ_liq += a_up_mask * θ_liq_en * ρ_area_change
+        up[i].ρaq_tot += a_up_mask * q_tot_en * ρ_area_change
+        up[i].ρaw     += a_up_mask * w_en * ρ_area_change
+    end
+end
+
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
@@ -97,8 +131,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 1
-    nelem_vert = 50
+    N = 4
+    nelem_vert = 15
 
     # Prescribe domain parameters
     zmax = FT(3000)
@@ -107,13 +141,11 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(400)
-    CFLmax = FT(0.90)
+    CFLmax = FT(5)
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
+    ode_solver_type = ClimateMachine.IMEXSolverType()
 
     N_updrafts = 1
     N_quad = 3
@@ -178,6 +210,14 @@ function main(::Type{FT}) where {FT}
             ("moisture.ρq_tot", turbconv_filters(turbconv)...),
             solver_config.dg.grid,
             TMARFilter(),
+        )
+        @show getsteps(solver_config.solver)
+        apply!(
+            EDMFFilter(),
+            solver_config.dg.grid,
+            model,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
         )
         nothing
     end

@@ -172,14 +172,21 @@ function new_thermo_state_up(
     p = air_pressure(ts)
 
     # compute thermo state for updrafts
+    # local ts
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
         ρaq_tot_up = up[i].ρaq_tot
         θ_liq_up = ρaθ_liq_up / ρa_up
         q_tot_up = ρaq_tot_up / ρa_up
-
-        PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
+        # @show θ_liq_up
+        try
+            ts = PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
+        catch
+            @show p, θ_liq_up, q_tot_up
+            ts = PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
+        end
+        ts
     end
     return ts_up
 end
@@ -238,7 +245,14 @@ function new_thermo_state_en(
         @print("q_tot_en = ", q_tot_en, "\n")
         error("Environment q_tot_en out-of-bounds in new_thermo_state_en")
     end
-    ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
+    local ts_en
+    # @show θ_liq_en * ρ_inv / a_en
+    try
+        ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
+    catch
+        @show p, θ_liq_en, q_tot_en
+        ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
+    end
     return ts_en
 end
 
