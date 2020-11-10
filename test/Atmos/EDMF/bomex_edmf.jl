@@ -129,8 +129,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 4
-    nelem_vert = 15
+    N = 2
+    nelem_vert = 25
 
     # Prescribe domain parameters
     zmax = FT(3000)
@@ -139,7 +139,7 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(400)
-    CFLmax = FT(2)
+    CFLmax = FT(10)
 
     config_type = SingleStackConfigType
 
