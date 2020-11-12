@@ -222,6 +222,9 @@ function config_risingbubble(
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
 
+    # Divergence damping coefficient
+    C_dd = FT(0.1*330^2*0.23) # FIXME
+
     ## Here we assemble the `AtmosModel`.
     _C_smag = FT(C_smag(param_set))
     model = AtmosModel{FT}(
@@ -230,6 +233,7 @@ function config_risingbubble(
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
+        divergencedamping = ConstantCoeffDivergenceDamping{FT}(C_dd, C_dd), ## Divergence Damping model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
