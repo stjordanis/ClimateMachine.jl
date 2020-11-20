@@ -1,6 +1,6 @@
-struct OceanModel{PS, P, T} <: AbstractOceanModel
-    param_set::PS
+struct OceanModel{P, T} <: AbstractOceanModel
     problem::P
+    grav::T
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -16,8 +16,8 @@ struct OceanModel{PS, P, T} <: AbstractOceanModel
     fₒ::T
     β::T
     function OceanModel{FT}(
-        param_set,
         problem;
+        grav = FT(10),  # m/s^2
         ρₒ = FT(1000),  # kg/m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -33,9 +33,9 @@ struct OceanModel{PS, P, T} <: AbstractOceanModel
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11),  # Hz/m
     ) where {FT <: AbstractFloat}
-        return new{typeof(param_set), typeof(problem), FT}(
-            param_set,
+        return new{typeof(problem), FT}(
             problem,
+            grav,
             ρₒ,
             cʰ,
             cᶻ,
@@ -54,7 +54,7 @@ struct OceanModel{PS, P, T} <: AbstractOceanModel
     end
 end
 
-function calculate_dt(grid, ::OceanModel, _...)
+function calculate_dt(grid, model::OceanModel, Courant_number)
     #=
       minΔx = min_node_distance(grid, HorizontalDirection())
       minΔz = min_node_distance(grid, VerticalDirection())
@@ -65,10 +65,10 @@ function calculate_dt(grid, ::OceanModel, _...)
 
       dt = 1 // 2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
     =#
-    # FT = eltype(grid)
-    # dt = FT(1)
+    FT = eltype(grid)
+    dt = FT(1)
 
-    return nothing
+    return dt
 end
 
 """
@@ -85,12 +85,7 @@ function OceanDGModel(
     gradnumflux;
     kwargs...,
 )
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    vert_filter = CutoffFilter(grid, N - 1)
+    vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1)
     exp_filter = ExponentialFilter(grid, 1, 8)
 
     flowintegral_dg = DGModel(
@@ -140,8 +135,6 @@ function OceanDGModel(
     )
 
     modeldata = (
-        dg_2D = kwargs[1][1],
-        Q_2D = kwargs[1][2],
         vert_filter = vert_filter,
         exp_filter = exp_filter,
         flowintegral_dg = flowintegral_dg,
@@ -173,8 +166,8 @@ function vars_state(m::OceanModel, ::Prognostic, T)
     end
 end
 
-function init_state_prognostic!(m::OceanModel, Q::Vars, A::Vars, localgeo, t)
-    return ocean_init_state!(m, m.problem, Q, A, localgeo, t)
+function init_state_prognostic!(m::OceanModel, Q::Vars, A::Vars, coords, t)
+    return ocean_init_state!(m.problem, Q, A, coords, t)
 end
 
 function vars_state(m::OceanModel, ::Auxiliary, T)
@@ -241,11 +234,11 @@ end
     t,
 )
     ν = viscosity_tensor(m)
-    #   D.ν∇u = ν * G.u
+    #  D.ν∇u = ν * G.u
     D.ν∇u = @SMatrix [
-        m.νʰ*G.ud[1, 1] m.νʰ*G.ud[1, 2]
-        m.νʰ*G.ud[2, 1] m.νʰ*G.ud[2, 2]
-        m.νᶻ*G.u[3, 1] m.νᶻ*G.u[3, 2]
+        m.νʰ * G.ud[1, 1] m.νʰ * G.ud[1, 2]
+        m.νʰ * G.ud[2, 1] m.νʰ * G.ud[2, 2]
+        m.νᶻ * G.u[3, 1] m.νᶻ * G.u[3, 2]
     ]
 
     κ = diffusivity_tensor(m, G.θ[3])
@@ -261,8 +254,11 @@ end
     if m.numImplSteps > 0
         κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
     else
-        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ]) :
-        κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ]) : κ = (@SVector [
+            m.κʰ,
+            m.κʰ,
+            m.κᶻ,
+        ])
     end
 
     return Diagonal(κ)
@@ -301,7 +297,7 @@ A -> array of aux variables
     A::Vars,
 )
     I.∇hu = A.w # borrow the w value from A...
-    I.buoy = grav(m.param_set) * m.αᵀ * Q.θ # buoyancy to integrate vertically from top (=reverse)
+    I.buoy = m.grav * m.αᵀ * Q.θ # buoyancy to integrate vertically from top (=reverse)
     #   I.∫u = Q.u
 
     return nothing
@@ -403,8 +399,8 @@ end
 
         # ∇h • (g η)
         #- jmc: put back this term to check
-        #       η = Q.η
-        #       F.u += grav(m.param_set) * η * Iʰ
+        #  η = Q.η
+        #  F.u += m.grav * η * Iʰ
 
         # ∇ • (u θ)
         F.θ += v * θ
@@ -428,9 +424,9 @@ end
     A::Vars,
     t::Real,
 )
-    # horizontal viscosity done in horizontal model
-    #   F.u -= @SVector([0, 0, 1]) * D.ν∇u[3, :]'
-    #- jmc: put back this term to check
+    #- vertical viscosity only (horizontal fluxes in horizontal model)
+    #  F.u -= @SVector([0, 0, 1]) * D.ν∇u[3, :]'
+    #- all 3 direction viscous flux for horizontal momentum tendency
     F.u -= D.ν∇u
 
     F.θ -= D.κ∇θ
@@ -453,7 +449,7 @@ end
 
         # f × u
         f = coriolis_force(m, A.y)
-        # S.u -= @SVector [-f * u[2], f * u[1]]
+        #  S.u -= @SVector [-f * u[2], f * u[1]]
         S.u -= @SVector [-f * ud[2], f * ud[1]]
 
         #- borotropic tendency adjustment
@@ -518,10 +514,7 @@ function update_auxiliary_state!(
     update_auxiliary_state!(f!, dg, m, ct3d_dQ, t, elems)
     #----------
 
-    info = basic_grid_info(dg)
-    Nq, Nqk = info.Nq, info.Nqk
-    nelemv, nelemh = info.nvertelem, info.nhorzelem
-    nrealelemh = info.nhorzrealelem
+    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
@@ -595,8 +588,70 @@ function update_penalty!(
     return nothing
 end
 
-boundary_conditions(ocean::OceanModel) = ocean.problem.boundary_conditions
+"""
+    boundary_state!(nf, ::OceanModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
 
-@inline function boundary_state!(nf, bc, ocean::OceanModel, args...)
-    return _ocean_boundary_state!(nf, bc, ocean, args...)
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(
+    nf,
+    m::OceanModel,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.problem,
+        bctype,
+        nf,
+        Q⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        A⁻,
+        t,
+    )
+end
+
+"""
+    boundary_state!(nf, ::OceanModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
+
+applies boundary conditions for the parabolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(
+    nf,
+    m::OceanModel,
+    Q⁺::Vars,
+    D⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    D⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.problem,
+        bctype,
+        nf,
+        Q⁺,
+        D⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        D⁻,
+        A⁻,
+        t,
+    )
 end

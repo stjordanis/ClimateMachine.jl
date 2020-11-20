@@ -48,8 +48,7 @@ init_state_auxiliary!(
     grid,
     direction,
 ) = nothing
-init_state_prognostic!(lm::LinearHBModel, Q::Vars, A::Vars, localgeo, t) =
-    nothing
+init_state_prognostic!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
 
 """
     compute_gradient_argument!(::LinearHBModel)
@@ -151,14 +150,15 @@ function wavespeed(lm::LinearHBModel, n⁻, _...)
     return C
 end
 
-boundary_conditions(linear::LinearHBModel) = boundary_conditions(linear.ocean)
-
 """
     boundary_state!(nf, ::LinearHBModel, args...)
 
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(nf, bc, linear::LinearHBModel, args...)
-    return _ocean_boundary_state!(nf, bc, linear.ocean, args...)
+@inline function boundary_state!(nf, linear::LinearHBModel, args...)
+    ocean = linear.ocean
+    boundary_conditions = ocean.problem.boundary_conditions
+
+    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
 end

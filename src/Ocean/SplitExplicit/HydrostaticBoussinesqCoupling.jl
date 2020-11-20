@@ -44,10 +44,7 @@ end
 # Compute Horizontal Flow deviation from vertical mean
 @inline function compute_flow_deviation!(dg, m::HBModel, ::Coupled, Q, t)
     FT = eltype(Q)
-    info = basic_grid_info(dg)
-    Nq, Nqk = info.Nq, info.Nqk
-    nelemv, nelemh = info.nvertelem, info.nhorzelem
-    nrealelemh = info.nhorzrealelem
+    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
 
     #### integrate the tendency
     model_int = dg.modeldata.integral_model

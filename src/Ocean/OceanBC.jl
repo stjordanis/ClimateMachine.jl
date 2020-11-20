@@ -10,8 +10,9 @@ export OceanBC,
     Insulating,
     TemperatureFlux
 
+using StaticArrays
+
 using ..BalanceLaws
-using ..DGMethods.NumericalFluxes
 
 """
     OceanBC(velocity    = Impenetrable(NoSlip())
@@ -71,7 +72,17 @@ Applies the specified kinematic stress on velocity normal to the boundary.
 Prescribe the net inward kinematic stress across the boundary by `stress`,
 a function with signature `stress(problem, state, aux, t)`, returning the flux (in m²/s²).
 """
-struct KinematicStress <: VelocityDragBC end
+struct KinematicStress{S} <: VelocityDragBC
+    stress::S
+
+    function KinematicStress(stress::S = nothing) where {S}
+        new{S}(stress)
+    end
+end
+
+kinematic_stress(problem, y, ρ₀) = @SVector [0, 0] # fallback for generic problems
+kinematic_stress(problem, y, ρ₀, ::Nothing) = kinematic_stress(problem, y, ρ₀)
+kinematic_stress(problem, y, ρ₀, drag) = drag.stress(y)
 
 """
     Insulating() :: TemperatureBC
@@ -87,36 +98,3 @@ Prescribe the net inward temperature flux across the boundary by `flux`,
 a function with signature `flux(problem, state, aux, t)`, returning the flux (in m⋅K/s).
 """
 struct TemperatureFlux <: TemperatureBC end
-
-# these functions just trim off the extra arguments
-function _ocean_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    bc,
-    ocean,
-    Q⁺,
-    A⁺,
-    n,
-    Q⁻,
-    A⁻,
-    t,
-    _...,
-)
-    ocean_boundary_state!(nf, bc, ocean, Q⁺, A⁺, n, Q⁻, A⁻, t)
-end
-
-function _ocean_boundary_state!(
-    nf::NumericalFluxSecondOrder,
-    bc,
-    ocean,
-    Q⁺,
-    D⁺,
-    A⁺,
-    n,
-    Q⁻,
-    D⁻,
-    A⁻,
-    t,
-    _...,
-)
-    ocean_boundary_state!(nf, bc, ocean, Q⁺, D⁺, A⁺, n, Q⁻, D⁻, A⁻, t)
-end

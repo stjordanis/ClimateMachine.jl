@@ -12,14 +12,10 @@ function vars_state(m::BarotropicModel, ::Prognostic, T)
     end
 end
 
-function init_state_prognostic!(
-    m::BarotropicModel,
-    Q::Vars,
-    A::Vars,
-    localgeo,
-    t,
-)
-    return ocean_init_state!(m, m.baroclinic.problem, Q, A, localgeo, t)
+function init_state_prognostic!(m::BarotropicModel, Q::Vars, A::Vars, coords, t)
+    Q.U = @SVector [-0, -0]
+    Q.η = -0
+    return nothing
 end
 
 function vars_state(m::BarotropicModel, ::Auxiliary, T)
@@ -108,7 +104,7 @@ vars_state(m::BarotropicModel, ::DownwardIntegrals, T) = @vars()
         U = @SVector [Q.U[1], Q.U[2], 0]
         η = Q.η
         H = m.baroclinic.problem.H
-        g = grav(m.baroclinic.param_set)
+        g = m.baroclinic.grav
         Iʰ = @SMatrix [
             1 0
             0 1
@@ -178,13 +174,70 @@ function update_penalty!(
     return nothing
 end
 
-# hack for handling multiple boundaries for now
-# will fix with a future update
-boundary_conditions(bm::BarotropicModel) = (
-    bm.baroclinic.problem.boundary_conditions[1],
-    bm.baroclinic.problem.boundary_conditions[1],
-    bm.baroclinic.problem.boundary_conditions[1],
+"""
+    boundary_state!(nf, ::BarotropicModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(
+    nf,
+    m::BarotropicModel,
+    Q⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
 )
-@inline function boundary_state!(nf, bc, bm::BarotropicModel, args...)
-    return _ocean_boundary_state!(nf, bc, bm, args...)
+    return ocean_boundary_state!(
+        m,
+        m.baroclinic.problem,
+        bctype,
+        nf,
+        Q⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        A⁻,
+        t,
+    )
+end
+
+"""
+    boundary_state!(nf, ::BarotropicModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
+
+applies boundary conditions for the parabolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(
+    nf,
+    m::BarotropicModel,
+    Q⁺::Vars,
+    D⁺::Vars,
+    A⁺::Vars,
+    n⁻,
+    Q⁻::Vars,
+    D⁻::Vars,
+    A⁻::Vars,
+    bctype,
+    t,
+    _...,
+)
+    return ocean_boundary_state!(
+        m,
+        m.baroclinic.problem,
+        bctype,
+        nf,
+        Q⁺,
+        D⁺,
+        A⁺,
+        n⁻,
+        Q⁻,
+        D⁻,
+        A⁻,
+        t,
+    )
 end
