@@ -156,6 +156,19 @@ state_prefix(::Prognostic) = "prog_"
 state_prefix(::Auxiliary) = "aux_"
 state_prefix(::GradientFlux) = "grad_flux_"
 
+const skip_fields = (
+    "coord[1]",
+    "coord[2]",
+    "coord[3]",
+    "moisture_q_ice",
+    "moisture_q_liq",
+    "orientation.∇Φ[1]",
+    "orientation.∇Φ[2]",
+    "orientation.∇Φ[3]",
+    "ref_state.ρq_ice",
+    "ref_state.ρq_liq",
+    "ref_state.ρq_tot")
+
 """
     export_state_plots(
         solver_config,
@@ -181,7 +194,7 @@ function export_state_plots(
     state_types = (Prognostic(), Auxiliary()),
     z = Array(get_z(solver_config.dg.grid)),
     xlims = (:auto, :auto),
-    time_units = "[s]",
+    time_units = "[hr]",
     ylabel = "z [m]",
 )
     FT = eltype(solver_config.Q)
@@ -189,20 +202,23 @@ function export_state_plots(
     for st in state_types
         vs = vars_state(solver_config.dg.balance_law, st, FT)
         for fn in flattenednames(vs)
-            base_name = state_prefix(st) * replace(fn, "." => "_")
-            file_name = joinpath(output_dir, "$(base_name).png")
-            export_plot(
-                z,
-                time_data,
-                all_data,
-                (fn,),
-                file_name;
-                xlabel = fn,
-                ylabel = ylabel,
-                time_units = time_units,
-                round_digits = 5,
-                xlims = xlims,
-            )
+            @show fn
+            if !any(fn == y for y in skip_fields)
+                base_name = state_prefix(st) * replace(fn, "." => "_")
+                file_name = joinpath(output_dir, "$(base_name).png")
+                export_plot(
+                    z,
+                    time_data ./ 3600,
+                    all_data,
+                    (fn,),
+                    file_name;
+                    xlabel = fn,
+                    ylabel = ylabel,
+                    time_units = time_units,
+                    round_digits = 5,
+                    xlims = xlims,
+                )
+            end
         end
     end
 end
@@ -228,7 +244,7 @@ function export_state_contours(
     time_data,
     output_dir;
     state_types = (Prognostic(),),
-    xlabel = "time [s]",
+    xlabel = "time [hr]",
     ylabel = "z [m]",
     z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
 )
@@ -237,16 +253,19 @@ function export_state_contours(
     for st in state_types
         vs = vars_state(solver_config.dg.balance_law, st, FT)
         for fn in flattenednames(vs)
-            base_name = state_prefix(st) * replace(fn, "." => "_")
-            filename = joinpath(output_dir, "cnt_$(base_name).png")
-            label = string(replace(fn, "." => "_"))
-            args = (z, time_data, all_data, fn, filename)
-            export_contour(
-                args...;
-                xlabel = xlabel,
-                ylabel = ylabel,
-                label = label,
-            )
+            @show fn
+            if !any(fn == y for y in skip_fields)
+                base_name = state_prefix(st) * replace(fn, "." => "_")
+                filename = joinpath(output_dir, "cnt_$(base_name).png")
+                label = string(replace(fn, "." => "_"))
+                args = (z, time_data ./ 3600, all_data, fn, filename)
+                export_contour(
+                    args...;
+                    xlabel = xlabel,
+                    ylabel = ylabel,
+                    label = label,
+                )
+            end
         end
     end
 end

@@ -434,7 +434,7 @@ function bomex_model(
     )
     if moisture_model == "equilibrium"
         source = source_default
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(0.1))
     elseif moisture_model == "nonequilibrium"
         source = (source_default..., CreateClouds())
         moisture = NonEquilMoist()
@@ -445,7 +445,7 @@ function bomex_model(
             moisture_model,
         )
         source = source_default
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(0.1))
     end
 
     # Set up problem initial and boundary conditions

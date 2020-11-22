@@ -1,12 +1,21 @@
 include("bomex_model.jl")
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.SystemSolvers
+using ClimateMachine.DGMethods
+import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.Atmos: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
+ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"] = true
 ENV["CLIMATEMACHINE_SETTINGS_MONITOR_COURANT_NUMBERS"] = "3000steps"
 ENV["CLIMATEMACHINE_SETTINGS_MONITOR_TIMESTEP_DURATION"] = "3000steps"
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
+
+struct MyCustomFilter <: AbstractCustomFilter end
+function custom_filter!(::MyCustomFilter, balance_law, state, aux)
+    state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+end
 
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
@@ -29,31 +38,45 @@ function main(::Type{FT}) where {FT}
     config_type = SingleStackConfigType
 
     # DG polynomial order
-    N = 3
+    N = 4
 
     # Prescribe domain parameters
-    nelem_vert = 15
+    nelem_vert = 20
     zmax = FT(3000)
 
     t0 = FT(0)
 
-    # For a full-run, please set the timeend to 3600*6 seconds
-    # For the test we set this to == 30 minutes
-    timeend = FT(1800 * 2)
-    #timeend = FT(3600 * 6)
-    CFLmax = FT(2)
+    timeend = FT(3600 * 6)
+    # timeend = FT(3600 * 6) # goal for 10 min run
 
-    # Choose default IMEX solver
-    # ode_solver_type = ClimateMachine.IMEXSolverType()
+    use_explicit_stepper_with_small_Δt = false
+    if use_explicit_stepper_with_small_Δt
+        CFLmax = FT(0.9)
+        # ode_solver_type = ClimateMachine.IMEXSolverType()
 
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = SingleColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
-    )
-
+        ode_solver_type = ClimateMachine.ExplicitSolverType(
+            solver_method = LSRK144NiegemannDiehlBusch,
+        )
+    else
+        CFLmax = FT(25)
+        ode_solver_type = ClimateMachine.IMEXSolverType(
+            implicit_model = AtmosAcousticGravityLinearModel,
+            implicit_solver = SingleColumnLU,
+            solver_method = ARK2GiraldoKellyConstantinescu,
+            split_explicit_implicit = true,
+            # split_explicit_implicit = false,
+            discrete_splitting = false,
+            # discrete_splitting = true,
+        )
+    # isothermal zonal flow
+    # ode_solver_type = ClimateMachine.IMEXSolverType(
+    #     implicit_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     solver_method = ARK2GiraldoKellyConstantinescu,
+    #     split_explicit_implicit = false,
+    #     discrete_splitting = true,
+    # )
+    end
 
     model = bomex_model(FT, config_type, zmax, surface_flux)
     ics = model.problem.init_state_prognostic
@@ -66,6 +89,7 @@ function main(::Type{FT}) where {FT}
         param_set,
         model;
         solver_type = ode_solver_type,
+        hmax = zmax,
     )
 
     solver_config = ClimateMachine.SolverConfiguration(
@@ -82,7 +106,7 @@ function main(::Type{FT}) where {FT}
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
-    n_outputs = 10
+    n_outputs = 100
     # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
@@ -99,6 +123,13 @@ function main(::Type{FT}) where {FT}
             ("moisture.ρq_tot",),
             solver_config.dg.grid,
             TMARFilter(),
+        )
+        Filters.apply!(
+            MyCustomFilter(),
+            solver_config.dg.grid,
+            solver_config.dg.balance_law,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
         )
         nothing
     end
@@ -125,6 +156,14 @@ end
 solver_config, dons_arr, time_data, state_types = main(Float64)
 
 export_state_plots(
+    solver_config,
+    dons_arr,
+    time_data,
+    joinpath("output", "bomex_ss_acc");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
+
+export_state_contours(
     solver_config,
     dons_arr,
     time_data,
