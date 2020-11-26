@@ -193,8 +193,8 @@ function new_thermo_state_en(
 )
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
-
     # diagnose environment thermo state
+    z = altitude(m, aux)
     ρ_inv = 1 / state.ρ
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
@@ -202,8 +202,19 @@ function new_thermo_state_en(
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
+    tmp = sum(vuntuple(j -> up[j].ρaθ_liq, N_up))
     if !(0 <= θ_liq_en)
+        z = altitude(m, aux)
+        println("in new_thermo_state_en")
+        @print("z = ", z, "\n")
+        @print("tmp = ", tmp, "\n")
+        @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")
+        @print("θ_liq_up = ", up[1].ρaθ_liq/up[1].ρa, "\n")
+        @print("a_up = ", up[1].ρa/state.ρ, "\n")
+        @print("state.ρ = ", state.ρ, "\n")
+        @print("θ_liq = ", θ_liq, "\n")
+        print("z = ", z, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
     ts_en = PhaseDry_pθ(m.param_set, p, θ_liq_en)

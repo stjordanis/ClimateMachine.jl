@@ -8,19 +8,23 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
+using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: AtmosModel
-using ClimateMachine.BalanceLaws: vars_state
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 using ClimateMachine.Atmos: PressureGradientModel
 using ClimateMachine.BalanceLaws
-using ClimateMachine.Mesh.Filters: apply!
-import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.BalanceLaws: vars_state
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
+using ClimateMachine.Mesh.Filters: apply!
+import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.BalanceLaws: vars_state
 
+rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
-include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
+include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
@@ -55,7 +59,7 @@ function init_state_prognostic!(
     z = altitude(m, aux)
 
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
-    # a thermo state is used here to convert the input θ to e_int profile
+    # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
     e_int = internal_energy(m, state, aux)
 
     ts = PhaseDry(m.param_set, e_int, state.ρ)
@@ -73,19 +77,19 @@ function init_state_prognostic!(
     end
 
     # initialize environment covariance with zero for now
-    if z <= FT(250)
+    if z <= FT(2500)
         en.ρatke =
             gm.ρ *
             FT(0.4) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0)
+            FT(1 - z / 2500.0) *
+            FT(1 - z / 2500.0) *
+            FT(1 - z / 2500.0)
         en.ρaθ_liq_cv =
             gm.ρ *
             FT(0.4) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0) *
-            FT(1 - z / 250.0)
+            FT(1 - z / 2500.0) *
+            FT(1 - z / 2500.0) *
+            FT(1 - z / 2500.0)
     else
         en.ρatke = FT(0)
         en.ρaθ_liq_cv = FT(0)
@@ -95,56 +99,14 @@ function init_state_prognostic!(
     return nothing
 end;
 
-using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
-rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
-rhs_prehook_filters(atmos::PressureGradientModel) = nothing
 
 struct EDMFFilter <: AbstractCustomFilter end
+custom_filter!(f::EDMFFilter, bl::RemBL, state, aux) = custom_filter!(f, bl.main, state, aux)
 function custom_filter!(::EDMFFilter, bl, state, aux)
     if hasproperty(bl, :turbconv)
-        # FT = eltype(state)
-        # # this ρu[3]=0 is only for single_stack
-        # # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-        # up = state.turbconv.updraft
-        # en = state.turbconv.environment
-        # N_up = n_updrafts(bl.turbconv)
-        # ρ_gm = state.ρ
-        # ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-        # ρa_max = ρ_gm-ρa_min
-        # ts = recover_thermo_state(bl, state, aux)
-        # θ_liq_gm    = liquid_ice_pottemp(ts)
-        # ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-        # ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-        # ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-        # ρa_en       = ρ_gm - ρa_ups
-        # ρaw_en      = - ρaw_ups
-        # θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # # if !(θ_liq_en > FT(0))
-        # z = altitude(bl, aux)
-        # println("negative θ_liq_en")
-        # @show(θ_liq_en)
-        # @show(ρa_ups)
-        # @show(up[1].ρa)
-        # @show(up[1].ρaθ_liq)
-        # @show(z)
-        # @show(θ_liq_gm)
-        # @show(ρaθ_liq_ups)
-        # # end
-        # w_en        = ρaw_en / ρa_en
-        # @unroll_map(N_up) do i
-        #     if !(ρa_min <= up[i].ρa <= ρa_max)
-        #         up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
-        #         up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-        #         up[i].ρaw     = FT(0)
-        #     end
-        # end
-        # en.ρatke = max(en.ρatke,FT(0))
-        # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
-
-
         FT = eltype(state)
         # this ρu[3]=0 is only for single_stack
-        # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
         up = state.turbconv.updraft
         en = state.turbconv.environment
         N_up = n_updrafts(bl.turbconv)
@@ -152,19 +114,21 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
         ρa_max = ρ_gm-ρa_min
         ts = recover_thermo_state(bl, state, aux)
-        θ_liq_gm    = liquid_ice_pottemp(ts)
+        θ_liq_gm = liquid_ice_pottemp(ts)
         ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
         ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
         ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
         ρa_en       = ρ_gm - ρa_ups
         ρaw_en      = - ρaw_ups
+        θ_liq_gm    = liquid_ice_pottemp(ts)
         θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # if !(θ_liq_en > FT(0))
         w_en        = ρaw_en / ρa_en
         @unroll_map(N_up) do i
-            up[i].ρa = ρa_min
-            up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-            up[i].ρaw     = FT(0)
+            if !(ρa_min <= up[i].ρa <= ρa_max)
+                up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+                up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+                up[i].ρaw     = FT(0)
+            end
         end
         en.ρatke = max(en.ρatke,FT(0))
         en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
@@ -172,89 +136,65 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
         validate_variables(bl, state, aux, "custom_filter!")
     end
+
 end
 
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
-    sbl_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(sbl_args, "StableBoundaryLayer")
-    @add_arg_table! sbl_args begin
+    cbl_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(cbl_args, "ConvectiveBoundaryLayer")
+    @add_arg_table! cbl_args begin
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
     cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+        ClimateMachine.init(parse_clargs = true, custom_clargs = cbl_args)
 
     surface_flux = cl_args["surface_flux"]
-    config_type = SingleStackConfigType
 
     # DG polynomial order
     N = 4
     nelem_vert = 20
 
     # Prescribe domain parameters
-    zmax = FT(400)
+    zmax = FT(3300)
+
     t0 = FT(0)
+
     # Simulation time
-    timeend = FT(3600*3)
+    timeend = FT(360)
+    CFLmax = FT(0.9)
+    config_type = SingleStackConfigType
 
-    # Charlie's solver
-    use_explicit_stepper_with_small_Δt = false
-    if use_explicit_stepper_with_small_Δt
-        CFLmax = FT(0.9)
-        # ode_solver_type = ClimateMachine.IMEXSolverType()
-
-         ode_solver_type = ClimateMachine.ExplicitSolverType(
-            solver_method = LSRK144NiegemannDiehlBusch,
-        )
-    else
-        CFLmax = FT(25)
-        ode_solver_type = ClimateMachine.IMEXSolverType(
-            implicit_model = AtmosAcousticGravityLinearModel,
-            implicit_solver = SingleColumnLU,
-            solver_method = ARK2GiraldoKellyConstantinescu,
-            split_explicit_implicit = true,
-            # split_explicit_implicit = false,
-            discrete_splitting = false,
-            # discrete_splitting = true,
-        )
-    # isothermal zonal flow
-    # ode_solver_type = ClimateMachine.IMEXSolverType(
-    #     implicit_model = AtmosAcousticGravityLinearModel,
-    #     implicit_solver = ManyColumnLU,
-    #     solver_method = ARK2GiraldoKellyConstantinescu,
-    #     split_explicit_implicit = false,
-    #     discrete_splitting = true,
-    # )
-    end
-
-
-    # old version
-    # ode_solver_type = ClimateMachine.ExplicitSolverType(
-    #     solver_method = LSRK144NiegemannDiehlBusch,
-    # )
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = SingleColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = true,
+        # split_explicit_implicit = false,
+        discrete_splitting = false,
+        # discrete_splitting = true,
+    )
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
     turbconv = EDMF(FT, N_updrafts, N_quad)
-
-    model = stable_bl_model(
+    model = convective_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
         turbconv = turbconv,
-        # turbconv = NoTurbConv(),
     )
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_EDMF",
+        "CBL_EDMF",
         N,
         nelem_vert,
         zmax,
@@ -270,7 +210,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        ode_dt = 2.64583e-01,
+        # fixed_number_of_steps = 600,
     )
 
     # --- Zero-out horizontal variations:
@@ -298,17 +238,17 @@ function main(::Type{FT}) where {FT}
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
         )
-        Filters.apply!( # comment this for NoTurbConv
-            EDMFFilter(),
-            solver_config.dg.grid,
-            solver_config.dg.balance_law,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
-        )
+        # Filters.apply!( # comment this for NoTurbConv
+        #     EDMFFilter(),
+        #     solver_config.dg.grid,
+        #     solver_config.dg.balance_law,
+        #     solver_config.Q,
+        #     solver_config.dg.state_auxiliary,
+        # )
         nothing
     end
 
@@ -353,11 +293,11 @@ function main(::Type{FT}) where {FT}
         @show (abs(δρ))
         @show (abs(δρe))
         @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
+        @test (abs(δρe) <= 0.025)
         nothing
     end
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
@@ -382,3 +322,19 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, all_data, time_data, state_types = main(Float64)
+
+export_state_plots(
+    solver_config,
+    all_data,
+    time_data,
+    joinpath("output", "cbl_edmf_ss_acc");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
+
+ export_state_contours(
+    solver_config,
+    all_data,
+    time_data,
+    joinpath("output", "cbl_edmf_ss_acc");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
