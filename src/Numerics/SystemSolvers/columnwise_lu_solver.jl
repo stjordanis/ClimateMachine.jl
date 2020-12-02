@@ -186,7 +186,7 @@ Forms the banded matrices for each the column operator defined by the `DGModel`
 dg.  If `single_column=false` then a banded matrix is stored for each column and
 if `single_column=true` only the banded matrix associated with the first column
 of the first element is stored. The bandwidth of the DG column banded matrix is
-`p = q = (polynomialorder + 1) * nstate * eband - 1` with `p` and `q` being
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1`  with `p` and `q` being
 the upper and lower bandwidths.
 
 The banded matrices are stored in the LAPACK band storage format
@@ -235,7 +235,7 @@ operator `f!` which is assumed to have the same banded structure as the
 `DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
 column and if `single_column=true` only the banded matrix associated with the
 first column of the first element is stored. The bandwidth of the DG column
-banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
+banded matrix is `p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` with
 `p` and `q` being the upper and lower bandwidths.
 
 The banded matrices are stored in the LAPACK band storage format
@@ -371,7 +371,7 @@ operator `f!` which is assumed to have the same banded structure as the
 `DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
 column and if `single_column=true` only the banded matrix associated with the
 first column of the first element is stored. The bandwidth of the DG column
-banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
+banded matrix is `p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1`  with
 `p` and `q` being the upper and lower bandwidths.
 
 Here `args` are passed to `f!`.
@@ -501,8 +501,8 @@ example, `A[i, j, :, :, h]`, is the band matrix associated with the `(i, j)`th
 degree of freedom in the horizontal element `h`.
 
 Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
-bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
-eband - 1`.
+bandwidth `p` where `n = nstate * Nq * nvertelem` and
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` 
 
 Each band matrix is stored in the [LAPACK band storage](https://www.netlib.org/lapack/lug/node124.html).
 For example the band matrix
@@ -575,8 +575,8 @@ The LU-factorization array `LU` contains a single band matrix or one
 for each vertical column, see [`band_lu!`](@ref).
 
 Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
-bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
-eband - 1`.
+bandwidth `p` where `n = nstate * Nq * nvertelem` and
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` 
 
 ### Reference
 
@@ -662,8 +662,8 @@ The LU-factorization array `LU` contains a single band matrix or one
 for each vertical column, see [`band_lu!`](@ref).
 
 Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
-bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
-eband - 1`.
+bandwidth `p` where `n = nstate * Nq * nvertelem` and
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` 
 
 ### Reference
 
