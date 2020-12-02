@@ -49,12 +49,12 @@ elem_band(
 single_column(
     ::DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC},
 ) where {D, P, NS, EH, EV, EB, SC} = SC
-lower_bandwidth(N, nstate, eband) = (N + 1) * nstate * eband - 1
+lower_bandwidth(N, nstate, eband) = (max(1, N) + 1) * nstate * eband - 1
 lower_bandwidth(A::DGColumnBandedMatrix) =
-  lower_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
+    lower_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
 upper_bandwidth(N, nstate, eband) = lower_bandwidth(N, nstate, eband)
 upper_bandwidth(A::DGColumnBandedMatrix) =
-  upper_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
+    upper_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
 Base.reshape(A::DGColumnBandedMatrix, args...) =
     DGColumnBandedMatrix(A, reshape(A.data, args...))
 Adapt.adapt_structure(to, A::DGColumnBandedMatrix) =
@@ -594,6 +594,8 @@ eband - 1`.
         eband = elem_band(LU)
         p, q = lower_bandwidth(LU), upper_bandwidth(LU)
 
+        # number of elements needed to fill l_b
+        elems_l_b = div(p + 1, Nq * nstate)
         l_b = MArray{Tuple{p + 1}, FT}(undef)
     end
 
@@ -601,7 +603,7 @@ eband - 1`.
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        @unroll for v in 1:eband
+        @unroll for v in 1:elems_l_b
             @unroll for k in 1:Nq
                 @unroll for s in 1:nstate
                     ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
@@ -679,6 +681,8 @@ eband - 1`.
         q = upper_bandwidth(LU)
         eband = elem_band(LU)
 
+        # number of elements needed to fill l_b
+        elems_l_b = div(q + 1, Nq * nstate)
         l_b = MArray{Tuple{q + 1}, FT}(undef)
     end
 
@@ -686,10 +690,10 @@ eband - 1`.
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        @unroll for v in nvertelem:-1:(nvertelem - eband + 1)
+        @unroll for v in nvertelem:-1:(nvertelem - elems_l_b + 1)
             @unroll for k in Nq:-1:1
                 @unroll for s in nstate:-1:1
-                    vi = eband - nvertelem + v
+                    vi = elems_l_b - nvertelem + v
                     ii = s + (k - 1) * nstate + (vi - 1) * nstate * Nq
 
                     ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
@@ -838,14 +842,15 @@ end
     @uniform begin
         FT = eltype(A)
         nstate = num_state(A)
-        Nq = polynomialorder(A) + 1
+        N = polynomialorder(A)
+        Nq = N + 1
         Nqj = dimensionality(A) == 2 ? 1 : Nq
         nvertelem = num_vert_elem(A)
         p = lower_bandwidth(A)
         q = upper_bandwidth(A)
 
-        elo = div(q, Nq * nstate - 1)
-        eup = div(p, Nq * nstate - 1)
+        elo = div(q, (max(1, N) + 1) * nstate - 1)
+        eup = div(p, (max(1, N) + 1) * nstate - 1)
     end
 
     ev, eh = @index(Group, NTuple)
