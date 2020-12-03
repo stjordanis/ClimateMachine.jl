@@ -253,6 +253,7 @@ function stable_bl_model(
         turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
+        source = source_default
         moisture = DryModel()
     elseif moisture_model == "equilibrium"
         source = source_default

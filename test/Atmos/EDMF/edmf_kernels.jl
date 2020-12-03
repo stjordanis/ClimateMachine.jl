@@ -496,18 +496,18 @@ function atmos_source!(
     Diss₀ = FT(0.001)
 
     # # production from mean gradient and Dissipation
-    en_src.ρatke += ρa₀ * (K_eddy * Shear² - Diss₀ * tke_en)
-    en_src.ρaθ_liq_cv +=
-        ρa₀ *
-        (K_eddy * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
-    en_src.ρaq_tot_cv +=
-        ρa₀ *
-        (K_eddy * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
-    en_src.ρaθ_liq_q_tot_cv +=
-        ρa₀ * (
-            K_eddy * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
-            Diss₀ * en.ρaθ_liq_q_tot_cv
-        )
+    # en_src.ρatke += ρa₀ * (K_eddy * Shear² - Diss₀ * tke_en)
+    # en_src.ρaθ_liq_cv +=
+    #     ρa₀ *
+    #     (K_eddy * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
+    # en_src.ρaq_tot_cv +=
+    #     ρa₀ *
+    #     (K_eddy * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
+    # en_src.ρaθ_liq_q_tot_cv +=
+    #     ρa₀ * (
+    #         K_eddy * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
+    #         Diss₀ * en.ρaθ_liq_q_tot_cv
+    #     )
     # covariance microphysics sources should be applied here
 end;
 
