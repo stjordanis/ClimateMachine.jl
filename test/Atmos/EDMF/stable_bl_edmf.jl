@@ -1,3 +1,4 @@
+# ACTIVE DRIVER
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -14,7 +15,6 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 using ClimateMachine.Atmos: PressureGradientModel
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Mesh.Filters: apply!
-import ClimateMachine.DGMethods: custom_filter!
 import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
@@ -102,24 +102,52 @@ function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
     state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
 end
 
-rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
-rhs_prehook_filters(atmos::PressureGradientModel) = nothing
+rhs_prehook_filters(tc::EDMF) = EDMFFilter()
+rhs_prehook_filters(tc::NoTurbConv) = nothing
+
+rhs_prehook_filters(bl::AtmosModel) = rhs_prehook_filters(bl.turbconv)
+rhs_prehook_filters(bl::AtmosAcousticGravityLinearModel) = GridMeanFilter()
+rhs_prehook_filters(bl::RemBL) = rhs_prehook_filters(bl.main)
+rhs_prehook_filters(bl::PressureGradientModel) = nothing
+
+struct GridMeanFilter <: AbstractCustomFilter end
+function custom_filter!(::GridMeanFilter, bl, state, aux)
+    # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+end
 
 struct EDMFFilter <: AbstractCustomFilter end
 function custom_filter!(::EDMFFilter, bl, state, aux)
-    if hasproperty(bl, :turbconv)
+    if bl isa AtmosAcousticGravityLinearModel
+        atmos = bl.atmos
+    elseif bl isa RemBL
+        atmos = bl.main
+    else
+        atmos = bl
+    end
+    # println("------------------- Using prehook filter!")
+    # @show nameof(typeof(bl))
+    # @show propertynames(bl)
+    # @show propertynames(atmos)
+    # @show propertynames(state)
+    if hasproperty(atmos, :turbconv)
+        # println("hasproperty(atmos, :turbconv)")
         state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-        if bl.turbconv isa EDMF
+        # @show bl isa AtmosAcousticGravityLinearModel
+        # if atmos.turbconv isa EDMF
+        if :turbconv in propertynames(state)
+            # println(":turbconv in propertynames(state)")
+            @show state
+            
             # FT = eltype(state)
             # this ρu[3]=0 is only for single_stack
             # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
             # up = state.turbconv.updraft
             # en = state.turbconv.environment
-            # N_up = n_updrafts(bl.turbconv)
+            # N_up = n_updrafts(atmos.turbconv)
             # ρ_gm = state.ρ
-            # ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+            # ρa_min = ρ_gm * atmos.turbconv.subdomains.a_min
             # ρa_max = ρ_gm-ρa_min
-            # ts = recover_thermo_state(bl, state, aux)
+            # ts = recover_thermo_state(atmos, state, aux)
             # θ_liq_gm    = liquid_ice_pottemp(ts)
             # ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
             # ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
@@ -138,17 +166,15 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
             # en.ρatke = max(en.ρatke,FT(0))
             # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
 
-
-            println("in filter")
             FT = eltype(state)
             # this ρu[3]=0 is only for single_stack
             up = state.turbconv.updraft
             en = state.turbconv.environment
-            N_up = n_updrafts(bl.turbconv)
+            N_up = n_updrafts(atmos.turbconv)
             ρ_gm = state.ρ
-            ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+            ρa_min = ρ_gm * atmos.turbconv.subdomains.a_min
             ρa_max = ρ_gm-ρa_min
-            ts = recover_thermo_state(bl, state, aux)
+            ts = recover_thermo_state(atmos, state, aux)
             θ_liq_gm    = liquid_ice_pottemp(ts)
             ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
             ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
@@ -166,7 +192,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
             en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
             en.ρaq_tot_cv = FT(0)
             en.ρaθ_liq_q_tot_cv = FT(0)
-            validate_variables(bl, state, aux, "custom_filter!")
+            validate_variables(atmos, state, aux, "custom_filter!")
         end
     end
 end
@@ -230,7 +256,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
 
     model = stable_bl_model(
         FT,
@@ -238,7 +265,6 @@ function main(::Type{FT}) where {FT}
         zmax,
         surface_flux;
         turbconv = turbconv,
-        # turbconv = NoTurbConv(),
     )
 
     # Assemble configuration
@@ -259,8 +285,11 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        ode_dt = 2.64583e-01,
+        # ode_dt = 2.64583e-01,
     )
+    println("-------- Check ICs (1)")
+    @show all(isfinite.(solver_config.Q.data))
+    @show all(isfinite.(solver_config.dg.state_auxiliary.data))
 
     # --- Zero-out horizontal variations:
     vsp = vars_state(model, Prognostic(), FT)
@@ -357,6 +386,10 @@ function main(::Type{FT}) where {FT}
         @show getsteps(solver_config.solver)
         nothing
     end
+
+    println("-------- Check ICs (2)")
+    @show all(isfinite.(solver_config.Q.data))
+    @show all(isfinite.(solver_config.dg.state_auxiliary.data))
 
     result = ClimateMachine.invoke!(
         solver_config;
