@@ -118,7 +118,8 @@ function mixing_length(
         L_tke = ml.max_length
     end
 
-    l_mix =
-        lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
+    # l_mix =
+    #     lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
+    l_mix = FT(100)
     return l_mix
 end;

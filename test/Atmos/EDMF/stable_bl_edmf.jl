@@ -17,6 +17,7 @@ using ClimateMachine.Mesh.Filters: apply!
 import ClimateMachine.DGMethods: custom_filter!
 import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
@@ -95,7 +96,12 @@ function init_state_prognostic!(
     return nothing
 end;
 
-using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+
+struct ZeroVerticalVelocityFilter <: AbstractCustomFilter end
+function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
+    state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
+end
+
 rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 rhs_prehook_filters(atmos::PressureGradientModel) = nothing
 
@@ -103,8 +109,8 @@ struct EDMFFilter <: AbstractCustomFilter end
 function custom_filter!(::EDMFFilter, bl, state, aux)
     if hasproperty(bl, :turbconv)
         # FT = eltype(state)
-        # # this ρu[3]=0 is only for single_stack
-        # # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        # this ρu[3]=0 is only for single_stack
+        # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
         # up = state.turbconv.updraft
         # en = state.turbconv.environment
         # N_up = n_updrafts(bl.turbconv)
@@ -119,17 +125,6 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # ρa_en       = ρ_gm - ρa_ups
         # ρaw_en      = - ρaw_ups
         # θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # # if !(θ_liq_en > FT(0))
-        # z = altitude(bl, aux)
-        # println("negative θ_liq_en")
-        # @show(θ_liq_en)
-        # @show(ρa_ups)
-        # @show(up[1].ρa)
-        # @show(up[1].ρaθ_liq)
-        # @show(z)
-        # @show(θ_liq_gm)
-        # @show(ρaθ_liq_ups)
-        # # end
         # w_en        = ρaw_en / ρa_en
         # @unroll_map(N_up) do i
         #     if !(ρa_min <= up[i].ρa <= ρa_max)
@@ -159,17 +154,14 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         ρa_en       = ρ_gm - ρa_ups
         ρaw_en      = - ρaw_ups
         θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # if !(θ_liq_en > FT(0))
         w_en        = ρaw_en / ρa_en
         @unroll_map(N_up) do i
             up[i].ρa = ρa_min
             up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
             up[i].ρaw     = FT(0)
         end
-        en.ρatke = max(en.ρatke,FT(0))
-        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
-        # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
-        # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+        en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
         validate_variables(bl, state, aux, "custom_filter!")
     end
 end
@@ -302,6 +294,13 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
+        Filters.apply!(
+            ZeroVerticalVelocityFilter(),
+            solver_config.dg.grid,
+            model,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
+        )
         Filters.apply!( # comment this for NoTurbConv
             EDMFFilter(),
             solver_config.dg.grid,
@@ -357,7 +356,7 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
