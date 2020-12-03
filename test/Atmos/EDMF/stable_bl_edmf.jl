@@ -15,9 +15,16 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 using ClimateMachine.Atmos: PressureGradientModel
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Mesh.Filters: apply!
-import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
+import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters, calculate_dt
 using ClimateMachine.DGMethods: RemBL
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+
+function calculate_dt(dg, model::AtmosModel, Q, Courant_number, t, direction)
+    # Δt = one(eltype(Q))
+    # CFL = courant(nondiffusive_courant, dg, model, Q, Δt, t, direction)
+    # return Courant_number / CFL
+    return eltype(Q)(2.64583e-01)
+end
 
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
@@ -112,7 +119,7 @@ rhs_prehook_filters(bl::PressureGradientModel) = nothing
 
 struct GridMeanFilter <: AbstractCustomFilter end
 function custom_filter!(::GridMeanFilter, bl, state, aux)
-    # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+    state.ρu = SVector(state.ρu[1],state.ρu[2],0)
 end
 
 struct EDMFFilter <: AbstractCustomFilter end
@@ -371,7 +378,7 @@ function main(::Type{FT}) where {FT}
             nothing
         end
 
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
+    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(1) do
         Q = solver_config.Q
         δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
         δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
