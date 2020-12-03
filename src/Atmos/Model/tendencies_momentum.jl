@@ -12,7 +12,7 @@ end
 
 function flux(::PressureGradient{Momentum}, m, state, aux, t, ts, direction)
     pad = (state.ρu .* (state.ρu / state.ρ)') * 0
-    if m.ref_state isa HydrostaticState
+    if m.ref_state isa HydrostaticState && m.ref_state.subtract_off
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
         return pad + air_pressure(ts) * I
@@ -56,7 +56,7 @@ function source(
     direction,
     diffusive,
 )
-    if m.ref_state isa HydrostaticState
+    if m.ref_state isa HydrostaticState && m.ref_state.subtract_off
         return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     else
         return -state.ρ * aux.orientation.∇Φ
