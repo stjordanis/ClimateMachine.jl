@@ -139,6 +139,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
             # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
 
 
+            println("in filter")
             FT = eltype(state)
             # this ρu[3]=0 is only for single_stack
             up = state.turbconv.updraft
@@ -161,8 +162,10 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
                 up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
                 up[i].ρaw     = FT(0)
             end
-            en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
-            en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+            en.ρatke = max(en.ρatke,FT(0))
+            en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+            en.ρaq_tot_cv = FT(0)
+            en.ρaθ_liq_q_tot_cv = FT(0)
             validate_variables(bl, state, aux, "custom_filter!")
         end
     end
@@ -227,8 +230,7 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    # turbconv = EDMF(FT, N_updrafts, N_quad)
-    turbconv = NoTurbConv()
+    turbconv = EDMF(FT, N_updrafts, N_quad)
 
     model = stable_bl_model(
         FT,
@@ -289,20 +291,20 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
-        Filters.apply!(
-            ZeroVerticalVelocityFilter(),
-            solver_config.dg.grid,
-            model,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
-        )
-        Filters.apply!( # comment this for NoTurbConv
-            EDMFFilter(),
-            solver_config.dg.grid,
-            solver_config.dg.balance_law,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
-        )
+        # Filters.apply!(
+        #     ZeroVerticalVelocityFilter(),
+        #     solver_config.dg.grid,
+        #     model,
+        #     solver_config.Q,
+        #     solver_config.dg.state_auxiliary,
+        # )
+        # Filters.apply!( # comment this for NoTurbConv
+        #     EDMFFilter(),
+        #     solver_config.dg.grid,
+        #     solver_config.dg.balance_law,
+        #     solver_config.Q,
+        #     solver_config.dg.state_auxiliary,
+        # )
         nothing
     end
 
@@ -347,7 +349,7 @@ function main(::Type{FT}) where {FT}
         @show (abs(δρ))
         @show (abs(δρe))
         @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
+        @test (abs(δρe) <= 0.025)
         nothing
     end
 

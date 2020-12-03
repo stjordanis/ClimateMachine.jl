@@ -376,6 +376,16 @@ function atmos_source!(
     θ_liq_en = liquid_ice_pottemp(ts.en)
     q_tot_en = total_specific_humidity(ts.en)
     tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
+    z = altitude(m, aux)
+    if tke_en<FT(0)
+        println("atmos_source")
+        @show(en.ρatke)
+        @show(ρ_inv)
+        @show(env.a)
+        @show(up[1].ρa/state.ρ)
+        @show(state.ρ)
+        @show(z)
+    end
     θ_liq = liquid_ice_pottemp(ts.gm)
     a_min = turbconv.subdomains.a_min
     a_max = turbconv.subdomains.a_max
@@ -474,22 +484,25 @@ function atmos_source!(
         # pressure tke source from the i'th updraft
         en_src.ρatke += ρa_up_i * (w_up_i - env.w) * dpdz
     end
-    l_mix = mixing_length(
-        m,
-        m.turbconv.mix_len,
-        state,
-        diffusive,
-        aux,
-        t,
-        Δ_dyn,
-        E_trb,
-        ts,
-        env,
-    )
-    K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
-    Shear² = diffusive.turbconv.S²
+    # l_mix = mixing_length(
+    #     m,
+    #     m.turbconv.mix_len,
+    #     state,
+    #     diffusive,
+    #     aux,
+    #     t,
+    #     Δ_dyn,
+    #     E_trb,
+    #     ts,
+    #     env,
+    # )
+    # K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_eddy = FT(0.001)
+    # Shear² = diffusive.turbconv.S²
+    Shear² = FT(0.01)
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
+    # Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
+    Diss₀ = FT(0.0001)
 
     # production from mean gradient and Dissipation
     en_src.ρatke += ρa₀ * (K_eddy * Shear² - Diss₀ * tke_en)
@@ -591,20 +604,21 @@ function flux_second_order!(
 
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
 
-    l_mix = mixing_length(
-        m,
-        turbconv.mix_len,
-        state,
-        diffusive,
-        aux,
-        t,
-        Δ_dyn,
-        E_trb,
-        ts,
-        env,
-    )
+    # l_mix = mixing_length(
+    #     m,
+    #     turbconv.mix_len,
+    #     state,
+    #     diffusive,
+    #     aux,
+    #     t,
+    #     Δ_dyn,
+    #     E_trb,
+    #     ts,
+    #     env,
+    # )
     tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
-    K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    # K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_eddy = FT(0.001)
 
     #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
     e_int = internal_energy(m, state, aux)

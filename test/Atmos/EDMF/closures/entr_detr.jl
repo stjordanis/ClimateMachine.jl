@@ -49,8 +49,7 @@ function entr_detr(
     w_min = entr.w_min
     # precompute vars
     w_up_i = up[i].ρaw / up[i].ρa
-    temp = max(en.ρatke, 0) * ρ_inv / env.a
-    sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
+    sqrt_tke = sqrt(max(en.ρatke, 0)) * ρ_inv / env.a
     # ensure far from zero
     Δw = filter_w(w_up_i - env.w, w_min)
     w_up_i = filter_w(w_up_i, w_min)

@@ -54,6 +54,15 @@ function mixing_length(
 
     Shear² = diffusive.turbconv.S²
     tke_en = max(en.ρatke, 0) * ρinv / env.a
+    if tke_en<FT(0)
+        println("in mixing length 56")
+        @show(z)
+        @show(up[1].ρa)
+        @show(en.ρatke)
+        @show(ρinv)
+        @show(env.a)
+    end
+    validate_variables(m, state, aux, "mixing_length!")
 
     ustar = m.turbconv.surface.ustar
     obukhov_length = m.turbconv.surface.obukhov_length
