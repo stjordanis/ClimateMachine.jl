@@ -183,9 +183,9 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_tot = ρ * q_tot
     end
 
-    # if z <= FT(400) # Add random perturbations to bottom 400m of model
-    #     state.ρe += rand() * ρe_tot / 100
-    # end
+    if z <= FT(400) # Add random perturbations to bottom 400m of model
+        state.ρe += rand() * ρe_tot / 100
+    end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
@@ -211,12 +211,6 @@ function convective_bl_model(
     moisture_model = "dry",
 ) where {FT}
 
-    ics = init_convective_bl!     # Initial conditions
-
-    C_smag = FT(0.23)     # Smagorinsky coefficient
-    C_drag = FT(0.001)    # Momentum exchange coefficient
-    z_sponge = FT(2560)     # Start of sponge layer
-    α_max = FT(0.75)       # Strength of sponge layer (timescale)
     γ = 2                  # Strength of sponge layer (exponent)
     u_geostrophic = FT(4)        # Eastward relaxation speed
     u_slope = FT(0)              # Slope of altitude-dependent relaxation speed
@@ -245,6 +239,7 @@ function convective_bl_model(
         ),
         turbconv_sources(turbconv)...,
     )
+
     if moisture_model == "dry"
         moisture = DryModel()
     elseif moisture_model == "equilibrium"
@@ -292,8 +287,9 @@ function convective_bl_model(
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
                 energy = energy_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     else
         boundary_conditions = (
@@ -305,11 +301,12 @@ function convective_bl_model(
                 )),
                 energy = energy_bc,
                 moisture = moisture_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     end
-    # Set up problem initial and boundary conditions
+
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
@@ -323,7 +320,7 @@ function convective_bl_model(
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = moisture,
-        source = source_default,
+        source = source,
         turbconv = turbconv,
     )
 
