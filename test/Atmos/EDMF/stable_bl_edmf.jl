@@ -108,61 +108,63 @@ rhs_prehook_filters(atmos::PressureGradientModel) = nothing
 struct EDMFFilter <: AbstractCustomFilter end
 function custom_filter!(::EDMFFilter, bl, state, aux)
     if hasproperty(bl, :turbconv)
-        # FT = eltype(state)
-        # this ρu[3]=0 is only for single_stack
-        # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-        # up = state.turbconv.updraft
-        # en = state.turbconv.environment
-        # N_up = n_updrafts(bl.turbconv)
-        # ρ_gm = state.ρ
-        # ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-        # ρa_max = ρ_gm-ρa_min
-        # ts = recover_thermo_state(bl, state, aux)
-        # θ_liq_gm    = liquid_ice_pottemp(ts)
-        # ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-        # ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-        # ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-        # ρa_en       = ρ_gm - ρa_ups
-        # ρaw_en      = - ρaw_ups
-        # θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # w_en        = ρaw_en / ρa_en
-        # @unroll_map(N_up) do i
-        #     if !(ρa_min <= up[i].ρa <= ρa_max)
-        #         up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
-        #         up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-        #         up[i].ρaw     = FT(0)
-        #     end
-        # end
-        # en.ρatke = max(en.ρatke,FT(0))
-        # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        if bl.turbconv isa EDMF
+            # FT = eltype(state)
+            # this ρu[3]=0 is only for single_stack
+            # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+            # up = state.turbconv.updraft
+            # en = state.turbconv.environment
+            # N_up = n_updrafts(bl.turbconv)
+            # ρ_gm = state.ρ
+            # ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+            # ρa_max = ρ_gm-ρa_min
+            # ts = recover_thermo_state(bl, state, aux)
+            # θ_liq_gm    = liquid_ice_pottemp(ts)
+            # ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+            # ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+            # ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+            # ρa_en       = ρ_gm - ρa_ups
+            # ρaw_en      = - ρaw_ups
+            # θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+            # w_en        = ρaw_en / ρa_en
+            # @unroll_map(N_up) do i
+            #     if !(ρa_min <= up[i].ρa <= ρa_max)
+            #         up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+            #         up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+            #         up[i].ρaw     = FT(0)
+            #     end
+            # end
+            # en.ρatke = max(en.ρatke,FT(0))
+            # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
 
 
-        FT = eltype(state)
-        # this ρu[3]=0 is only for single_stack
-        # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-        up = state.turbconv.updraft
-        en = state.turbconv.environment
-        N_up = n_updrafts(bl.turbconv)
-        ρ_gm = state.ρ
-        ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-        ρa_max = ρ_gm-ρa_min
-        ts = recover_thermo_state(bl, state, aux)
-        θ_liq_gm    = liquid_ice_pottemp(ts)
-        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-        ρa_en       = ρ_gm - ρa_ups
-        ρaw_en      = - ρaw_ups
-        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        w_en        = ρaw_en / ρa_en
-        @unroll_map(N_up) do i
-            up[i].ρa = ρa_min
-            up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-            up[i].ρaw     = FT(0)
+            FT = eltype(state)
+            # this ρu[3]=0 is only for single_stack
+            up = state.turbconv.updraft
+            en = state.turbconv.environment
+            N_up = n_updrafts(bl.turbconv)
+            ρ_gm = state.ρ
+            ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+            ρa_max = ρ_gm-ρa_min
+            ts = recover_thermo_state(bl, state, aux)
+            θ_liq_gm    = liquid_ice_pottemp(ts)
+            ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+            ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+            ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+            ρa_en       = ρ_gm - ρa_ups
+            ρaw_en      = - ρaw_ups
+            θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+            w_en        = ρaw_en / ρa_en
+            @unroll_map(N_up) do i
+                up[i].ρa = ρa_min
+                up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+                up[i].ρaw     = FT(0)
+            end
+            en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+            en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+            validate_variables(bl, state, aux, "custom_filter!")
         end
-        en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
-        en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
-        validate_variables(bl, state, aux, "custom_filter!")
     end
 end
 
@@ -176,7 +178,7 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
     cl_args =
@@ -215,14 +217,6 @@ function main(::Type{FT}) where {FT}
             discrete_splitting = false,
             # discrete_splitting = true,
         )
-    # isothermal zonal flow
-    # ode_solver_type = ClimateMachine.IMEXSolverType(
-    #     implicit_model = AtmosAcousticGravityLinearModel,
-    #     implicit_solver = ManyColumnLU,
-    #     solver_method = ARK2GiraldoKellyConstantinescu,
-    #     split_explicit_implicit = false,
-    #     discrete_splitting = true,
-    # )
     end
 
 
@@ -233,7 +227,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
 
     model = stable_bl_model(
         FT,

@@ -151,6 +151,9 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     u::FT = 8
     v::FT = 0
     w::FT = 0
+    # SBL uses 'bulk', these are here for 'prescribed' option and should be checked
+    SHF::FT = 0
+    LHF::FT = 0
     # Assign piecewise quantities to θ_liq and q_tot
     θ_liq::FT = 0
     q_tot::FT = 0

@@ -404,110 +404,106 @@ function atmos_source!(
         )
 
         # entrainment and detrainment
-        # up_src[i].ρa += (E_dyn[i] - Δ_dyn[i])
-        # up_src[i].ρaw +=
-        #     ((E_dyn[i] + E_trb[i]) * env.w - (Δ_dyn[i] + E_trb[i]) * w_up_i)
-        # up_src[i].ρaθ_liq +=
-        #         ((E_dyn[i] + E_trb[i]) * θ_liq_en -
-        #          (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
-        #         )
-        # up_src[i].ρaq_tot +=
-        #         ((E_dyn[i] + E_trb[i]) * q_tot_en -
-        #          (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
-        #         )
+        up_src[i].ρa += (E_dyn[i] - Δ_dyn[i])
+        up_src[i].ρaw +=
+            ((E_dyn[i] + E_trb[i]) * env.w - (Δ_dyn[i] + E_trb[i]) * w_up_i)
+        up_src[i].ρaθ_liq +=
+                ((E_dyn[i] + E_trb[i]) * θ_liq_en -
+                 (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
+                )
+        up_src[i].ρaq_tot +=
+                ((E_dyn[i] + E_trb[i]) * q_tot_en -
+                 (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
+                )
 
-        # # add buoyancy and perturbation pressure in subdomain w equation
-        # up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz)
-        # # microphysics sources should be applied here
+        # add buoyancy and perturbation pressure in subdomain w equation
+        up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz)
+        # microphysics sources should be applied here
 
         # environment second moments:
-        # environment second moments:
-        # ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
-        # en_src.ρatke += (
-        #     Δ_dyn[i] *
-        #     (w_up_i - env.w) *
-        #     (w_up_i - env.w) *
-        #     FT(0.5) +
-        #     E_trb[i] *
-        #     (env.w - gm.ρu[3] * ρ_inv) *
-        #     (env.w - w_up_i) - (E_dyn[i] + E_trb[i]) * tke_en
-        # )
+        ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+        en_src.ρatke += (
+            Δ_dyn[i] *
+            (w_up_i - env.w) *
+            (w_up_i - env.w) *
+            FT(0.5) +
+            E_trb[i] *
+            (env.w - gm.ρu[3] * ρ_inv) *
+            (env.w - w_up_i) - (E_dyn[i] + E_trb[i]) * tke_en
+        )
 
-        # en_src.ρaθ_liq_cv += (
-        #     Δ_dyn[i] *
-        #     (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
-        #     (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) +
-        #     E_trb[i] *
-        #     (θ_liq_en - θ_liq) *
-        #     (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) +
-        #     E_trb[i] *
-        #     (θ_liq_en - θ_liq) *
-        #     (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
-        #     (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_cv
-        # )
+        en_src.ρaθ_liq_cv += (
+            Δ_dyn[i] *
+            (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
+            (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) +
+            E_trb[i] *
+            (θ_liq_en - θ_liq) *
+            (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) +
+            E_trb[i] *
+            (θ_liq_en - θ_liq) *
+            (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
+            (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_cv
+        )
 
-        # en_src.ρaq_tot_cv += (
-        #     Δ_dyn[i] *
-        #     (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) *
-        #     (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
-        #     E_trb[i] *
-        #     (q_tot_en - ρq_tot * ρ_inv) *
-        #     (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
-        #     E_trb[i] *
-        #     (q_tot_en - ρq_tot * ρ_inv) *
-        #     (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) -
-        #     (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv
-        # )
+        en_src.ρaq_tot_cv += (
+            Δ_dyn[i] *
+            (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) *
+            (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
+            E_trb[i] *
+            (q_tot_en - ρq_tot * ρ_inv) *
+            (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
+            E_trb[i] *
+            (q_tot_en - ρq_tot * ρ_inv) *
+            (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) -
+            (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv
+        )
 
-        # en_src.ρaθ_liq_q_tot_cv += (
-        #     Δ_dyn[i] *
-        #     (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
-        #     (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
-        #     E_trb[i] *
-        #     (θ_liq_en - θ_liq) *
-        #     (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
-        #     E_trb[i] *
-        #     (q_tot_en - ρq_tot * ρ_inv) *
-        #     (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
-        #     (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv
-        # )
+        en_src.ρaθ_liq_q_tot_cv += (
+            Δ_dyn[i] *
+            (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
+            (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
+            E_trb[i] *
+            (θ_liq_en - θ_liq) *
+            (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
+            E_trb[i] *
+            (q_tot_en - ρq_tot * ρ_inv) *
+            (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
+            (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv
+        )
 
-        # # pressure tke source from the i'th updraft
-        # en_src.ρatke += ρa_up_i * (w_up_i - env.w) * dpdz
+        # pressure tke source from the i'th updraft
+        en_src.ρatke += ρa_up_i * (w_up_i - env.w) * dpdz
     end
-    # l_mix = mixing_length(
-    #     m,
-    #     m.turbconv.mix_len,
-    #     state,
-    #     diffusive,
-    #     aux,
-    #     t,
-    #     Δ_dyn,
-    #     E_trb,
-    #     ts,
-    #     env,
-    # )
-    # K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
-    # Shear² = diffusive.turbconv.S²
+    l_mix = mixing_length(
+        m,
+        m.turbconv.mix_len,
+        state,
+        diffusive,
+        aux,
+        t,
+        Δ_dyn,
+        E_trb,
+        ts,
+        env,
+    )
+    K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    Shear² = diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
-    # Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
-    K_eddy = FT(0.001)
-    Shear² = FT(0.01)
-    Diss₀ = FT(0.001)
+    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 
-    # # production from mean gradient and Dissipation
-    # en_src.ρatke += ρa₀ * (K_eddy * Shear² - Diss₀ * tke_en)
-    # en_src.ρaθ_liq_cv +=
-    #     ρa₀ *
-    #     (K_eddy * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
-    # en_src.ρaq_tot_cv +=
-    #     ρa₀ *
-    #     (K_eddy * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
-    # en_src.ρaθ_liq_q_tot_cv +=
-    #     ρa₀ * (
-    #         K_eddy * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
-    #         Diss₀ * en.ρaθ_liq_q_tot_cv
-    #     )
+    # production from mean gradient and Dissipation
+    en_src.ρatke += ρa₀ * (K_eddy * Shear² - Diss₀ * tke_en)
+    en_src.ρaθ_liq_cv +=
+        ρa₀ *
+        (K_eddy * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
+    en_src.ρaq_tot_cv +=
+        ρa₀ *
+        (K_eddy * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
+    en_src.ρaθ_liq_q_tot_cv +=
+        ρa₀ * (
+            K_eddy * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
+            Diss₀ * en.ρaθ_liq_q_tot_cv
+        )
     # covariance microphysics sources should be applied here
 end;
 
@@ -541,19 +537,19 @@ function flux_first_order!(
         gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
     end
 
-    # @unroll_map(N_up) do i
-    #     ρa_i = ρa_up[i]
-    #     up_flx[i].ρa = up[i].ρaw * ẑ
-    #     w_up_i = up[i].ρaw / ρa_i
-    #     up_flx[i].ρaw = up[i].ρaw * w_up_i * ẑ
-    #     up_flx[i].ρaθ_liq = w_up_i * up[i].ρaθ_liq * ẑ
-    #     up_flx[i].ρaq_tot = w_up_i * up[i].ρaq_tot * ẑ
-    # end
+    @unroll_map(N_up) do i
+        ρa_i = ρa_up[i]
+        up_flx[i].ρa = up[i].ρaw * ẑ
+        w_up_i = up[i].ρaw / ρa_i
+        up_flx[i].ρaw = up[i].ρaw * w_up_i * ẑ
+        up_flx[i].ρaθ_liq = w_up_i * up[i].ρaθ_liq * ẑ
+        up_flx[i].ρaq_tot = w_up_i * up[i].ρaq_tot * ẑ
+    end
     env = environment_vars(state, aux, N_up)
-    # en_flx.ρatke = en.ρatke * env.w * ẑ
-    # en_flx.ρaθ_liq_cv = en.ρaθ_liq_cv * env.w * ẑ
-    # en_flx.ρaq_tot_cv = en.ρaq_tot_cv * env.w * ẑ
-    # en_flx.ρaθ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv * env.w * ẑ
+    en_flx.ρatke = en.ρatke * env.w * ẑ
+    en_flx.ρaθ_liq_cv = en.ρaθ_liq_cv * env.w * ẑ
+    en_flx.ρaq_tot_cv = en.ρaq_tot_cv * env.w * ẑ
+    en_flx.ρaθ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv * env.w * ẑ
 end;
 
 # in the EDMF second order (diffusive) fluxes
@@ -589,91 +585,91 @@ function flux_second_order!(
     a_min = turbconv.subdomains.a_min
     a_max = turbconv.subdomains.a_max
 
-    # EΔ_up = ntuple(N_up) do i
-    #     entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
-    # end
+    EΔ_up = ntuple(N_up) do i
+        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
+    end
 
-    # E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
+    E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
 
-    # l_mix = mixing_length(
-    #     m,
-    #     turbconv.mix_len,
-    #     state,
-    #     diffusive,
-    #     aux,
-    #     t,
-    #     Δ_dyn,
-    #     E_trb,
-    #     ts,
-    #     env,
+    l_mix = mixing_length(
+        m,
+        turbconv.mix_len,
+        state,
+        diffusive,
+        aux,
+        t,
+        Δ_dyn,
+        E_trb,
+        ts,
+        env,
+    )
+    tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
+    K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+
+    #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
+    e_int = internal_energy(m, state, aux)
+
+    e_kin = vuntuple(N_up) do i
+        FT(1 // 2) * (
+            (gm.ρu[1] * ρ_inv)^2 +
+            (gm.ρu[2] * ρ_inv)^2 +
+            (up[i].ρaw / up[i].ρa)^2
+        )
+    end
+    e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts.up[i]), N_up)
+    ρa_up = vuntuple(N_up) do i
+        gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
+    end
+
+    massflux_e = sum(
+        vuntuple(N_up) do i
+            up[i].ρa *
+            ρ_inv *
+            (gm.ρe * ρ_inv - e_tot_up[i]) *
+            (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+        end,
+    )
+    ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    massflux_q_tot = sum(
+        vuntuple(N_up) do i
+            up[i].ρa *
+            ρ_inv *
+            (ρq_tot * ρ_inv - up[i].ρaq_tot / up[i].ρa) *
+            (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+        end,
+    )
+
+    massflux_w = sum(
+        vuntuple(N_up) do i
+            up[i].ρa *
+            ρ_inv *
+            (gm.ρu[3] * ρ_inv - up[i].ρaw / up[i].ρa) *
+            (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+        end,
+    )
+
+    # update grid mean flux_second_order
+    ρe_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇e[3] + massflux_e
+    ρq_tot_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot[3] + massflux_q_tot
+    ρu_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇w[3] + massflux_w
+
+    # for now the coupling to the dycore is commented out
+
+    # gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
+    # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
+    # gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
+    #     0, 0, 0,
+    #     0, 0, 0,
+    #     0, 0, ρu_sgs_flux,
     # )
-    # tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
-    # K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
 
-    # #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
-    # e_int = internal_energy(m, state, aux)
-
-    # e_kin = vuntuple(N_up) do i
-    #     FT(1 // 2) * (
-    #         (gm.ρu[1] * ρ_inv)^2 +
-    #         (gm.ρu[2] * ρ_inv)^2 +
-    #         (up[i].ρaw / up[i].ρa)^2
-    #     )
-    # end
-    # e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts.up[i]), N_up)
-    # ρa_up = vuntuple(N_up) do i
-    #     gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
-    # end
-
-    # massflux_e = sum(
-    #     vuntuple(N_up) do i
-    #         up[i].ρa *
-    #         ρ_inv *
-    #         (gm.ρe * ρ_inv - e_tot_up[i]) *
-    #         (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
-    #     end,
-    # )
-    # ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
-    # massflux_q_tot = sum(
-    #     vuntuple(N_up) do i
-    #         up[i].ρa *
-    #         ρ_inv *
-    #         (ρq_tot * ρ_inv - up[i].ρaq_tot / up[i].ρa) *
-    #         (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
-    #     end,
-    # )
-
-    # massflux_w = sum(
-    #     vuntuple(N_up) do i
-    #         up[i].ρa *
-    #         ρ_inv *
-    #         (gm.ρu[3] * ρ_inv - up[i].ρaw / up[i].ρa) *
-    #         (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
-    #     end,
-    # )
-
-    # # update grid mean flux_second_order
-    # ρe_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇e[3] + massflux_e
-    # ρq_tot_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot[3] + massflux_q_tot
-    # ρu_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇w[3] + massflux_w
-
-    # # for now the coupling to the dycore is commented out
-
-    # # gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
-    # # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
-    # # gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-    # #     0, 0, 0,
-    # #     0, 0, 0,
-    # #     0, 0, ρu_sgs_flux,
-    # # )
-
-    # ẑ = vertical_unit_vector(m, aux)
-    # # env second moment flux_second_order
-    # en_flx.ρatke = -gm.ρ * env.a * K_eddy * en_dif.∇tke[3] * ẑ
-    # en_flx.ρaθ_liq_cv = -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_cv[3] * ẑ
-    # en_flx.ρaq_tot_cv = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot_cv[3] * ẑ
-    # en_flx.ρaθ_liq_q_tot_cv =
-    #     -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
+    ẑ = vertical_unit_vector(m, aux)
+    # env second moment flux_second_order
+    en_flx.ρatke = -gm.ρ * env.a * K_eddy * en_dif.∇tke[3] * ẑ
+    en_flx.ρaθ_liq_cv = -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_cv[3] * ẑ
+    en_flx.ρaq_tot_cv = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot_cv[3] * ẑ
+    en_flx.ρaθ_liq_q_tot_cv =
+        -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
 end;
 
 # First order boundary conditions
