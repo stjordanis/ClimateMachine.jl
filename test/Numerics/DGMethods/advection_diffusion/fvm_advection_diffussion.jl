@@ -5,6 +5,7 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using LinearAlgebra
@@ -122,7 +123,16 @@ function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
 end
 
 
-function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT, vtkdir)
+function test_run(
+    mpicomm,
+    dim,
+    fvmethod,
+    polynomialorders,
+    level,
+    ArrayType,
+    FT,
+    vtkdir,
+)
 
     n_hd =
         dim == 2 ? SVector{3, FT}(1, 0, 0) :
@@ -161,12 +171,13 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT, vtkdir)
     @info "time step" dt
 
     @info @sprintf """Test parameters:
+    FVM Reconstructio           = %s
     ArrayType                   = %s
     FloatType                   = %s
     Dimension                   = %s
     Horizontal polynomial order = %s
     Vertical polynomial order   = %s
-      """ ArrayType FT dim polynomialorders[1] polynomialorders[end]
+      """ fvmethod ArrayType FT dim polynomialorders[1] polynomialorders[end]
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
@@ -185,6 +196,7 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT, vtkdir)
     dgfvm = DGFVModel(
         model,
         grid,
+        fvmethod,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
@@ -305,37 +317,68 @@ function main()
 
     # Dictionary keys: dim, level, and FT
     expected_result = Dict()
-    expected_result[2, 1, Float64] =
+    expected_result[2, 1, Float64, FVConstant()] =
         (2.3391871809628567e-02, 5.0738761087541523e-02, 4.1857480220018339e-02)
-    expected_result[2, 2, Float64] =
+    expected_result[2, 2, Float64, FVConstant()] =
         (2.0332783913617892e-03, 3.3669399006499491e-02, 2.3904204301839819e-02)
-    expected_result[2, 3, Float64] =
+    expected_result[2, 3, Float64, FVConstant()] =
         (2.6572168347086839e-05, 2.0002110124502395e-02, 1.2790993871268749e-02)
-    expected_result[2, 4, Float64] =
+    expected_result[2, 4, Float64, FVConstant()] =
         (1.9890000550154039e-07, 1.0929144069594809e-02, 6.5110938897763176e-03)
 
-    expected_result[3, 1, Float64] =
+    expected_result[3, 1, Float64, FVConstant()] =
         (8.7378337431297422e-03, 7.1755444068009461e-02, 4.3733196512722658e-02)
-    expected_result[3, 2, Float64] =
+    expected_result[3, 2, Float64, FVConstant()] =
         (6.2510740807095622e-04, 4.7615720711942776e-02, 2.3986017606198885e-02)
-    expected_result[3, 3, Float64] =
+    expected_result[3, 3, Float64, FVConstant()] =
         (3.4995405318038341e-05, 2.8287255414151381e-02, 1.2639742577376040e-02)
-    expected_result[3, 4, Float64] =
+    expected_result[3, 4, Float64, FVConstant()] =
         (1.4362091045094841e-06, 1.5456143768350493e-02, 6.3677406803847331e-03)
 
-    expected_result[2, 1, Float32] =
+    expected_result[2, 1, Float32, FVConstant()] =
         (2.3391991853713989e-02, 5.0738703459501266e-02, 4.1857466101646423e-02)
-    expected_result[2, 2, Float32] =
+    expected_result[2, 2, Float32, FVConstant()] =
         (2.0331495907157660e-03, 3.3669382333755493e-02, 2.3904176428914070e-02)
-    expected_result[2, 3, Float32] =
+    expected_result[2, 3, Float32, FVConstant()] =
         (2.6557327146292664e-05, 2.0002063363790512e-02, 1.2790882028639317e-02)
 
-    expected_result[3, 1, Float32] =
+    expected_result[3, 1, Float32, FVConstant()] =
         (8.7377587333321571e-03, 7.1755334734916687e-02, 4.3733172118663788e-02)
-    expected_result[3, 2, Float32] =
+    expected_result[3, 2, Float32, FVConstant()] =
         (6.2518188497051597e-04, 4.7615684568881989e-02, 2.3986009880900383e-02)
-    expected_result[3, 3, Float32] =
+    expected_result[3, 3, Float32, FVConstant()] =
         (3.5005086829187348e-05, 2.8287241235375404e-02, 1.2639495544135571e-02)
+    expected_result[2, 1, Float32, FVLinear()] =
+        (2.3391991853713989e-02, 4.5809455215930939e-02, 3.3684458583593369e-02)
+    expected_result[2, 2, Float32, FVLinear()] =
+        (2.0331484265625477e-03, 1.8929174169898033e-02, 1.4169176109135151e-02)
+    expected_result[2, 3, Float32, FVLinear()] =
+        (2.6568241082713939e-05, 5.1881559193134308e-03, 5.7940287515521049e-03)
+
+    expected_result[3, 1, Float32, FVLinear()] =
+        (8.7377661839127541e-03, 6.4784310758113861e-02, 3.5005174577236176e-02)
+    expected_result[3, 2, Float32, FVLinear()] =
+        (6.2518141930922866e-04, 2.6769902557134628e-02, 1.5036364085972309e-02)
+    expected_result[3, 3, Float32, FVLinear()] =
+        (3.5006076359422877e-05, 7.3372162878513336e-03, 6.5253302454948425e-03)
+
+    expected_result[2, 1, Float64, FVLinear()] =
+        (2.3391871809628539e-02, 4.5809478354143549e-02, 3.3684471813835444e-02)
+    expected_result[2, 2, Float64, FVLinear()] =
+        (2.0332783913617901e-03, 1.8929227093562186e-02, 1.4169179177388814e-02)
+    expected_result[2, 3, Float64, FVLinear()] =
+        (2.6572168347118637e-05, 5.1881813941203744e-03, 5.7940250991933779e-03)
+    expected_result[2, 4, Float64, FVLinear()] =
+        (1.9890000549982176e-07, 1.4210809124692229e-03, 2.5711756815222355e-03)
+
+    expected_result[3, 1, Float64, FVLinear()] =
+        (8.7378337431297526e-03, 6.4784385573666475e-02, 3.5005205366868124e-02)
+    expected_result[3, 2, Float64, FVLinear()] =
+        (6.2510740807095253e-04, 2.6769969680955810e-02, 1.5036368576306580e-02)
+    expected_result[3, 3, Float64, FVLinear()] =
+        (3.4995405318036552e-05, 7.3371964916167090e-03, 6.5256667055593629e-03)
+    expected_result[3, 4, Float64, FVLinear()] =
+        (1.4362091045108851e-06, 2.0097118996435302e-03, 3.0041284353941838e-03)
 
 
     @testset "Variable degree DG: advection diffusion model" begin
@@ -345,42 +388,47 @@ function main()
                 ClimateMachine.Settings.integration_testing ?
                 (FT == Float64 ? 4 : 3) : 1
             for dim in 2:3
-                polynomialorders = (4, 0)
-                result = Dict()
-                for level in 1:numlevels
-                    vtkdir =
-                        output ?
-                        "vtk_advection" *
-                        "_poly$(polynomialorders)" *
-                        "_dim$(dim)_$(ArrayType)_$(FT)" *
-                        "_level$(level)" :
-                        nothing
-                    result[level] = test_run(
-                        mpicomm,
-                        dim,
-                        polynomialorders,
-                        level,
-                        ArrayType,
-                        FT,
-                        vtkdir,
-                    )
-                    @test all(
-                        result[level] .≈ FT.(expected_result[dim, level, FT]),
-                    )
-                end
-                @info begin
-                    msg = ""
-                    for l in 1:(numlevels - 1)
-                        rate = @. log2(result[l]) - log2(result[l + 1])
-                        msg *= @sprintf(
-                            "\n  rates for level %d Horizontal = %e",
-                            l,
-                            rate[1]
+                for fvmethod in (FVConstant(), FVLinear())
+                    polynomialorders = (4, 0)
+                    result = Dict()
+                    for level in 1:numlevels
+                        vtkdir =
+                            output ?
+                            "vtk_advection" *
+                            "_poly$(polynomialorders)" *
+                            "_dim$(dim)_$(ArrayType)_$(FT)" *
+                            "_fvmethod$(fvmethod)" *
+                            "_level$(level)" :
+                            nothing
+                        result[level] = test_run(
+                            mpicomm,
+                            dim,
+                            fvmethod,
+                            polynomialorders,
+                            level,
+                            ArrayType,
+                            FT,
+                            vtkdir,
                         )
-                        msg *= @sprintf(", Vertical = %e", rate[2])
-                        msg *= @sprintf(", Diagonal = %e\n", rate[3])
+                        @test all(
+                            result[level] .≈
+                            FT.(expected_result[dim, level, FT, fvmethod]),
+                        )
                     end
-                    msg
+                    @info begin
+                        msg = ""
+                        for l in 1:(numlevels - 1)
+                            rate = @. log2(result[l]) - log2(result[l + 1])
+                            msg *= @sprintf(
+                                "\n  rates for level %d Horizontal = %e",
+                                l,
+                                rate[1]
+                            )
+                            msg *= @sprintf(", Vertical = %e", rate[2])
+                            msg *= @sprintf(", Diagonal = %e\n", rate[3])
+                        end
+                        msg
+                    end
                 end
             end
         end
