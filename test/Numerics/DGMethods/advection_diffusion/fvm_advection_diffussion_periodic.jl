@@ -38,10 +38,11 @@ function init_velocity_diffusion!(
     geom::LocalGeometry,
 ) where {u, v, ν}
     # advection velocity of the flow is [u, v]
-    aux.advection.u = hcat([u; v; 0], [u; v; 0])
+    uvec = SVector(u, v, 0)
+    aux.advection.u = hcat(uvec, uvec)
 
     # diffusion of the flow is νI (isentropic diffusivity)
-    I3 = [1 0 0; 0 1 0; 0 0 1]
+    I3 = @SMatrix [1 0 0; 0 1 0; 0 0 1]
     aux.diffusion.D = hcat(0 * I3, ν * I3)
 
 end
