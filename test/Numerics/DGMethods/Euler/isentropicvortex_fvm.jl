@@ -4,6 +4,7 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Grids
@@ -48,10 +49,15 @@ function main()
     Roe = RoeNumericalFlux
 
     # Float64, Dim 2, degree 4 in the horizontal, FV order 1, refinement level
-    expected_error[Float64, 2, 4, 1, Roe, 1] = 3.5317756615538940e+01
-    expected_error[Float64, 2, 4, 1, Roe, 2] = 2.5104217086071472e+01
-    expected_error[Float64, 2, 4, 1, Roe, 3] = 1.6169569358521223e+01
-    expected_error[Float64, 2, 4, 1, Roe, 4] = 9.4731749125284708e+00
+    expected_error[Float64, 2, 4, FVConstant(), Roe, 1] = 3.5317756615538940e+01
+    expected_error[Float64, 2, 4, FVConstant(), Roe, 2] = 2.5104217086071472e+01
+    expected_error[Float64, 2, 4, FVConstant(), Roe, 3] = 1.6169569358521223e+01
+    expected_error[Float64, 2, 4, FVConstant(), Roe, 4] = 9.4731749125284708e+00
+
+    expected_error[Float64, 2, 4, FVLinear(), Roe, 1] = 2.5784376010959431e+01
+    expected_error[Float64, 2, 4, FVLinear(), Roe, 2] = 8.8579769468360912e+00
+    expected_error[Float64, 2, 4, FVLinear(), Roe, 3] = 2.4111866832322382e+00
+    expected_error[Float64, 2, 4, FVLinear(), Roe, 4] = 6.7697376073184290e-01
 
 
     @testset "$(@__FILE__)" begin
@@ -68,49 +74,54 @@ function main()
                 errors = Vector{FT}(undef, numlevels)
 
                 for level in 1:numlevels
-                    @assert(dims == 2)
-                    # match element numbers
-                    numelems =
-                        (2^(level - 1) * 5, 2^(level - 1) * 5 * polynomialorder)
+                    for fvmethod in (FVConstant(), FVLinear())
+                        @assert(dims == 2)
+                        # match element numbers
+                        numelems = (
+                            2^(level - 1) * 5,
+                            2^(level - 1) * 5 * polynomialorder,
+                        )
 
-                    errors[level] = test_run(
-                        mpicomm,
-                        ArrayType,
-                        polynomialorder,
-                        numelems,
-                        NumericalFlux,
-                        setup,
-                        FT,
-                        dims,
-                        level,
-                    )
+                        errors[level] = test_run(
+                            mpicomm,
+                            ArrayType,
+                            fvmethod,
+                            polynomialorder,
+                            numelems,
+                            NumericalFlux,
+                            setup,
+                            FT,
+                            dims,
+                            level,
+                        )
 
-                    rtol = sqrt(eps(FT))
-                    # increase rtol for comparing with GPU results using Float32
-                    if FT === Float32 && ArrayType !== Array
-                        rtol *= 10 # why does this factor have to be so big :(
-                    end
-                    @test isapprox(
-                        errors[level],
+                        rtol = sqrt(eps(FT))
+                        # increase rtol for comparing with GPU results using Float32
+                        if FT === Float32 && ArrayType !== Array
+                            rtol *= 10 # why does this factor have to be so big :(
+                        end
+                        @test isapprox(
+                            errors[level],
+                            expected_error[
+                                FT,
+                                dims,
+                                polynomialorder,
+                                fvmethod,
+                                NumericalFlux,
+                                level,
+                            ];
+                            rtol = rtol,
+                        )
+                        @show errors[level],
                         expected_error[
                             FT,
                             dims,
                             polynomialorder,
-                            1,
+                            fvmethod,
                             NumericalFlux,
                             level,
-                        ];
-                        rtol = rtol,
-                    )
-                    @show errors[level],
-                    expected_error[
-                        FT,
-                        dims,
-                        polynomialorder,
-                        1,
-                        NumericalFlux,
-                        level,
-                    ]
+                        ]
+                    end
                 end
 
                 rates = @. log2(
@@ -132,6 +143,7 @@ end
 function test_run(
     mpicomm,
     ArrayType,
+    fvmethod,
     polynomialorder,
     numelems,
     NumericalFlux,
@@ -180,6 +192,7 @@ function test_run(
     dgfvm = DGFVModel(
         model,
         grid,
+        fvmethod,
         NumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),

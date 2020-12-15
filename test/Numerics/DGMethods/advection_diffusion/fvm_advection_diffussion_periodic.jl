@@ -5,6 +5,7 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using LinearAlgebra
@@ -104,7 +105,15 @@ function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
 end
 
 
-function test_run(mpicomm, vtkdir, polynomialorders, level, ArrayType, FT)
+function test_run(
+    mpicomm,
+    vtkdir,
+    fvmethod,
+    polynomialorders,
+    level,
+    ArrayType,
+    FT,
+)
 
     dim = 2
     Lx, Ly = FT(3), FT(3)
@@ -166,6 +175,7 @@ function test_run(mpicomm, vtkdir, polynomialorders, level, ArrayType, FT)
     dgfvm = DGFVModel(
         model,
         grid,
+        fvmethod,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
@@ -252,16 +262,15 @@ function test_run(mpicomm, vtkdir, polynomialorders, level, ArrayType, FT)
 
     metrics = [engf; engfe; errf]
 
-
     @info @sprintf """Finished
     Advection equation:
     norm(Q)                 = %.16e
+    norm(Qe)                = %.16e
     norm(Q - Qe)            = %.16e
-    norm(Q - Qe) / norm(Qe) = %.16e
     Advection diffusion equation:
     norm(Q)                 = %.16e
-    norm(Q - Q0)            = %.16e
-    norm(Q - Q0) / norm(Q0) = %.16e
+    norm(Qe)                = %.16e
+    norm(Q - Qe)            = %.16e
     """ metrics[:]...
 
     return errf
@@ -278,67 +287,97 @@ function main()
     expected_result = Dict()
 
     # Dim 2, degree 4 in the horizontal, FV order 1, refinement level, Float64, equation number
-    expected_result[2, 4, 1, 1, Float64, 1] = 4.5196354911392578e-01
-    expected_result[2, 4, 1, 1, Float64, 2] = 4.8622171647472179e-01
-    expected_result[2, 4, 1, 2, Float64, 1] = 3.5051983693457450e-01
-    expected_result[2, 4, 1, 2, Float64, 2] = 4.1168975732563706e-01
-    expected_result[2, 4, 1, 3, Float64, 1] = 2.5130141068332995e-01
-    expected_result[2, 4, 1, 3, Float64, 2] = 3.4635415661628755e-01
-    expected_result[2, 4, 1, 4, Float64, 1] = 1.6320856055402777e-01
-    expected_result[2, 4, 1, 4, Float64, 2] = 2.9647989774687805e-01
-    expected_result[2, 4, 1, 5, Float64, 1] = 9.6641259241910610e-02
-    expected_result[2, 4, 1, 5, Float64, 2] = 2.6372336617960646e-01
+    expected_result[2, 4, FVConstant(), 1, Float64, 1] = 4.5196354911392578e-01
+    expected_result[2, 4, FVConstant(), 1, Float64, 2] = 4.8622171647472179e-01
+    expected_result[2, 4, FVConstant(), 2, Float64, 1] = 3.5051983693457450e-01
+    expected_result[2, 4, FVConstant(), 2, Float64, 2] = 4.1168975732563706e-01
+    expected_result[2, 4, FVConstant(), 3, Float64, 1] = 2.5130141068332995e-01
+    expected_result[2, 4, FVConstant(), 3, Float64, 2] = 3.4635415661628755e-01
+    expected_result[2, 4, FVConstant(), 4, Float64, 1] = 1.6320856055402777e-01
+    expected_result[2, 4, FVConstant(), 4, Float64, 2] = 2.9647989774687805e-01
+    expected_result[2, 4, FVConstant(), 5, Float64, 1] = 9.6641259241910610e-02
+    expected_result[2, 4, FVConstant(), 5, Float64, 2] = 2.6372336617960646e-01
 
-    expected_result[2, 4, 1, 1, Float32, 1] = 4.5196333527565002e-01
-    expected_result[2, 4, 1, 1, Float32, 2] = 4.8622152209281921e-01
-    expected_result[2, 4, 1, 2, Float32, 1] = 3.5051953792572021e-01
-    expected_result[2, 4, 1, 2, Float32, 2] = 4.1168937087059021e-01
-    expected_result[2, 4, 1, 3, Float32, 1] = 2.5130018591880798e-01
-    expected_result[2, 4, 1, 3, Float32, 2] = 3.4635293483734131e-01
-    expected_result[2, 4, 1, 4, Float32, 1] = 1.6320574283599854e-01
-    expected_result[2, 4, 1, 4, Float32, 2] = 2.9647585749626160e-01
-    expected_result[2, 4, 1, 5, Float32, 1] = 9.6632070839405060e-02
-    expected_result[2, 4, 1, 5, Float32, 2] = 2.6370745897293091e-01
+    expected_result[2, 4, FVConstant(), 1, Float32, 1] = 4.5196333527565002e-01
+    expected_result[2, 4, FVConstant(), 1, Float32, 2] = 4.8622152209281921e-01
+    expected_result[2, 4, FVConstant(), 2, Float32, 1] = 3.5051953792572021e-01
+    expected_result[2, 4, FVConstant(), 2, Float32, 2] = 4.1168937087059021e-01
+    expected_result[2, 4, FVConstant(), 3, Float32, 1] = 2.5130018591880798e-01
+    expected_result[2, 4, FVConstant(), 3, Float32, 2] = 3.4635293483734131e-01
+    expected_result[2, 4, FVConstant(), 4, Float32, 1] = 1.6320574283599854e-01
+    expected_result[2, 4, FVConstant(), 4, Float32, 2] = 2.9647585749626160e-01
+    expected_result[2, 4, FVConstant(), 5, Float32, 1] = 9.6632070839405060e-02
+    expected_result[2, 4, FVConstant(), 5, Float32, 2] = 2.6370745897293091e-01
+
+
+    # Dim 2, degree 4 in the horizontal, FV order 1, refinement level, Float64, equation number
+
+
+    expected_result[2, 4, FVLinear(), 1, Float64, 1] = 2.2783152269907422e-01
+    expected_result[2, 4, FVLinear(), 1, Float64, 2] = 3.1823753821941969e-01
+    expected_result[2, 4, FVLinear(), 2, Float64, 1] = 9.2628269590376469e-02
+    expected_result[2, 4, FVLinear(), 2, Float64, 2] = 2.4517823755458742e-01
+    expected_result[2, 4, FVLinear(), 3, Float64, 1] = 3.1401247771425542e-02
+    expected_result[2, 4, FVLinear(), 3, Float64, 2] = 2.2608977452273774e-01
+    expected_result[2, 4, FVLinear(), 4, Float64, 1] = 9.8710350648653390e-03
+    expected_result[2, 4, FVLinear(), 4, Float64, 2] = 2.2377315397364847e-01
+    expected_result[2, 4, FVLinear(), 5, Float64, 1] = 2.9619222883137744e-03
+    expected_result[2, 4, FVLinear(), 5, Float64, 2] = 2.2359698753564772e-01
+
+
+    expected_result[2, 4, FVLinear(), 1, Float32, 1] = 2.2783152269907422e-01
+    expected_result[2, 4, FVLinear(), 1, Float32, 2] = 3.1823753821941969e-01
+    expected_result[2, 4, FVLinear(), 2, Float32, 1] = 9.2628269590376469e-02
+    expected_result[2, 4, FVLinear(), 2, Float32, 2] = 2.4517823755458742e-01
+    expected_result[2, 4, FVLinear(), 3, Float32, 1] = 3.1401247771425542e-02
+    expected_result[2, 4, FVLinear(), 3, Float32, 2] = 2.2608977452273774e-01
+    expected_result[2, 4, FVLinear(), 4, Float32, 1] = 9.8710350648653390e-03
+    expected_result[2, 4, FVLinear(), 4, Float32, 2] = 2.2377315397364847e-01
+    expected_result[2, 4, FVLinear(), 5, Float32, 1] = 2.9614968225359917e-03
+    expected_result[2, 4, FVLinear(), 5, Float32, 2] = 2.2358775138854980e-01
 
     polynomialorders = (4, 0)
     numlevels = integration_testing ? 5 : 1
 
     # Dictionary keys: dim, level, polynomial order, FT, and direction
-    @testset "Variable degree DG: advection diffusion periodic model" begin
+    @testset "DG-FV: advection diffusion periodic model" begin
         for FT in (Float64, Float32)
             result = Dict()
             for level in 1:numlevels
-                result[level] = test_run(
-                    mpicomm,
-                    output ?
-                    "vtk_advection_diffusion_2d" *
-                    "_poly$(polynomialorders)" *
-                    "_$(ArrayType)_$(FT)" *
-                    "_level$(level)" :
-                    nothing,
-                    polynomialorders,
-                    level,
-                    ArrayType,
-                    FT,
-                )
+                for fvmethod in (FVConstant(), FVLinear())
+                    result[level] = test_run(
+                        mpicomm,
+                        output ?
+                        "vtk_advection_diffusion_2d" *
+                        "_poly$(polynomialorders)" *
+                        "_$(ArrayType)_$(FT)" *
+                        "_level$(level)" :
+                        nothing,
+                        fvmethod,
+                        polynomialorders,
+                        level,
+                        ArrayType,
+                        FT,
+                    )
 
 
-                @test result[level][1] ≈ FT(expected_result[
-                    2,
-                    polynomialorders[1],
-                    1,
-                    level,
-                    FT,
-                    1,
-                ])
-                @test result[level][2] ≈ FT(expected_result[
-                    2,
-                    polynomialorders[1],
-                    1,
-                    level,
-                    FT,
-                    2,
-                ])
+                    @test result[level][1] ≈ FT(expected_result[
+                        2,
+                        polynomialorders[1],
+                        fvmethod,
+                        level,
+                        FT,
+                        1,
+                    ])
+                    @test result[level][2] ≈ FT(expected_result[
+                        2,
+                        polynomialorders[1],
+                        fvmethod,
+                        level,
+                        FT,
+                        2,
+                    ])
+                end
             end
 
             @info begin
