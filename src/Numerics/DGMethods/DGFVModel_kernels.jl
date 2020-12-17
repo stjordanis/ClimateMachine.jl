@@ -266,7 +266,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[stencil_center:stencil_center],
-                local_cell_weights[stencil_center:stencil_center],
+                view(local_cell_weights, stencil_center:stencil_center),
             )
 
             # Transform the values back to prognostic state
@@ -420,7 +420,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_primitive[1],
                     local_state_face_primitive[2],
                     local_state_primitive[rng],
-                    local_cell_weights[rng],
+                    view(local_cell_weights, rng),
                 )
             elseif eV_up <= stencil_width
                 # Bottom of the element stack requires reconstruct using a
@@ -432,7 +432,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_primitive[1],
                     local_state_face_primitive[2],
                     local_state_primitive[rng],
-                    local_cell_weights[rng],
+                    view(local_cell_weights, rng),
                 )
             elseif eV_up >= nvertelem - stencil_width + 1
                 # Top of the element stack requires reconstruct using a
@@ -443,11 +443,11 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_primitive[1],
                     local_state_face_primitive[2],
                     local_state_primitive[rng],
-                    local_cell_weights[rng],
+                    view(local_cell_weights, rng),
                 )
             else
                 # We should not hit this
-                error("What happened?")
+                # error("What happened?")
             end
 
             # Transform reconstructed primitive values to prognostic
