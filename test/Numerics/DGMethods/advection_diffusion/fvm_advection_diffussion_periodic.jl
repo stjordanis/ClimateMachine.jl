@@ -156,11 +156,12 @@ function test_run(
 
     @info @sprintf """Test parameters:
     ArrayType                   = %s
+    FVReconstruction            = %s
     FloatType                   = %s
     Dimension                   = %s
     Horizontal polynomial order = %s
     Vertical polynomial order   = %s
-    """ ArrayType FT dim polynomialorders[1] polynomialorders[end]
+    """ ArrayType fvmethod FT dim polynomialorders[1] polynomialorders[end]
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
@@ -345,7 +346,7 @@ function main()
         for FT in (Float64, Float32)
             result = Dict()
             for level in 1:numlevels
-                for fvmethod in (FVConstant(), FVLinear())
+                for fvmethod in (FVConstant(), FVLinear(), FVLinear{3}())
                     result[level] = test_run(
                         mpicomm,
                         output ?
@@ -362,10 +363,11 @@ function main()
                     )
 
 
+                    fv_key = fvmethod isa FVLinear ? FVLinear() : fvmethod
                     @test result[level][1] ≈ FT(expected_result[
                         2,
                         polynomialorders[1],
-                        fvmethod,
+                        fv_key,
                         level,
                         FT,
                         1,
@@ -373,7 +375,7 @@ function main()
                     @test result[level][2] ≈ FT(expected_result[
                         2,
                         polynomialorders[1],
-                        fvmethod,
+                        fv_key,
                         level,
                         FT,
                         2,
