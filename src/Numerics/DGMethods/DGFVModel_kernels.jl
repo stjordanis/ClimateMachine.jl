@@ -166,7 +166,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
     # Compute bottom stack element index minus one (so we can add vert element
     # number directly)
-    eH = elems[eHI] - 1
+    @inbounds eH = elems[eHI] - 1
 
     # Which degree of freedom do we handle in the element
     n = @index(Local, Linear)
@@ -178,23 +178,25 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         local_state_gradient_flux,
         e,
     )
-        @unroll for s in 1:num_state_prognostic
-            local_state_prognostic[s] = state_prognostic[n, s, e]
-        end
+        @inbounds begin
+            @unroll for s in 1:num_state_prognostic
+                local_state_prognostic[s] = state_prognostic[n, s, e]
+            end
 
-        @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary[s] = state_auxiliary[n, s, e]
-        end
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary[s] = state_auxiliary[n, s, e]
+            end
 
-        @unroll for s in 1:num_state_gradient_flux
-            local_state_gradient_flux[s] = state_gradient_flux[n, s, e]
+            @unroll for s in 1:num_state_gradient_flux
+                local_state_gradient_flux[s] = state_gradient_flux[n, s, e]
+            end
         end
     end
 
     # To update the first element we either need to apply a BCS on the bottom
     # face in the nonperiodic case, or we need to reconstruct the periodic value
     # for the bottom face
-    begin
+    @inbounds begin
         # If periodic we are doing the reconstruction in element periodically
         # below the first element, otherwise we are reconstructing the first
         # element
