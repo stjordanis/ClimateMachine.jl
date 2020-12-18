@@ -233,12 +233,12 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         if periodicstack
             # Reconstruct the top and bottom values
             rng = stencil_center .+ ((-stencil_width):stencil_width)
-            #JK reconstruction!(
-            #JK     local_state_face_primitive[1],
-            #JK     local_state_face_primitive[2],
-            #JK     local_state_primitive[rng],
-            #JK     view(local_cell_weights, rng),
-            #JK )
+            reconstruction!(
+                local_state_face_primitive[1],
+                local_state_face_primitive[2],
+                local_state_primitive[rng],
+                view(local_cell_weights, rng),
+            )
 
             # Transform the values back to prognostic state
             @unroll for f in 1:2
@@ -445,7 +445,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         reconstruction!(
                             local_state_face_primitive[1],
                             local_state_face_primitive[2],
-                            ntuple(j -> local_state_primitive[rng[j]], Val(w)),
+                            local_state_primitive[rng[1:w]],
                             view(local_cell_weights, rng),
                         )
                     end
