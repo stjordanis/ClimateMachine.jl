@@ -138,7 +138,7 @@ function (fvrecon::FVLinear)(
         state_bot,
         state_top,
         cell_states[W .+ (0:2)],
-        cell_weights[W .+ (0:2)],
+        view(cell_weights, W .+ (0:2)),
     )
 end
 

@@ -233,12 +233,12 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         if periodicstack
             # Reconstruct the top and bottom values
             rng = stencil_center .+ ((-stencil_width):stencil_width)
-            reconstruction!(
-                local_state_face_primitive[1],
-                local_state_face_primitive[2],
-                local_state_primitive[rng],
-                local_cell_weights[rng],
-            )
+            #JK reconstruction!(
+            #JK     local_state_face_primitive[1],
+            #JK     local_state_face_primitive[2],
+            #JK     local_state_primitive[rng],
+            #JK     view(local_cell_weights, rng),
+            #JK )
 
             # Transform the values back to prognostic state
             @unroll for f in 1:2
@@ -265,7 +265,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             reconstruction!(
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
-                local_state_primitive[stencil_center:stencil_center],
+                ntuple(j -> local_state_primitive[stencil_center], Val(1)),
                 view(local_cell_weights, stencil_center:stencil_center),
             )
 
@@ -427,24 +427,28 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 # subset of the elements
                 # Values around stencil center that we need for this
                 # reconstruction
-                rng = stencil_center .+ ((1 - eV_up):(eV_up - 1))
-                reconstruction!(
-                    local_state_face_primitive[1],
-                    local_state_face_primitive[2],
-                    local_state_primitive[rng],
-                    view(local_cell_weights, rng),
-                )
+                Base.Cartesian.@nif 3 w -> (eV_up == w) w -> begin
+                    rng = stencil_center .+ ((1 - w):(w - 1))
+                    reconstruction!(
+                        local_state_face_primitive[1],
+                        local_state_face_primitive[2],
+                        local_state_primitive[rng],
+                        view(local_cell_weights, rng),
+                    )
+                end
             elseif eV_up >= nvertelem - stencil_width + 1
                 # Top of the element stack requires reconstruct using a
                 # subset of the elements
-                rng =
-                    stencil_center .+ ((eV_up - nvertelem):(nvertelem - eV_up))
-                reconstruction!(
-                    local_state_face_primitive[1],
-                    local_state_face_primitive[2],
-                    local_state_primitive[rng],
-                    view(local_cell_weights, rng),
-                )
+                Base.Cartesian.@nif 3 w -> (w == (nvertelem - eV_up + 1)) w ->
+                    begin
+                        rng = stencil_center .+ ((1 - w):(w - 1))
+                        reconstruction!(
+                            local_state_face_primitive[1],
+                            local_state_face_primitive[2],
+                            ntuple(j -> local_state_primitive[rng[j]], Val(w)),
+                            view(local_cell_weights, rng),
+                        )
+                    end
             else
                 # We should not hit this
                 # error("What happened?")

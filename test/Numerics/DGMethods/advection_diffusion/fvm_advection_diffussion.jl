@@ -269,7 +269,8 @@ function test_run(
         callbacks = (callbacks..., cbvtk)
     end
 
-    solve!(Q, solver; timeend = timeend, callbacks = callbacks)
+    # solve!(Q, solver; timeend = timeend, callbacks = callbacks)
+    dgfvm(similar(Q), Q, nothing, FT(0), true, false)
 
     # Reference solution
     engf = norm(Q, dims = (1, 3))
@@ -382,13 +383,13 @@ function main()
         (1.4362091045110612e-06, 3.5782751203335653e-03, 3.1186151510318319e-03)
 
     @testset "Variable degree DG: advection diffusion model" begin
-        for FT in (Float32, Float64)
+        for FT in (Float32,)# Float64)
             numlevels =
                 integration_testing ||
                 ClimateMachine.Settings.integration_testing ?
                 (FT == Float64 ? 4 : 3) : 1
-            for dim in 2:3
-                for fvmethod in (FVConstant(), FVLinear(), FVLinear{3}())
+            for dim in 2:2
+                for fvmethod in (FVLinear(),) # (FVConstant(), FVLinear(), FVLinear{3}())
                     polynomialorders = (4, 0)
                     result = Dict()
                     for level in 1:numlevels
