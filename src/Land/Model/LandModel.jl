@@ -134,7 +134,9 @@ function flux_first_order!(
     aux::Vars,
     t::Real,
     directions,
-) end
+) 
+   flux_first_order!(land, land.river, flux, state, aux, t, directions) 
+end
 
 
 function compute_gradient_argument!(
