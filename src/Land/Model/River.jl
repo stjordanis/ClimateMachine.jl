@@ -19,24 +19,39 @@ import ..BalanceLaws:
     nodal_update_auxiliary_state!
 
 export RiverModel, NoRiverModel
-#abstract type AbstractRiverModel end
 
 struct NoRiverModel <: BalanceLaw end
 
-struct RiverModel{M} <: BalanceLaw
+struct RiverModel{M,Sx,Sy,MS,W} <: BalanceLaw
     mannings::M
+    slope_x::Sx
+    slope_y::Sy
+    mag_slope::MS
+    width::W
 end
 
-function RiverModel(mannings)
+function RiverModel(
+    slope_x::Function,
+    slope_y::Function,
+    mag_slope::Function,
+    width::Function;
+    mannings::Function = (x, y) -> convert(eltype(x), 0.03))
+    args = (
+        slope_x,
+        slope_y,
+        mag_slope,
+        width,
+        mannings
+    )
+    return RiverModel{typeof.(args)...}(args...)
 end
-
-mannings_coeff(river::River Model)
 
 function calculate_velocity(river, x::Real, y::Real, h::Real)
-    sx = river.slope_x(x, y)
-    sy = river.slope_y(x, y)
-    magnitude = h^(2/3) / (river.mannings(x, y)) * sqrt(river.mag_slope(x, y))
-    return SVector(sx*magnitude, sy*magnitude, 0)
+    FT = eltype(h)
+    sx = FT(river.slope_x(x, y))
+    sy = FT(river.slope_y(x, y))
+    magnitude = h^FT(2/3) / (river.mannings(x, y) * sqrt(river.mag_slope(x, y)))
+    return SVector(sx * magnitude, sy * magnitude, zero(FT))
 end
 
 vars_state(water::RiverModel, st::Prognostic, FT) = @vars(height::FT)
@@ -58,9 +73,8 @@ end
 
 
 function flux_first_order!(land::LandModel, river::BalanceLaw, flux::Grad, state::Vars, aux::Vars, t::Real, directions) 
-    x = aux.x
-    y = aux.y
-    width = river.width(x,y)
+    x, y = aux.x, aux.y
+    width = river.width(x, y)
     height = state.river.area / width
     v = calculate_velocity(river, x, y ,height)
     Q = state.river.area * v
