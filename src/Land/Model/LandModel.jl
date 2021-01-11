@@ -46,11 +46,13 @@ Users may over-ride prescribed default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
+struct LandModel{PS, S, R, LBC, SRC, IS} <: BalanceLaw
     "Parameter set"
     param_set::PS
     "Soil model"
     soil::S
+    "River model"
+    river::R
     "struct of boundary conditions"
     boundary_conditions::LBC
     "Source Terms (Problem specific source terms)"
@@ -72,13 +74,14 @@ Constructor for the LandModel structure.
 """
 function LandModel(
     param_set::AbstractParameterSet,
-    soil::BalanceLaw;
+    soil::BalanceLaw, 
+    river::BalanceLaw;
     boundary_conditions::LBC = LandDomainBC(),
     source::SRC = (),
     init_state_prognostic::IS = nothing,
 ) where {SRC, IS, LBC}
     @assert init_state_prognostic ≠ nothing
-    land = (param_set, soil, boundary_conditions, source, init_state_prognostic)
+    land = (param_set, soil, river, boundary_conditions, source, init_state_prognostic)
     return LandModel{typeof.(land)...}(land...)
 end
 
@@ -86,6 +89,7 @@ end
 function vars_state(land::LandModel, st::Prognostic, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
+        river::vars_state(land.river, st, FT)
     end
 end
 
@@ -94,18 +98,21 @@ function vars_state(land::LandModel, st::Auxiliary, FT)
     @vars begin
         z::FT
         soil::vars_state(land.soil, st, FT)
+        river::vars_state(land.river, st, FT)
     end
 end
 
 function vars_state(land::LandModel, st::Gradient, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
+        river::vars_state(land.river, st, FT)
     end
 end
 
 function vars_state(land::LandModel, st::GradientFlux, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
+        river::vars_state(land.river, st, FT)
     end
 end
 
@@ -117,6 +124,7 @@ function nodal_init_state_auxiliary!(
 )
     aux.z = geom.coord[3]
     land_init_aux!(land, land.soil, aux, geom)
+    land_init_aux!(land, land.river, aux, geom)
 end
 
 function flux_first_order!(
@@ -138,6 +146,7 @@ function compute_gradient_argument!(
 )
 
     compute_gradient_argument!(land, land.soil, transform, state, aux, t)
+    compute_gradient_argument!(land, land.river, transform, state, aux, t)
 end
 
 function compute_gradient_flux!(
@@ -190,6 +199,7 @@ function nodal_update_auxiliary_state!(
     t::Real,
 )
     land_nodal_update_auxiliary_state!(land, land.soil, state, aux, t)
+    land_nodal_update_auxiliary_state!(land, land.river, state, aux, t)
 end
 
 
@@ -229,4 +239,6 @@ include("soil_water.jl")
 include("soil_heat.jl")
 include("soil_bc.jl")
 include("source.jl")
+include("River.jl")
+using .River
 end # Module
