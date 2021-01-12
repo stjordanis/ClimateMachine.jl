@@ -650,7 +650,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
 )
     flux_pad = SVector(1, 1, 1)
     tend = Flux{SecondOrder}()
-
     _args = (
         state = state,
         aux = aux,
@@ -658,18 +657,15 @@ function. Contributions from subcomponents are then assembled (pointwise).
         diffusive = diffusive,
         hyperdiffusive = hyperdiffusive,
     )
-
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
-
-    flux_second_order!(atmos.moisture, flux, atmos, args)
-    flux_second_order!(atmos.precipitation, flux, atmos, args)
-    flux_second_order!(atmos.tracers, flux, atmos, args)
-    flux_second_order!(atmos.turbconv, flux, atmos, args)
+    pvs = prognostic_vars(atmos)
+    ntuple(Val(length(pvs))) do i
+        prog = pvs[i]
+        prog_flux = get_prog_state(flux, prog)
+        val = Σfluxes(eq_tends(prog, atmos, tend), atmos, args) .* flux_pad
+        setproperty!(prog_flux[1], prog_flux[2], val)
+    end
 end
 
 @inline function wavespeed(
@@ -848,9 +844,7 @@ function source!(
     t::Real,
     direction,
 )
-    ρu_pad = SVector(1, 1, 1)
     tend = Source()
-
     _args = (
         state = state,
         aux = aux,
@@ -858,16 +852,19 @@ function source!(
         direction = direction,
         diffusive = diffusive,
     )
-
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
-    source.ρu =
-        Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* ρu_pad
-    source.ρe = Σsources(eq_tends(Energy(), atmos, tend), atmos, args)
-    source!(atmos.moisture, source, atmos, args)
-    source!(atmos.precipitation, source, atmos, args)
-    source!(atmos.turbconv, source, atmos, args)
+    getpad(::AbstractArray) = SVector(1, 1, 1)
+    getpad(::Real) = 1
+
+    pvs = prognostic_vars(atmos)
+    ntuple(Val(length(pvs))) do i
+        prog = pvs[i]
+        prog_src = get_prog_state(source, prog)
+        src_pad = getpad(getproperty(prog_src...))
+        val = Σsources(eq_tends(prog, atmos, tend), atmos, args) .* src_pad
+        setproperty!(prog_src[1], prog_src[2], val)
+    end
 end
 
 """

@@ -66,9 +66,6 @@ function compute_gradient_flux!(
 )
     nothing
 end
-function flux_second_order!(::TracerModel, flux::Grad, atmos::AtmosModel, args)
-    nothing
-end
 function compute_gradient_argument!(
     ::TracerModel,
     transform::Vars,
@@ -160,16 +157,6 @@ function compute_gradient_flux!(
     t::Real,
 )
     diffusive.tracers.∇χ = ∇transform.tracers.χ
-end
-
-function flux_second_order!(
-    tr::NTracers{N},
-    flux::Grad,
-    atmos::AtmosModel,
-    args,
-) where {N}
-    tend = Flux{SecondOrder}()
-    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function wavespeed_tracers!(

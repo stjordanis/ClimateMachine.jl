@@ -17,13 +17,11 @@ export init_state_prognostic!,
 import ..BalanceLaws:
     vars_state,
     eq_tends,
-    source!,
     precompute,
     prognostic_vars,
     init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
-    flux_second_order!,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -80,8 +78,6 @@ function turbconv_nodal_update_auxiliary_state!(
     return nothing
 end
 
-source!(m::TurbulenceConvectionModel, _...) = nothing
-
 function compute_gradient_argument!(
     m::TurbulenceConvectionModel,
     bl::BalanceLaw,
@@ -101,15 +97,6 @@ function compute_gradient_flux!(
     state::Vars,
     aux::Vars,
     t::Real,
-)
-    return nothing
-end
-
-function flux_second_order!(
-    m::TurbulenceConvectionModel,
-    flux::Grad,
-    bl::BalanceLaw,
-    args,
 )
     return nothing
 end

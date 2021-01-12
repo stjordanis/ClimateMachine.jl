@@ -19,8 +19,6 @@ import ClimateMachine.BalanceLaws:
     eq_tends,
     update_auxiliary_state!,
     init_state_prognostic!,
-    flux_second_order!,
-    source!,
     compute_gradient_argument!,
     compute_gradient_flux!
 
@@ -669,30 +667,6 @@ function source(::PressSource{up_ρaw{i}}, atmos, args) where {i}
     return -up[i].ρa * dpdz[i]
 end
 
-function source!(m::EDMF, src::Vars, atmos, args)
-    N_up = n_updrafts(atmos.turbconv)
-    # Aliases:
-    en_src = src.turbconv.environment
-    up_src = src.turbconv.updraft
-    tend = Source()
-    @unroll_map(N_up) do i
-        up_src[i].ρa = Σsources(eq_tends(up_ρa{i}(), atmos, tend), atmos, args)
-        up_src[i].ρaw =
-            Σsources(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
-        up_src[i].ρaθ_liq =
-            Σsources(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
-        up_src[i].ρaq_tot =
-            Σsources(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
-    end
-    en_src.ρatke = Σsources(eq_tends(en_ρatke(), atmos, tend), atmos, args)
-    en_src.ρaθ_liq_cv =
-        Σsources(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
-    en_src.ρaq_tot_cv =
-        Σsources(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
-    en_src.ρaθ_liq_q_tot_cv =
-        Σsources(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
-end;
-
 function compute_ρa_up(atmos, state, aux)
     # Aliases:
     turbconv = atmos.turbconv
@@ -1084,31 +1058,6 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     ẑ = vertical_unit_vector(atmos, aux)
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
-
-function flux_second_order!(
-    turbconv::EDMF{FT},
-    flux::Grad,
-    atmos::AtmosModel{FT},
-    args,
-) where {FT}
-
-    # Aliases:
-    en_flx = flux.turbconv.environment
-    flux_pad = SVector(1, 1, 1)
-    # in future GCM implementations we need to think about grid mean advection
-    tend = Flux{SecondOrder}()
-    en_flx.ρatke =
-        Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* flux_pad
-    # in the EDMF second order (diffusive) fluxes
-    # exist only in the grid mean and the environment
-    en_flx.ρaθ_liq_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args) .* flux_pad
-    en_flx.ρaq_tot_cv =
-        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args) .* flux_pad
-    en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args) .*
-        flux_pad
-end;
 
 # First order boundary conditions
 function turbconv_boundary_state!(
