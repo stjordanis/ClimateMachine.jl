@@ -12,13 +12,13 @@ using ClimateMachine.DGMethods: LocalGeometry, DGModel
 import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
+    get_prog_state,
     flux,
     precompute,
     source,
     eq_tends,
     update_auxiliary_state!,
     init_state_prognostic!,
-    flux_first_order!,
     flux_second_order!,
     source!,
     compute_gradient_argument!,
@@ -168,6 +168,14 @@ prognostic_vars(m::EDMF) =
 prognostic_vars(m::Environment) =
     (en_ρatke(), en_ρaθ_liq_cv(), en_ρaq_tot_cv(), en_ρaθ_liq_q_tot_cv())
 
+get_prog_state(state, ::en_ρatke) = (state.turbconv.environment, :ρatke)
+get_prog_state(state, ::en_ρaθ_liq_cv) =
+    (state.turbconv.environment, :ρaθ_liq_cv)
+get_prog_state(state, ::en_ρaq_tot_cv) =
+    (state.turbconv.environment, :ρaq_tot_cv)
+get_prog_state(state, ::en_ρaθ_liq_q_tot_cv) =
+    (state.turbconv.environment, :ρaθ_liq_q_tot_cv)
+
 function prognostic_vars(m::NTuple{N, Updraft}) where {N}
     t_ρa = vuntuple(i -> up_ρa{i}(), N)
     t_ρaw = vuntuple(i -> up_ρaw{i}(), N)
@@ -176,6 +184,13 @@ function prognostic_vars(m::NTuple{N, Updraft}) where {N}
     t = (t_ρa..., t_ρaw..., t_ρaθ_liq..., t_ρaq_tot...)
     return t
 end
+
+get_prog_state(state, ::up_ρa{i}) where {i} = (state.turbconv.updraft[i], :ρa)
+get_prog_state(state, ::up_ρaw{i}) where {i} = (state.turbconv.updraft[i], :ρaw)
+get_prog_state(state, ::up_ρaθ_liq{i}) where {i} =
+    (state.turbconv.updraft[i], :ρaθ_liq)
+get_prog_state(state, ::up_ρaq_tot{i}) where {i} =
+    (state.turbconv.updraft[i], :ρaq_tot)
 
 struct EntrDetr{PV} <: TendencyDef{Source, PV} end
 struct PressSource{PV} <: TendencyDef{Source, PV} end
@@ -753,38 +768,6 @@ function flux(::Advect{en_ρaθ_liq_q_tot_cv}, atmos, args)
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaθ_liq_q_tot_cv * env.w * ẑ
 end
-
-# # in the EDMF first order (advective) fluxes exist only
-# in the grid mean (if <w> is nonzero) and the updrafts
-function flux_first_order!(
-    turbconv::EDMF{FT},
-    atmos::AtmosModel{FT},
-    flux::Grad,
-    args,
-) where {FT}
-    # Aliases:
-    up_flx = flux.turbconv.updraft
-    en_flx = flux.turbconv.environment
-    N_up = n_updrafts(turbconv)
-    # in future GCM implementations we need to think about grid mean advection
-    tend = Flux{FirstOrder}()
-
-    @unroll_map(N_up) do i
-        up_flx[i].ρa = Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaθ_liq =
-            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
-        up_flx[i].ρaq_tot =
-            Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
-    end
-    en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args)
-    en_flx.ρaθ_liq_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
-    en_flx.ρaq_tot_cv =
-        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
-    en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
-end;
 
 function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     @unpack state, aux = args

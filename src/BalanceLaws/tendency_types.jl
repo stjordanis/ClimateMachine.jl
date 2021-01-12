@@ -85,6 +85,9 @@ corresponding to the column-vector `Yᵢ` in:
 """
 prognostic_vars(::BalanceLaw) = ()
 
+get_prog_state(::BalanceLaw) =
+    MethodError("get_prog_state requires a specific implementation")
+
 export sources
 """
     sources(bl::BalanceLaw)

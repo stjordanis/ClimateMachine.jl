@@ -56,9 +56,6 @@ function atmos_nodal_update_auxiliary_state!(
 )
     nothing
 end
-function flux_first_order!(::TracerModel, atmos::AtmosModel, flux::Grad, args)
-    nothing
-end
 function compute_gradient_flux!(
     ::TracerModel,
     diffusive::Vars,
@@ -163,16 +160,6 @@ function compute_gradient_flux!(
     t::Real,
 )
     diffusive.tracers.∇χ = ∇transform.tracers.χ
-end
-
-function flux_first_order!(
-    tr::NTracers{N},
-    atmos::AtmosModel,
-    flux::Grad,
-    args,
-) where {N}
-    tend = Flux{FirstOrder}()
-    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function flux_second_order!(

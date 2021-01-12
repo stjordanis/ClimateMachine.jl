@@ -23,7 +23,6 @@ import ..BalanceLaws:
     init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
-    flux_first_order!,
     flux_second_order!,
     boundary_state!,
     compute_gradient_argument!,
@@ -77,15 +76,6 @@ function turbconv_nodal_update_auxiliary_state!(
     state::Vars,
     aux::Vars,
     t::Real,
-)
-    return nothing
-end
-
-function flux_first_order!(
-    m::TurbulenceConvectionModel,
-    bl::BalanceLaw,
-    flux::Grad,
-    args,
 )
     return nothing
 end

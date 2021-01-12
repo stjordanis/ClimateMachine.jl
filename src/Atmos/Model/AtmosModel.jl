@@ -508,16 +508,14 @@ equations.
     tend = Flux{FirstOrder}()
     _args = (state = state, aux = aux, t = t, direction = direction)
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
 
-    flux_first_order!(atmos.moisture, atmos, flux, args)
-    flux_first_order!(atmos.precipitation, atmos, flux, args)
-    flux_first_order!(atmos.tracers, atmos, flux, args)
-    flux_first_order!(atmos.turbconv, atmos, flux, args)
-
+    pvs = prognostic_vars(atmos)
+    ntuple(Val(length(pvs))) do i
+        prog = pvs[i]
+        prog_flux = get_prog_state(flux, prog)
+        val = Σfluxes(eq_tends(prog, atmos, tend), atmos, args) .* flux_pad
+        setproperty!(prog_flux[1], prog_flux[2], val)
+    end
 end
 
 function compute_gradient_argument!(
