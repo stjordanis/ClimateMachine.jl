@@ -100,3 +100,106 @@ using ClimateMachine.BalanceLaws:
     @test size(Base.collect(keys(aux_vars)))[1] == 1
     @test size(Base.collect(keys(state_vars)))[1] == 0
 end
+
+
+
+@testset "Analytical River Model" begin
+    ClimateMachine.init()
+    FT = Float64
+
+    function init_land_model!(land, state, aux, localgeo, time) end
+
+    soil_water_model = PrescribedWaterModel()
+    soil_heat_model = PrescribedTemperatureModel()
+    soil_param_functions = nothing
+
+    m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
+    m_river = RiverModel(
+        slope_x = (x,y) -> eltype(x)(1),
+        slope_y = (x,y) -> eltype(x)(0.0),
+        mag_slope = (x,y) -> eltype(x)(0.0016),
+        width = (x,y) -> eltype(x)(1);
+        mannings = (x,y) -> eltype(x)(0.025)
+    )
+
+    sources = ()
+    bc = LandDomainBC(
+        
+    )
+    m = LandModel(
+        param_set,
+        m_soil,
+        m_river;
+        boundary_conditions = bc,
+        source = sources,
+        init_state_prognostic = init_land_model!,
+    )
+    function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -0.1, xmax = 400)
+        FT = eltype(xin)
+        zmax = FT((FT(1.0)-xin / xmax) * topo_max)
+        alpha = FT(1.0) - zmax / zmin
+        zout = zmin + (zin - zmin) * alpha
+        x, y, z = xin, yin, zout
+        return x, y, z
+    end
+
+    N_poly = 1;
+    xres = FT(18.288)
+    yres = FT(0.25)
+    zres = FT(0.1)
+    # Specify the domain boundaries.
+    zmax = FT(0);
+    zmin = FT(-0.1);
+    xmax = FT(182.88)
+    ymax = FT(1.0)
+    topo_max = FT(0.29)
+    driver_config = ClimateMachine.MultiColumnLandModel(
+        "LandModel",
+        (N_poly, N_poly),
+        (xres,yres,zres),
+        xmax,
+        ymax,
+        zmax,
+        param_set,
+        m;
+        zmin = zmin,
+        xmin = xmin,
+        ymin = ymin,
+        #numerical_flux_first_order = CentralNumericalFluxFirstOrder(),now the default for us
+        meshwarp = (x...) -> warp_constant_slope(x...;
+        topo_max = topo_max, zmin = zmin, xmax = xmax),
+    );
+
+
+    t0 = FT(0)
+    timeend = FT(60)
+    dt = FT(1)
+
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+    )
+    mygrid = solver_config.dg.grid
+    Q = solver_config.Q
+    aux = solver_config.dg.state_auxiliary
+
+    ClimateMachine.invoke!(solver_config;)
+
+    t = ODESolvers.gettime(solver_config.solver)
+    state_vars = SingleStackUtils.get_vars_from_nodal_stack(
+        mygrid,
+        Q,
+        vars_state(m, Prognostic(), FT),
+    )
+    aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
+        mygrid,
+        aux,
+        vars_state(m, Auxiliary(), FT),
+    )
+    #Make sure it runs, and that there are no state variables, and only "z" as aux.
+    @test t == timeend
+    @test size(Base.collect(keys(aux_vars)))[1] == 1
+    @test size(Base.collect(keys(state_vars)))[1] == 0
+end

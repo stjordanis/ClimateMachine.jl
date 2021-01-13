@@ -112,7 +112,10 @@ Base.@kwdef struct LandDomainBC{TBC, BBC, LBC}
     "bottom boundary conditions"
     bottom_bc::BBC = LandComponentBC()
     "lateral boundary conditions"
-    lateral_bc::LBC = LandComponentBC()
+    minx_bc::LBC = LandComponentBC()
+    maxx_bc::LBC = LandComponentBC()
+    miny_bc::LBC = LandComponentBC()
+    maxy_bc::LBC = LandComponentBC()
 end
 
 """
@@ -128,9 +131,11 @@ needs to define the BC for the components they wish to model.
 Base.@kwdef struct LandComponentBC{
     SW <: AbstractBoundaryConditions,
     SH <: AbstractBoundaryConditions,
+    R <: AbstractBoundaryConditions,
 }
     soil_water::SW = NoBC()
     soil_heat::SH = NoBC()
+    river::R = NoBC()
 end
 
 
@@ -143,8 +148,8 @@ faces, as defined in the Driver configuration.
 """
 function boundary_conditions(land::LandModel)
     bc = land.boundary_conditions
-    mytuple = (bc.bottom_bc, bc.surface_bc, bc.lateral_bc)
-    # faces labeled integer 1,2,3 are bottom, top, lateral sides.
+    mytuple = (bc.bottom_bc, bc.surface_bc, bc.minx_bc, bc.maxx_bc, bc.miny_bc, bc.maxy_bc)
+    # faces labeled integer 1,2 are bottom, top, lateral sides are 3, 4, 5, 6
     return mytuple
 end
 

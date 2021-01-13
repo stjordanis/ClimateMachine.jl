@@ -30,7 +30,7 @@ struct RiverModel{M,Sx,Sy,MS,W} <: BalanceLaw
     width::W
 end
 
-function RiverModel(
+function axyerModel(
     slope_x::Function,
     slope_y::Function,
     mag_slope::Function,
