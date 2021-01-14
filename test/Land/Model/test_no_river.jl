@@ -5,6 +5,7 @@ using MPI
 using OrderedCollections
 using StaticArrays
 using Test
+using Statistics
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -219,9 +220,54 @@ end
 
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
-# using Statistics
-# mask = aux[:,-1,:] .== 182.88
-# area = [mean(dons[k]["area"][mask[:]]) for k in 1:n_outputs]
-# velocity = area.^(5/3) .* (sqrt(0.0016)/0.025)
 
+aux = solver_config.dg.state_auxiliary;
+mask = aux[:,1,:] .== 182.88
+area = [mean(dons[k]["area"][mask[:]]) for k in 1:n_outputs]
+velocity = area.^(5/3) .* (sqrt(0.0016)/0.025) #m /s (this isnt right??)
+time_data = [dons[l]["t"][1] for l in 1:n_outputs]
+
+alpha = sqrt(0.0016)/0.025
+i = 1.4e-5
+L = xmax
+m = 5/3
+t_c = (L*i^(1-m)/alpha)^(1/m)
+t_r = 30*60
+
+
+function g(m,y, i, t_r, L, alpha, t)
+    output = L/alpha-y^(m)/i-y^(m-1)*m*(t-t_r)
+    return output
+end
+
+function dg(m,y, i, t_r, L, alpha, t)
+    output = -y^(m-1)*m/i-y^(m-2)*m*(m-1)*(t-t_r)
+    return output
+end
+
+function analytic(t,alpha, t_c, t_r, i, L, m)
+    if t < t_c
+        return alpha*(i*t)^(m)
+    end
+    
+    if t <= t_r && t > t_c
+        return alpha*(i*t_c)^(m)
+    end
+
+    if t > t_r
+        yL = (i*(t-t_r))
+        delta = 1
+        error = g(m,yL,i,t_r,L,alpha,t)
+        while abs(error) > 1e-4
+            delta = -g(m,yL,i,t_r,L,alpha,t)/dg(m,yL,i,t_r,L,alpha,t)
+            yL = yL+ delta
+            error = g(m,yL,i,t_r,L,alpha,t)
+        end
+        return alpha*yL^m    
+        
+    end
+    
+end
+
+        
 #end
