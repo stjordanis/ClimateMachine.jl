@@ -63,6 +63,8 @@ if generate_tutorials
             ],
             "DG Methods" =>
                 ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
+            "Time-Stepping" =>
+                ["Explicit Runge-Kutta methods" => "Numerics/TimeStepping/explicit_lsrk.jl"],
         ],
         "Diagnostics" => [
             "Debug" => [
