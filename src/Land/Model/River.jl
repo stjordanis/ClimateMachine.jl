@@ -18,12 +18,12 @@ export RiverModel, NoRiverModel, river_boundary_flux!, river_boundary_state!
 
 struct NoRiverModel <: BalanceLaw end
 
-struct RiverModel{M,Sx,Sy,MS,W} <: BalanceLaw
-    mannings::M
+struct RiverModel{Sx,Sy,MS,W,M} <: BalanceLaw
     slope_x::Sx
     slope_y::Sy
     mag_slope::MS
     width::W
+    mannings::M
 end
 
 function RiverModel(
