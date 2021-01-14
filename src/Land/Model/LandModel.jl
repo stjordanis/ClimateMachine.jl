@@ -96,6 +96,8 @@ end
 
 function vars_state(land::LandModel, st::Auxiliary, FT)
     @vars begin
+        x::FT
+        y::FT
         z::FT
         soil::vars_state(land.soil, st, FT)
         river::vars_state(land.river, st, FT)
@@ -122,6 +124,8 @@ function nodal_init_state_auxiliary!(
     tmp::Vars,
     geom::LocalGeometry,
 )
+    aux.x = geom.coord[1]
+    aux.y = geom.coord[2]
     aux.z = geom.coord[3]
     land_init_aux!(land, land.soil, aux, geom)
     land_init_aux!(land, land.river, aux, geom)

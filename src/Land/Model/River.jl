@@ -1,24 +1,20 @@
 module River
  
-using ..VariableTemplates
 using DocStringExtensions
 using ..Land
-using ..BalanceLaws
+using ..VariableTemplates
 import ..BalanceLaws:
     BalanceLaw,
     vars_state,
-    flux_first_order!,
-    flux_second_order!,
-    source!,
-    boundary_conditions,
-    boundary_state!,
-    compute_gradient_argument!,
-    compute_gradient_flux!,
-    nodal_init_state_auxiliary!,
-    init_state_prognostic!,
-    nodal_update_auxiliary_state!
+    flux_first_order!, 
+    Prognostic,
+    Auxiliary, 
+    Gradient,
+    GradientFlux
+using ...DGMethods: LocalGeometry
+using StaticArrays: SVector
 
-export RiverModel, NoRiverModel
+export RiverModel, NoRiverModel, river_boundary_flux!, river_boundary_state!
 
 struct NoRiverModel <: BalanceLaw end
 
@@ -30,7 +26,7 @@ struct RiverModel{M,Sx,Sy,MS,W} <: BalanceLaw
     width::W
 end
 
-function axyerModel(
+function RiverModel(
     slope_x::Function,
     slope_y::Function,
     mag_slope::Function,
@@ -54,12 +50,12 @@ function calculate_velocity(river, x::Real, y::Real, h::Real)
     return SVector(sx * magnitude, sy * magnitude, zero(FT))
 end
 
-vars_state(water::RiverModel, st::Prognostic, FT) = @vars(height::FT)
-vars_state(water::RiverModel, st::Auxiliary, FT) = @vars()
-vars_state(water::RiverModel, st::Gradient, FT) = @vars()
-vars_state(water::RiverModel, st::GradientFlux, FT) = @vars()
+vars_state(river::RiverModel, st::Prognostic, FT) = @vars(area::FT)
+vars_state(river::RiverModel, st::Auxiliary, FT) = @vars()
+vars_state(river::RiverModel, st::Gradient, FT) = @vars()
+vars_state(river::RiverModel, st::GradientFlux, FT) = @vars()
 
-function Land.land_init_aux!(land::LandModel, river::BalanceLaw, aux, geom)
+function Land.land_init_aux!(land::LandModel, river::BalanceLaw, aux, geom::LocalGeometry)
 end
 
 function Land.compute_gradient_argument!(land::LandModel, river::BalanceLaw, transform::Grad, state, aux, t)
@@ -73,13 +69,67 @@ end
 
 
 function flux_first_order!(land::LandModel, river::BalanceLaw, flux::Grad, state::Vars, aux::Vars, t::Real, directions) 
-    x, y = aux.x, aux.y
+    x = aux.x
+    y = aux.y
     width = river.width(x, y)
     height = state.river.area / width
-    v = calculate_velocity(river, x, y ,height)
+    v = calculate_velocity(river, x, y, height)
     Q = state.river.area * v
-    flux.river.height = Q
+    flux.river.area = Q
 end 
 
+# boundry conditions 
+
+# General case - to be used with bc::NoBC
+function river_boundary_flux!(
+    nf,
+    bc::Land.AbstractBoundaryConditions,
+    m,
+    land::LandModel,
+    _...,
+)
+end
+
+function river_boundary_state!(
+    nf,
+    bc::Land.AbstractBoundaryConditions,
+    m,
+    land::LandModel,
+    _...,
+)
+end
+
+# Dirichlet BC for River
+function river_boundary_flux!(
+    nf,
+    bc::Land.Dirichlet,
+    model::RiverModel,
+    land::LandModel,
+    state⁺::Vars,
+    aux⁺::Vars,
+    nM,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+end
+
+function river_boundary_state!(
+    nf,
+    bc::Land.Dirichlet,
+    model::RiverModel,
+    land::LandModel,
+    state⁺::Vars,
+    aux⁺::Vars,
+    nM,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+    bc_function = bc.state_bc
+    state⁺.river.area = bc_function(aux⁻, t)
+end
 
 end

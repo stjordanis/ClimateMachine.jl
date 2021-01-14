@@ -114,28 +114,29 @@ end
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     m_river = RiverModel(
-        slope_x = (x,y) -> eltype(x)(1),
-        slope_y = (x,y) -> eltype(x)(0.0),
-        mag_slope = (x,y) -> eltype(x)(0.0016),
-        width = (x,y) -> eltype(x)(1);
+        (x,y) -> eltype(x)(1),
+        (x,y) -> eltype(x)(0.0),
+        (x,y) -> eltype(x)(0.0016),
+        (x,y) -> eltype(x)(1);
         mannings = (x,y) -> eltype(x)(0.025)
     )
 
-    
     # 10.1061/(ASCE)0733-9429(2007)133:2(217) 
     # Eqn 6
+    # debug boundry condition, constant positive flow rate after min 30
+    # add river boundry state land domain bc
     bc = LandDomainBC(
-        minx_bc = LandComponentBC(river = Dirichlet((aux,t) -> eltype(aux)(0))),
+        minx_bc = LandComponentBC(river = Dirichlet((aux, t) -> eltype(aux)(0))),
     )
  
     function init_land_model!(land, state, aux, localgeo, time)
-        state.river.height = eltype(state)(0.0)
+        state.river.area = eltype(state)(0)
     end
 
     # units in m / s 
     precip(x, y, t) = t < (30 * 60) ? 1.4e-5 : 0.0
 
-    sources = (Precip(precip),)
+    sources = (Precip{FT}(precip),)
 
     m = LandModel(
         param_set,
@@ -175,8 +176,6 @@ end
         param_set,
         m;
         zmin = zmin,
-        xmin = xmin,
-        ymin = ymin,
         #numerical_flux_first_order = CentralNumericalFluxFirstOrder(),now the default for us
         meshwarp = (x...) -> warp_constant_slope(x...;
         topo_max = topo_max, zmin = zmin, xmax = xmax),
@@ -192,11 +191,11 @@ end
         driver_config,
         ode_dt = dt,
     )
-   mygrid = solver_config.dg.grid
+    mygrid = solver_config.dg.grid
     Q = solver_config.Q
- 
-    height_index =
-        varsindex(vars_state(m, Prognostic(), FT), :river, :height)
+    
+    area_index =
+        varsindex(vars_state(m, Prognostic(), FT), :river, :area)
     n_outputs = 60
 
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
@@ -208,15 +207,21 @@ end
         every_x_simulation_time,
     ) do (init = false)
         t = ODESolvers.gettime(solver_config.solver)
-        height = Q[:, height_index, :]
+        area = Q[:, area_index, :]
         all_vars = Dict{String, Array}(
             "t" => [t],
-            "height" => height,
+            "area" => area,
         )
         dons[iostep[1]] = all_vars
         iostep[1] += 1
-        nothing
+        return
     end
 
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
+
+# using Statistics
+# mask = aux[:,-1,:] .== 182.88
+# area = [mean(dons[k]["area"][mask[:]]) for k in 1:n_outputs]
+# velocity = area.^(5/3) .* (sqrt(0.0016)/0.025)
+
 #end

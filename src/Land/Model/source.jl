@@ -39,12 +39,18 @@ function land_source!(
     f(land, source, state, diffusive, aux, t, direction)
 end
 
-
-struct Precip{FT} <: LandSource{FT} end
+#TODO: precip docs
+struct Precip{FT, F} <: LandSource{FT}
     precip::F
-end
-(p::Precip{FT})(x::FT, y::FT, t::FT) = FT(p.precip(x, y, t))
 
+    function Precip{FT}(precip::F) where {FT, F}
+        new{FT, F}(precip)
+    end
+end
+
+function (p::Precip{FT})(x, y, t)  where {FT}
+    FT(p.precip(x, y, t))
+end
 
 function land_source!(
     source_type::Precip,
@@ -56,7 +62,7 @@ function land_source!(
     t::Real,
     direction,
 )
-    source.river.height += source_type(aux.x, aux.y, t)
+    source.river.area += source_type(aux.x, aux.y, t)
 end
 
 function land_source!(
