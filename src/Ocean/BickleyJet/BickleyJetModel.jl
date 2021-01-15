@@ -101,7 +101,7 @@ struct BickleyJetModel{P, T, A, C, F, FT} <: BalanceLaw
         coriolis::C,
         forcing::F,
         g = FT(10), # m/s²
-        c = FT(0),
+        c = FT(0),  #m/s
     ) where {FT <: AbstractFloat, P, T, A, C, F}
         return new{P, T, A, C, F, FT}(
             problem,
@@ -258,7 +258,6 @@ end
     θₜ = flux.ρθ
 
     g = model.g
-    h = model.problem.h
 
     Iʰ = @SMatrix [
         1 -0
@@ -267,7 +266,7 @@ end
     ]
 
     ρₜ += ρu
-    ρuₜ += 1 // 2 * g * h^2 * Iʰ
+    ρuₜ += 1 // 2 * g * ρ^2 * Iʰ
 
     advective_flux!(model, model.advection, flux, state, aux, t)
 
@@ -407,7 +406,7 @@ end
 
 @inline wavespeed(::BJModel, _...) = m.c
 
-boundary_conditions(model::BJModel) = model.problem.boundary_conditions
+boundary_conditions(model::BJModel) = model.boundary_conditions
 
 """
     boundary_state!(nf, ::BJModel, args...)

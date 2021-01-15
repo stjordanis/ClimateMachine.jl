@@ -257,8 +257,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     state⁺.ρu = state⁻.ρu
-    gradflux⁺.ν∇u =
-        n⁻ * kinematic_stress(model, model.problem, aux⁻.coords, state⁻.ρ)'
+    gradflux⁺.ν∇u = n⁻ * kinematic_stress(model, aux⁻.coords, state⁻.ρ)'
     # applies windstress for now, will be fixed in a later PR
 
     return nothing
@@ -307,8 +306,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     state⁺.ρu = state⁻.ρu
-    gradflux⁺.ν∇u =
-        n⁻ * kinematic_stress(model, model.problem, aux⁻.coords, state⁻.ρ)'
+    gradflux⁺.ν∇u = n⁻ * kinematic_stress(model, aux⁻.coords, state⁻.ρ)'
     # applies windstress for now, will be fixed in a later PR
 
     return nothing

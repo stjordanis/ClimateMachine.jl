@@ -82,7 +82,7 @@ sets ghost point to have specified flux on the boundary for κ∇θ
     t,
 )
     state⁺.ρθ = state⁻.ρθ
-    gradflux⁺.κ∇θ = n⁻ * surface_flux(model.problem, aux⁻.coords, state⁻.ρθ)
+    gradflux⁺.κ∇θ = n⁻ * surface_flux(model, aux⁻.coords, state⁻.ρθ)
 
     return nothing
 end
