@@ -120,7 +120,7 @@ function vars_state(m::BJModel, ::Prognostic, T)
     @vars begin
         ρ::T
         ρu::SVector{2, T}
-        θ::T
+        ρθ::T
     end
 end
 
@@ -177,9 +177,11 @@ compute_gradient_argument!(::LinearDrag, _...) = nothing
 )
     ρ = state.ρ
     ρu = state.ρu
-    θ = state.θ
+    ρθ = state.ρθ
 
     u = ρu / ρ
+    θ = ρθ / ρ
+
     grad.∇u = u
     grad.∇θ = θ
 
@@ -249,11 +251,11 @@ end
 
     ρ = state.ρ
     ρu = @SVector [state.ρu[1], state.ρu[2], -0]
-    θ = state.θ
+    ρθ = state.ρθ
 
     ρₜ = flux.ρ
     ρuₜ = flux.ρu
-    θₜ = flux.θ
+    θₜ = flux.ρθ
 
     g = model.g
     h = model.problem.h
@@ -284,15 +286,13 @@ advective_flux!(::BJModel, ::Nothing, _...) = nothing
 )
     ρ = state.ρ
     ρu = @SVector [state.ρu[1], state.ρu[2], -0]
-    θ = state.θ
+    ρθ = state.ρθ
 
     ρuₜ = flux.ρu
-    θₜ = flux.θ
-
-    u = ρu / ρ
+    ρθₜ = flux.ρθ
 
     ρuₜ += ρu ⊗ ρu / ρ
-    θₜ += u * θ
+    ρθₜ += ρu ⊗ ρθ / ρ
 
     return nothing
 end
@@ -321,13 +321,13 @@ flux_second_order!(::BJModel, ::LinearDrag, _...) = nothing
     t::Real,
 )
     ρuₜ = flux.ρu
-    θₜ = flux.θ
+    ρθₜ = flux.ρθ
 
     ν∇u = gradflux.ν∇u
     κ∇θ = gradflux.κ∇θ
 
-    ρuₜ += ν∇U
-    θₜ += κ∇θ
+    ρuₜ += ν∇u
+    ρθₜ += κ∇θ
 
     return nothing
 end
