@@ -81,7 +81,8 @@ function generate_init_dims(::InterpolationType, cfg_type, dvtype_dvars_map)
             # Adjust `level` on the sphere.
             level_val = dims["level"]
             dims["level"] = (
-                level_val[1] .- FT(planet_radius(DiagnosticsMachine.Settings.param_set)),
+                level_val[1] .-
+                FT(planet_radius(DiagnosticsMachine.Settings.param_set)),
                 level_val[2],
             )
         end
@@ -155,7 +156,8 @@ function generate_init_fun(
 
                 # create the output file
                 dprefix = @sprintf("%s_%s", dgngrp.out_prefix, dgngrp.name)
-                dfilename = joinpath(DiagnosticsMachine.Settings.output_dir, dprefix)
+                dfilename =
+                    joinpath(DiagnosticsMachine.Settings.output_dir, dprefix)
                 noov = DiagnosticsMachine.Settings.no_overwrite
                 init_data(dgngrp.writer, dfilename, noov, dims, vars)
             end

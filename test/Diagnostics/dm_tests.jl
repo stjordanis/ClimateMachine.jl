@@ -73,14 +73,16 @@ end
     @test yv isa HorizontalAverage
     yvname = dv_name(AtmosLESConfigType(), yv)
     @test yvname == "yvel"
-    @test yvname ∈ keys(DiagnosticsMachine.AllDiagnosticVars[AtmosLESConfigType])
+    @test yvname ∈
+          keys(DiagnosticsMachine.AllDiagnosticVars[AtmosLESConfigType])
 
     @test_throws UndefVarError ALESCT_PD_bar()
     zv = ALESCT_PD_zvel()
     @test zv isa PointwiseDiagnostic
     zvname = dv_name(AtmosLESConfigType(), zv)
     @test zvname == "zvel"
-    @test zvname ∈ keys(DiagnosticsMachine.AllDiagnosticVars[AtmosLESConfigType])
+    @test zvname ∈
+          keys(DiagnosticsMachine.AllDiagnosticVars[AtmosLESConfigType])
 end
 
 # Set up a simple experiment to run the diagnostics group.
@@ -114,7 +116,7 @@ function main()
         ymax,
         zmax,
         param_set,
-        init_sin_test!
+        init_sin_test!,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -140,7 +142,9 @@ function main()
             ds_zvel = ds["zvel"][:]
             close(ds)
         end
-        Q = array_device(solver_config.Q) isa CPU ? solver_config.Q : Array(solver_config.Q)
+        Q =
+            array_device(solver_config.Q) isa CPU ? solver_config.Q :
+            Array(solver_config.Q)
         havg_rho = compute_havg(solver_config, view(Q, :, 1:1, :))
         havg_u = compute_havg(solver_config, view(Q, :, 2:2, :))
         v = view(Q, :, 3:3, :) ./ view(Q, :, 1:1, :)
