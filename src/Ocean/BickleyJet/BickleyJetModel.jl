@@ -426,6 +426,7 @@ splits boundary condition application into velocity
 """
 @inline function ocean_boundary_state!(nf, bc::OceanBC, m::BJModel, args...)
     return ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
+    return ocean_boundary_state!(nf, bc.temperature, m, args...)
 end
 
 include("bc_velocity.jl")
