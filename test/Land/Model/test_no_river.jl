@@ -27,7 +27,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-#=
+
 @testset "NoRiver Model" begin
     ClimateMachine.init()
     FT = Float64
@@ -98,12 +98,12 @@ using ClimateMachine.BalanceLaws:
     )
     #Make sure it runs, and that there are no state variables, and only "z" as aux.
     @test t == timeend
-    @test size(Base.collect(keys(aux_vars)))[1] == 1
+    @test size(Base.collect(keys(aux_vars)))[1] == 3
     @test size(Base.collect(keys(state_vars)))[1] == 0
 end
-=#
 
-#@testset "Analytical River Model" begin
+
+@testset "Analytical River Model" begin
     ClimateMachine.init()
     FT = Float64
 
@@ -157,7 +157,7 @@ end
     end
 
     N_poly = 1;
-    xres = FT(18.288)
+    xres = FT(2.286)
     yres = FT(0.25)
     zres = FT(0.1)
     # Specify the domain boundaries.
@@ -165,7 +165,7 @@ end
     zmin = FT(-0.1);
     xmax = FT(182.88)
     ymax = FT(1.0)
-    topo_max = FT(0.29)
+    topo_max = FT(0.0016*xmax)
 
     driver_config = ClimateMachine.MultiColumnLandModel(
         "LandModel",
@@ -221,53 +221,56 @@ end
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
 
-aux = solver_config.dg.state_auxiliary;
-mask = aux[:,1,:] .== 182.88
-area = [mean(dons[k]["area"][mask[:]]) for k in 1:n_outputs]
-velocity = area.^(5/3) .* (sqrt(0.0016)/0.025) #m /s (this isnt right??)
-time_data = [dons[l]["t"][1] for l in 1:n_outputs]
-
-alpha = sqrt(0.0016)/0.025
-i = 1.4e-5
-L = xmax
-m = 5/3
-t_c = (L*i^(1-m)/alpha)^(1/m)
-t_r = 30*60
-
-
-function g(m,y, i, t_r, L, alpha, t)
-    output = L/alpha-y^(m)/i-y^(m-1)*m*(t-t_r)
-    return output
-end
-
-function dg(m,y, i, t_r, L, alpha, t)
-    output = -y^(m-1)*m/i-y^(m-2)*m*(m-1)*(t-t_r)
-    return output
-end
-
-function analytic(t,alpha, t_c, t_r, i, L, m)
-    if t < t_c
-        return alpha*(i*t)^(m)
+    aux = solver_config.dg.state_auxiliary;
+    mask = aux[:,1,:] .== 182.88
+    n_outputs = length(dons)
+    area = [mean(dons[k]["area"][mask[:]]) for k in 1:n_outputs]
+    height = area ./ ymax
+    time_data = [dons[l]["t"][1] for l in 1:n_outputs]
+    
+    alpha = sqrt(0.0016)/0.025
+    i = 1.4e-5
+    L = xmax
+    m = 5/3
+    t_c = (L*i^(1-m)/alpha)^(1/m)
+    t_r = 30*60
+    
+    q = height.^(m) .* alpha
+    
+    function g(m,y, i, t_r, L, alpha, t)
+        output = L/alpha-y^(m)/i-y^(m-1)*m*(t-t_r)
+        return output
     end
     
-    if t <= t_r && t > t_c
-        return alpha*(i*t_c)^(m)
+    function dg(m,y, i, t_r, L, alpha, t)
+        output = -y^(m-1)*m/i-y^(m-2)*m*(m-1)*(t-t_r)
+        return output
     end
-
-    if t > t_r
-        yL = (i*(t-t_r))
-        delta = 1
-        error = g(m,yL,i,t_r,L,alpha,t)
-        while abs(error) > 1e-4
-            delta = -g(m,yL,i,t_r,L,alpha,t)/dg(m,yL,i,t_r,L,alpha,t)
-            yL = yL+ delta
-            error = g(m,yL,i,t_r,L,alpha,t)
+    
+    function analytic(t,alpha, t_c, t_r, i, L, m)
+        if t < t_c
+            return alpha*(i*t)^(m)
         end
-        return alpha*yL^m    
+        
+        if t <= t_r && t > t_c
+            return alpha*(i*t_c)^(m)
+        end
+        
+        if t > t_r
+            yL = (i*(t-t_r))
+            delta = 1
+            error = g(m,yL,i,t_r,L,alpha,t)
+            while abs(error) > 1e-4
+                delta = -g(m,yL,i,t_r,L,alpha,t)/dg(m,yL,i,t_r,L,alpha,t)
+                yL = yL+ delta
+                error = g(m,yL,i,t_r,L,alpha,t)
+            end
+            return alpha*yL^m    
+            
+        end
         
     end
     
+    @test sqrt_rmse_over_max_q = sqrt(mean((analytic.(time_data, Ref(alpha), Ref(t_c), Ref(t_r), Ref(i), Ref(L), Ref(m)) .- q).^2.0))/ maximum(q) < 3e-3
+    
 end
-
-        
-#end

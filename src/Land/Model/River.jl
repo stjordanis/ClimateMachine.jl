@@ -11,10 +11,12 @@ import ..BalanceLaws:
     Auxiliary, 
     Gradient,
     GradientFlux
+
 using ...DGMethods: LocalGeometry
 using StaticArrays: SVector
 
 export RiverModel, NoRiverModel, river_boundary_flux!, river_boundary_state!
+
 
 struct NoRiverModel <: BalanceLaw end
 
@@ -46,29 +48,26 @@ function calculate_velocity(river, x::Real, y::Real, h::Real)
     FT = eltype(h)
     sx = FT(river.slope_x(x, y))
     sy = FT(river.slope_y(x, y))
-    magnitude = h^FT(2/3) / (river.mannings(x, y) * sqrt(river.mag_slope(x, y)))
+    magnitude = h^FT(2/3) / river.mannings(x, y) * sqrt(river.mag_slope(x, y))
     return SVector(sx * magnitude, sy * magnitude, zero(FT))
 end
 
+## there is a default method for balance laws that adds no variables that we can use, so
+### i deleted the other methods.
 vars_state(river::RiverModel, st::Prognostic, FT) = @vars(area::FT)
-vars_state(river::RiverModel, st::Auxiliary, FT) = @vars()
-vars_state(river::RiverModel, st::Gradient, FT) = @vars()
-vars_state(river::RiverModel, st::GradientFlux, FT) = @vars()
 
 function Land.land_init_aux!(land::LandModel, river::BalanceLaw, aux, geom::LocalGeometry)
-end
-
-function Land.compute_gradient_argument!(land::LandModel, river::BalanceLaw, transform::Grad, state, aux, t)
- #   v = calculate_velocity(river, state.river.height,river)
- #   transform.river.grad_Q = state.river.height*v#*river.width(aux.x,aux.y)
 end
 
 
 function Land.land_nodal_update_auxiliary_state!(land::LandModel, river::BalanceLaw, state, aux, t)
 end
 
+function flux_first_order!(land::LandModel, river::BalanceLaw, flux::Grad, state::Vars, aux::Vars, t::Real, directions)
+end
 
-function flux_first_order!(land::LandModel, river::BalanceLaw, flux::Grad, state::Vars, aux::Vars, t::Real, directions) 
+
+function flux_first_order!(land::LandModel, river::RiverModel, flux::Grad, state::Vars, aux::Vars, t::Real, directions) 
     x = aux.x
     y = aux.y
     width = river.width(x, y)
