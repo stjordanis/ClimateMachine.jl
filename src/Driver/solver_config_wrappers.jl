@@ -1,8 +1,22 @@
-import ..SingleStackUtils: single_stack_diagnostics, NodalStack
+import ..SingleStackUtils:
+    single_stack_diagnostics, diagnostics_input, NodalStack
 using ..ODESolvers
 
 # Convenience wrapper
 single_stack_diagnostics(solver_config; kwargs...) = single_stack_diagnostics(
+    solver_config.dg.grid,
+    solver_config.dg.balance_law,
+    gettime(solver_config.solver),
+    solver_config.dg.direction;
+    prognostic = solver_config.Q,
+    auxiliary = solver_config.dg.state_auxiliary,
+    diffusive = solver_config.dg.state_gradient_flux,
+    hyperdiffusive = solver_config.dg.states_higher_order[2],
+    kwargs...,
+)
+
+# Convenience wrapper
+diagnostics_input(solver_config; kwargs...) = diagnostics_input(
     solver_config.dg.grid,
     solver_config.dg.balance_law,
     gettime(solver_config.solver),

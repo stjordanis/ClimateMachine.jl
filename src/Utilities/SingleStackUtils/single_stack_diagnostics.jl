@@ -67,3 +67,45 @@ function single_stack_diagnostics(
         end for local_states in NodalStack(bl, grid; kwargs...)
     ]
 end
+
+export diagnostics_input
+function diagnostics_input(
+    grid::DiscontinuousSpectralElementGrid,
+    bl::BalanceLaw,
+    t::Real,
+    direction;
+    kwargs...,
+)
+    return first([
+        begin
+            @unpack prog, aux, ∇flux, hyperdiff = local_states
+            diffusive = ∇flux
+            state = prog
+            hyperdiffusive = hyperdiff
+
+            _args_fx1 = (; state, aux, t, direction)
+            _args_fx2 = (; state, aux, t, diffusive, hyperdiffusive)
+            _args_src = (; state, aux, t, direction, diffusive)
+
+            cache_fx1 = precompute(bl, _args_fx1, Flux{FirstOrder}())
+            cache_fx2 = precompute(bl, _args_fx2, Flux{SecondOrder}())
+            cache_src = precompute(bl, _args_src, Source())
+
+            # cache_fx1, cache_fx2, and cache_src have overlapping
+            # data, only need one copy, so merge:
+            cache = merge(cache_fx1, cache_fx2, cache_src)
+
+            z = altitude(bl, aux)
+
+            nt = (;
+                z = altitude(bl, aux),
+                prog = prog,
+                aux = aux,
+                ∇flux = ∇flux,
+                hyperdiff = hyperdiff,
+                cache = cache,
+            )
+            nt
+        end for local_states in NodalStack(bl, grid; kwargs...)
+    ])
+end
