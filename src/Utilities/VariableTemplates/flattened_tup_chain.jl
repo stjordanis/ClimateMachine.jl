@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 export flattened_tup_chain, flattened_named_tuple
 export FlattenArr, RetainArr
 
@@ -19,11 +21,16 @@ and `flattened_named_tuple`.
 """
 struct RetainArr <: FlattenType end
 
+# The Vars instance has many empty entries.
+# Keeping all of the keys results in many
+# duplicated values. So, it's best we
+# "prune" the tree by removing the keys:
 flattened_tup_chain(
     ::Type{NamedTuple{(), Tuple{}}},
     ::FlattenType = FlattenArr();
     prefix = (Symbol(),),
 ) = ()
+
 flattened_tup_chain(
     ::Type{T},
     ::FlattenType;
@@ -44,7 +51,15 @@ flattened_tup_chain(
     ::Type{T},
     ::FlattenType;
     prefix = (Symbol(),),
-) where {T <: SHermitianCompact} = (prefix,)
+) where {T <: SHermitianCompact} =
+    ntuple(i -> (prefix..., i), length(StaticArrays.lowertriangletype(T)))
+
+flattened_tup_chain(
+    ::Type{T},
+    ::FlattenType;
+    prefix = (Symbol(),),
+) where {N, TA, T <: Diagonal{N, TA}} = ntuple(i -> (prefix..., i), length(TA))
+
 flattened_tup_chain(::Type{T}, ::FlattenType; prefix = (Symbol(),)) where {T} =
     (prefix,)
 
@@ -106,23 +121,34 @@ function flattened_named_tuple(v::AbstractVars, ft::FlattenType = FlattenArr())
     ftc = flattened_tup_chain(v, ft)
     keys_ = Symbol.(join.(ftc, :_))
     vals = map(x -> getproperty(v, wrap_val.(x)), ftc)
+    length(keys_) == length(vals) || error("key-value mismatch")
     return (; zip(keys_, vals)...)
 end
-flattened_named_tuple(v::Nothing, ft::FlattenType = FlattenArr()) = NamedTuple()
+flattened_named_tuple(v::Nothing, ft::FlattenType = FlattenArr()) = nothing
 
 function flattened_named_tuple(nt::NamedTuple, ft::FlattenType = FlattenArr())
     ftc = flattened_tup_chain(typeof(nt), ft)
     keys_ = Symbol.(join.(ftc, :_))
     vals = flattened_nt_vals(nt)
+    length(keys_) == length(vals) || error("key-value mismatch")
     return (; zip(keys_, vals)...)
 end
 
-flattened_nt_vals(a::NamedTuple) = flattened_nt_vals(Tuple(a))
-flattened_nt_vals(a::NamedTuple{(), Tuple{}}) = (nothing,)
-flattened_nt_vals(a) = (a,)
+flattened_nt_vals(a) = a
+flattened_nt_vals() = ()
 flattened_nt_vals(a::NamedTuple, b...) =
     tuple(flattened_nt_vals(a)..., flattened_nt_vals(b...)...)
-flattened_nt_vals(a::NamedTuple{(), Tuple{}}, b...) =
-    tuple(nothing, flattened_nt_vals(b...)...)
 flattened_nt_vals(a, b...) = tuple(values(a), flattened_nt_vals(b...)...)
+flattened_nt_vals(a::Nothing) = tuple(a)
+flattened_nt_vals(a::Nothing, b...) = tuple(a, flattened_nt_vals(b...)...)
+flattened_nt_vals(a::AbstractArray, b...) =
+    tuple(values(a)..., flattened_nt_vals(b...)...)
+flattened_nt_vals(a::Diagonal, b...) =
+    tuple(values(a.diag)..., flattened_nt_vals(b...)...)
+flattened_nt_vals(a::SHermitianCompact, b...) =
+    tuple(values(a.lowertriangle)..., flattened_nt_vals(b...)...)
+flattened_nt_vals(a::NTuple{N, T}, b...) where {N, T} =
+    tuple(a..., flattened_nt_vals(b...)...)
 flattened_nt_vals(x::Tuple) = flattened_nt_vals(x...)
+flattened_nt_vals(x::NTuple{N, T}) where {N, T} = flattened_nt_vals(x...)
+flattened_nt_vals(a::NamedTuple) = flattened_nt_vals(Tuple(a))
