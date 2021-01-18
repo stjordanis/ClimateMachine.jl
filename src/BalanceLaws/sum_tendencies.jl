@@ -1,5 +1,7 @@
 ##### Sum wrapper
 
+using StaticArrays
+
 export Σfluxes, Σsources
 
 """
@@ -35,6 +37,7 @@ Sum of the fluxes where
  - `fluxes` is an `NTuple{N, TendencyDef{Flux{O}, PV}} where {N, PV, O}`
 """
 function Σfluxes(
+    pv::PV,
     fluxes::NTuple{N, TendencyDef{Flux{O}, PV}},
     args...,
 ) where {N, PV, O}
@@ -42,7 +45,25 @@ function Σfluxes(
         flux(fluxes[i], args...)
     end)
 end
-Σfluxes(fluxes::Tuple{}, args...) = 0
+
+# TODO: is there a cleaner way?
+Σfluxes(
+    pv::PV,
+    fluxes::NTuple{0, TendencyDef{Flux{O}, PV}},
+    args...,
+) where {PV, O} = Σfluxes(Val(n_components(pv)), fluxes, args...)
+
+Σfluxes(
+    ::Val{1},
+    fluxes::NTuple{0, TendencyDef{Flux{O}, PV}},
+    args...,
+) where {PV, O} = SArray{Tuple{3}}(ntuple(i -> 0, 3))
+
+Σfluxes(
+    ::Val{nc},
+    fluxes::NTuple{0, TendencyDef{Flux{O}, PV}},
+    args...,
+) where {nc, PV, O} = SArray{Tuple{nc}}(ntuple(i -> 0, nc))
 
 """
     Σsources(sources::NTuple, args...)
@@ -51,6 +72,7 @@ Sum of the sources where
  - `sources` is an `NTuple{N, TendencyDef{Source, PV}} where {N, PV}`
 """
 function Σsources(
+    pv::PV,
     sources::NTuple{N, TendencyDef{Source, PV}},
     args...,
 ) where {N, PV}
@@ -58,4 +80,20 @@ function Σsources(
         source(sources[i], args...)
     end)
 end
-Σsources(sources::Tuple{}, args...) = 0
+Σsources(
+    pv::PV,
+    sources::NTuple{0, TendencyDef{Source, PV}},
+    args...,
+) where {PV} = Σsources(Val(n_components(pv)), sources, args...)
+
+Σsources(
+    ::Val{1},
+    sources::NTuple{0, TendencyDef{Source, PV}},
+    args...,
+) where {PV} = 0
+
+Σsources(
+    ::Val{nc},
+    sources::NTuple{0, TendencyDef{Source, PV}},
+    args...,
+) where {nc, PV} = SArray{Tuple{nc}}(ntuple(i -> 0, nc))

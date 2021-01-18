@@ -504,7 +504,6 @@ equations.
     direction,
 )
 
-    flux_pad = SVector(1, 1, 1)
     tend = Flux{FirstOrder}()
     _args = (state = state, aux = aux, t = t, direction = direction)
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
@@ -513,7 +512,7 @@ equations.
     ntuple(Val(length(pvs))) do i
         prog = pvs[i]
         prog_flux = get_prog_state(flux, prog)
-        val = Σfluxes(eq_tends(prog, atmos, tend), atmos, args) .* flux_pad
+        val = Σfluxes(prog, eq_tends(prog, atmos, tend), atmos, args)
         setproperty!(prog_flux[1], prog_flux[2], val)
     end
 end
@@ -648,7 +647,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
-    flux_pad = SVector(1, 1, 1)
     tend = Flux{SecondOrder}()
     _args = (
         state = state,
@@ -663,7 +661,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     ntuple(Val(length(pvs))) do i
         prog = pvs[i]
         prog_flux = get_prog_state(flux, prog)
-        val = Σfluxes(eq_tends(prog, atmos, tend), atmos, args) .* flux_pad
+        val = Σfluxes(prog, eq_tends(prog, atmos, tend), atmos, args)
         setproperty!(prog_flux[1], prog_flux[2], val)
     end
 end
@@ -817,10 +815,6 @@ function precompute(atmos::AtmosModel, args, tt::Source)
     return (; ts, turbconv, precipitation)
 end
 
-getpad(prog::AbstractArray) =
-    SArray{Tuple{size(prog)...}}(ntuple(i -> 1, length(prog)))
-getpad(prog::Real) = 1
-
 """
     source!(
         m::AtmosModel,
@@ -862,8 +856,7 @@ function source!(
     ntuple(Val(length(pvs))) do i
         prog = pvs[i]
         prog_src = get_prog_state(source, prog)
-        src_pad = getpad(getproperty(prog_src[1], prog_src[2]))
-        val = Σsources(eq_tends(prog, atmos, tend), atmos, args) .* src_pad
+        val = Σsources(prog, eq_tends(prog, atmos, tend), atmos, args)
         setproperty!(prog_src[1], prog_src[2], val)
     end
 end

@@ -29,6 +29,14 @@ each prognostic variable.
 abstract type PrognosticVariable end
 
 """
+    n_components(::PV) where {PV <: PrognosticVariable} = 1
+
+Number of components of the
+prognostic variable type `PV`.
+"""
+n_components(::PV) where {PV <: PrognosticVariable} = 1
+
+"""
     AbstractOrder
 
 Subtypes are used for dispatching
