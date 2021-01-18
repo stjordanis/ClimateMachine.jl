@@ -817,6 +817,10 @@ function precompute(atmos::AtmosModel, args, tt::Source)
     return (; ts, turbconv, precipitation)
 end
 
+getpad(prog::AbstractArray) =
+    SArray{Tuple{size(prog)...}}(ntuple(i -> 1, length(prog)))
+getpad(prog::Real) = 1
+
 """
     source!(
         m::AtmosModel,
@@ -854,14 +858,11 @@ function source!(
     )
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    getpad(::AbstractArray) = SVector(1, 1, 1)
-    getpad(::Real) = 1
-
     pvs = prognostic_vars(atmos)
     ntuple(Val(length(pvs))) do i
         prog = pvs[i]
         prog_src = get_prog_state(source, prog)
-        src_pad = getpad(getproperty(prog_src...))
+        src_pad = getpad(getproperty(prog_src[1], prog_src[2]))
         val = Σsources(eq_tends(prog, atmos, tend), atmos, args) .* src_pad
         setproperty!(prog_src[1], prog_src[2], val)
     end
