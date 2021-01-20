@@ -22,7 +22,7 @@ sets reflective ghost point
     ρu⁻ = @SVector [state⁻.ρu[1], state⁻.ρu[2], -0]
     ρu⁺ = ρu⁻ - 2 * n⁻ ⋅ ρu⁻ .* SVector(n⁻)
 
-    id = @SVector(1, 2)
+    id = @SVector [1, 2]
     state⁺.ρu = ρu⁺[id]
 
     return nothing
@@ -65,7 +65,7 @@ function ocean_boundary_state!(
     ρu⁻ = @SVector [state⁻.ρu[1], state⁻.ρu[2], -0]
     ρu⁺ = ρu⁻ - n⁻ ⋅ ρu⁻ .* SVector(n⁻)
 
-    id = @SVector(1, 2)
+    id = @SVector [1, 2]
     state⁺.ρu = ρu⁺[id]
 
     return nothing

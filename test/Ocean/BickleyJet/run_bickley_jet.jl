@@ -7,8 +7,10 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorders
-using ClimateMachine.Ocean.BickleyJet
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.OceanProblems
+
+include("../../../src/Ocean/BickleyJet/BickleyJetModel.jl")
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -22,6 +24,31 @@ using MPI
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
+
+import ClimateMachine.Ocean: ocean_init_state!, ocean_init_aux!
+
+function ocean_init_state!(
+    ::BickleyJet.BickleyJetModel,
+    state,
+    aux,
+    localgeo,
+    t,
+)
+    state.ρ = -0
+    state.ρu = @SVector [-0, -0]
+    state.ρθ = -0
+
+    return nothing
+end
+
+function ocean_init_aux!(::BickleyJet.BickleyJetModel, aux, geom)
+    @inbounds begin
+        aux.x = geom.coord[1]
+        aux.y = geom.coord[2]
+    end
+
+    return nothing
+end
 
 function run_bickley_jet(dt, nout)
     mpicomm = MPI.COMM_WORLD
@@ -41,17 +68,16 @@ function run_bickley_jet(dt, nout)
         polynomialorder = N,
     )
 
-    problem = SimpleBox{FT}(Lˣ, Lʸ, H)
-
-    model = BickleyJetModel{FT}(
-        problem,
-        NonLinearAdvectionTerm(),
+    model = BickleyJet.BickleyJetModel{FT}(
+        (Lˣ, Lʸ),
+        ClimateMachine.Ocean.NonLinearAdvectionTerm(),
         BickleyJet.ConstantViscosity{FT}(
             ν = 5e3,   # m²/s
             κ = 1e3,   # m²/s
         ),
         nothing,
-        nothing;
+        nothing,
+        ClimateMachine.Ocean.OceanBC(Impenetrable(FreeSlip()), Insulating());
         g = 10, # m/s²
         c = 2, # m/s
     )

@@ -3,19 +3,19 @@ module BickleyJet
 export BickleyJetModel
 
 using StaticArrays
-using ...MPIStateArrays: MPIStateArray
+using ClimateMachine.MPIStateArrays: MPIStateArray
 using LinearAlgebra: dot, Diagonal
 
 
-using ..Ocean
-using ...VariableTemplates
-using ...Mesh.Geometry
-using ...DGMethods
-using ...DGMethods.NumericalFluxes
-using ...BalanceLaws
-using ..Ocean: kinematic_stress, coriolis_parameter
+using ClimateMachine.Ocean
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.BalanceLaws
+using ClimateMachine.Ocean: kinematic_stress, coriolis_parameter
 
-import ...BalanceLaws:
+import ClimateMachine.BalanceLaws:
     vars_state,
     init_state_prognostic!,
     init_state_auxiliary!,
@@ -27,13 +27,13 @@ import ...BalanceLaws:
     wavespeed,
     boundary_conditions,
     boundary_state!
-import ..Ocean:
+import ClimateMachine.Ocean:
     ocean_init_state!,
     ocean_init_aux!,
     ocean_boundary_state!,
     _ocean_boundary_state!
 
-using ...Mesh.Geometry: LocalGeometry
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -41,7 +41,7 @@ using ...Mesh.Geometry: LocalGeometry
 
 abstract type TurbulenceClosure end
 struct LinearDrag{T} <: TurbulenceClosure
-    λ::L
+    λ::T
 end
 struct ConstantViscosity{T} <: TurbulenceClosure
     ν::T
@@ -83,32 +83,35 @@ write out the equations here
 
 # Usage
 
-    BickleyJetModel(problem)
+    BickleyJetModel()
 
 """
-struct BickleyJetModel{P, T, A, C, F, FT} <: BalanceLaw
-    problem::P
+struct BickleyJetModel{D, A, T, C, F, BC, FT} <: BalanceLaw
+    domain::D
     advection::A
     turbulence::T
     coriolis::C
     forcing::F
+    boundary_conditions::BC
     g::FT
     c::FT
     function BickleyJetModel{FT}(
-        problem::P,
-        turbulence::T,
+        domain::D,
         advection::A,
+        turbulence::T,
         coriolis::C,
         forcing::F,
+        boundary_conditions::BC;
         g = FT(10), # m/s²
         c = FT(0),  #m/s
-    ) where {FT <: AbstractFloat, P, T, A, C, F}
-        return new{P, T, A, C, F, FT}(
-            problem,
-            turbulence,
+    ) where {FT <: AbstractFloat, D, A, T, C, F, BC}
+        return new{D, A, T, C, F, BC, FT}(
+            domain,
             advection,
+            turbulence,
             coriolis,
             forcing,
+            boundary_conditions,
             g,
             c,
         )
@@ -125,24 +128,25 @@ function vars_state(m::BJModel, ::Prognostic, T)
 end
 
 function init_state_prognostic!(m::BJModel, state::Vars, aux::Vars, localgeo, t)
-    ocean_init_state!(m, m.problem, state, aux, localgeo, t)
+    ocean_init_state!(m, state, aux, localgeo, t)
 end
 
 function vars_state(m::BJModel, ::Auxiliary, T)
     @vars begin
-        coords::T
+        x::T
+        y::T
     end
 end
 
 function init_state_auxiliary!(
-    m::BJModel,
+    model::BJModel,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
 )
     init_state_auxiliary!(
-        m,
-        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        model,
+        (model, aux, tmp, geom) -> ocean_init_aux!(model, aux, geom),
         state_auxiliary,
         grid,
         direction,
@@ -284,14 +288,15 @@ advective_flux!(::BJModel, ::Nothing, _...) = nothing
     t::Real,
 )
     ρ = state.ρ
-    ρu = @SVector [state.ρu[1], state.ρu[2], -0]
+    ρu = state.ρu
+    ρv = @SVector [state.ρu[1], state.ρu[2], -0]
     ρθ = state.ρθ
 
     ρuₜ = flux.ρu
     ρθₜ = flux.ρθ
 
-    ρuₜ += ρu ⊗ ρu / ρ
-    ρθₜ += ρu ⊗ ρθ / ρ
+    ρuₜ += ρv ⊗ ρu / ρ
+    ρθₜ += ρv * ρθ / ρ
 
     return nothing
 end
@@ -347,7 +352,7 @@ end
     return nothing
 end
 
-coriolis_force!(::BJModel, ::fPlaneCoriolis, _...) = nothing
+coriolis_force!(::BJModel, ::Nothing, _...) = nothing
 
 @inline function coriolis_force!(
     model::BJModel,
@@ -362,7 +367,7 @@ coriolis_force!(::BJModel, ::fPlaneCoriolis, _...) = nothing
 
     # f × u
     f = [-0, -0, coriolis_parameter(model, coriolis, aux.coords)]
-    id = @SVector(1, 2)
+    id = @SVector [1, 2]
     fxρu = (f × ρu)[id]
 
     ρuₜ -= fxρu
@@ -404,7 +409,7 @@ linear_drag!(::BJModel, ::ConstantViscosity, _...) = nothing
     return nothing
 end
 
-@inline wavespeed(::BJModel, _...) = m.c
+@inline wavespeed(m::BJModel, _...) = m.c
 
 boundary_conditions(model::BJModel) = model.boundary_conditions
 
@@ -412,7 +417,7 @@ boundary_conditions(model::BJModel) = model.boundary_conditions
     boundary_state!(nf, ::BJModel, args...)
 
 applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+dispatches to a function in OceanBoundaryConditions
 """
 @inline function boundary_state!(nf, bc, model::BJModel, args...)
     return _ocean_boundary_state!(nf, bc, model, args...)
