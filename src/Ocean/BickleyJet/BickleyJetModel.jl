@@ -47,8 +47,8 @@ struct ConstantViscosity{T} <: TurbulenceClosure
     ν::T
     κ::T
     function ConstantViscosity{T}(;
-        ν = FT(5e3),   # m²/s
-        κ = FT(1e3),   # m²/s
+        ν = FT(1e-6),   # m²/s
+        κ = FT(1e-6),   # m²/s
     ) where {T <: AbstractFloat}
         return new{T}(ν, κ)
     end
@@ -232,14 +232,8 @@ compute_gradient_flux!(::BJModel, ::LinearDrag, _...) = nothing
     ν = Diagonal(@SVector [turb.ν, turb.ν, -0])
     κ = Diagonal(@SVector [turb.κ, turb.κ, -0])
 
-    ∇u = grad.∇u
-    ∇θ = grad.∇θ
-
-    ν∇u = gradflux.ν∇u
-    κ∇θ = gradflux.κ∇θ
-
-    ν∇u = -ν * ∇u
-    κ∇θ = -κ * ∇θ
+    gradflux.ν∇u = -ν * grad.∇u
+    gradflux.κ∇θ = -κ * grad.∇θ
 
     return nothing
 end
@@ -269,8 +263,8 @@ end
         -0 -0
     ]
 
-    ρₜ += ρu
-    ρuₜ += 1 // 2 * g * ρ^2 * Iʰ
+    flux.ρ += ρu
+    flux.ρu += g * ρ^2 * Iʰ / 2
 
     advective_flux!(model, model.advection, flux, state, aux, t)
 
@@ -292,11 +286,8 @@ advective_flux!(::BJModel, ::Nothing, _...) = nothing
     ρv = @SVector [state.ρu[1], state.ρu[2], -0]
     ρθ = state.ρθ
 
-    ρuₜ = flux.ρu
-    ρθₜ = flux.ρθ
-
-    ρuₜ += ρv ⊗ ρu / ρ
-    ρθₜ += ρv * ρθ / ρ
+    flux.ρu += ρv ⊗ ρu / ρ
+    flux.ρθ += ρv * ρθ / ρ
 
     return nothing
 end
@@ -324,14 +315,8 @@ flux_second_order!(::BJModel, ::LinearDrag, _...) = nothing
     aux::Vars,
     t::Real,
 )
-    ρuₜ = flux.ρu
-    ρθₜ = flux.ρθ
-
-    ν∇u = gradflux.ν∇u
-    κ∇θ = gradflux.κ∇θ
-
-    ρuₜ += ν∇u
-    ρθₜ += κ∇θ
+    flux.ρu += gradflux.ν∇u
+    flux.ρθ += gradflux.κ∇θ
 
     return nothing
 end
@@ -363,14 +348,13 @@ coriolis_force!(::BJModel, ::Nothing, _...) = nothing
     t,
 )
     ρu = @SVector [state.ρu[1], state.ρu[2], -0]
-    ρuₜ = source.ρu
 
     # f × u
     f = [-0, -0, coriolis_parameter(model, coriolis, aux.coords)]
     id = @SVector [1, 2]
     fxρu = (f × ρu)[id]
 
-    ρuₜ -= fxρu
+    source.ρu -= fxρu
 
     return nothing
 end
@@ -400,11 +384,7 @@ linear_drag!(::BJModel, ::ConstantViscosity, _...) = nothing
     aux,
     t,
 )
-    λ = turb.λ
-    ρu = state.ρu
-    ρuₜ = source.ρu
-
-    ρuₜ -= λ * ρu
+    source.ρu -= turb.λ * state.ρu
 
     return nothing
 end

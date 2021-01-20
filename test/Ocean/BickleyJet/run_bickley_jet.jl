@@ -34,9 +34,27 @@ function ocean_init_state!(
     localgeo,
     t,
 )
-    state.ρ = -0
-    state.ρu = @SVector [-0, -0]
-    state.ρθ = -0
+    ϵ = 0.1 # perturbation magnitude
+    l = 0.5 # Gaussian width
+    k = 0.5 # Sinusoidal wavenumber
+
+    x = aux.x
+    y = aux.y
+
+    # The Bickley jet
+    U = cosh(y)^(-2)
+
+    # Slightly off-center vortical perturbations
+    Ψ = exp(-(y + l / 10)^2 / (2 * (l^2))) * cos(k * x) * cos(k * y)
+
+    # Vortical velocity fields (ũ, ṽ) = (-∂ʸ, +∂ˣ) ψ̃
+    u = Ψ * (k * tan(k * y) + y / (l^2))
+    v = -Ψ * k * tan(k * x)
+
+    ρ = 1
+    state.ρ = ρ
+    state.ρu = ρ * @SVector [U + ϵ * u, ϵ * v]
+    state.ρθ = ρ * sin(k * y)
 
     return nothing
 end
@@ -50,9 +68,12 @@ function ocean_init_aux!(::BickleyJet.BickleyJetModel, aux, geom)
     return nothing
 end
 
-function run_bickley_jet(dt, nout)
+function run_bickley_jet(params)
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
+
+    xrange = range(-params.Lˣ / 2; length = params.Nˣ + 1, stop = params.Lˣ / 2)
+    yrange = range(-params.Lʸ / 2; length = params.Nʸ + 1, stop = params.Lʸ / 2)
 
     brickrange = (xrange, yrange)
     topl = BrickTopology(
@@ -65,15 +86,15 @@ function run_bickley_jet(dt, nout)
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = N,
+        polynomialorder = params.N,
     )
 
     model = BickleyJet.BickleyJetModel{FT}(
-        (Lˣ, Lʸ),
+        (params.Lˣ, params.Lʸ),
         ClimateMachine.Ocean.NonLinearAdvectionTerm(),
         BickleyJet.ConstantViscosity{FT}(
-            ν = 5e3,   # m²/s
-            κ = 1e3,   # m²/s
+            ν = 0, # 1e-6,   # m²/s
+            κ = 0, # 1e-6,   # m²/s
         ),
         nothing,
         nothing,
@@ -92,22 +113,30 @@ function run_bickley_jet(dt, nout)
 
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
 
-    lsrk = LSRK54CarpenterKennedy(dg, Q, dt = dt, t0 = 0)
+    lsrk = LSRK54CarpenterKennedy(dg, Q, dt = params.dt, t0 = 0)
 
     odesolver = lsrk
 
-    vtkstep = [0, 0]
-    cbvector =
-        make_callbacks(vtkpath, vtkstep, nout, mpicomm, odesolver, dg, model, Q)
+    vtkstep = 0
+    cbvector = make_callbacks(
+        vtkpath,
+        vtkstep,
+        params,
+        mpicomm,
+        odesolver,
+        dg,
+        model,
+        Q,
+    )
 
     eng0 = norm(Q)
     @info @sprintf """Starting
     norm(Q₀) = %.16e
     ArrayType = %s""" eng0 ArrayType
 
-    solve!(Q, odesolver; timeend = timeend, callbacks = cbvector)
+    solve!(Q, odesolver; timeend = params.timeend, callbacks = cbvector)
 
-    Qe = init_ode_state(dg, timeend, init_on_cpu = true)
+    Qe = init_ode_state(dg, params.timeend, init_on_cpu = true)
 
     error = euclidean_distance(Q, Qe) / norm(Qe)
 
@@ -120,7 +149,7 @@ end
 function make_callbacks(
     vtkpath,
     vtkstep,
-    nout,
+    params,
     mpicomm,
     odesolver,
     dg,
@@ -131,13 +160,11 @@ function make_callbacks(
         rm(vtkpath, recursive = true)
     end
     mkpath(vtkpath)
-    mkpath(vtkpath * "/fast")
 
-    function do_output(span, vtkstep, model, dg, Q)
+    function do_output(vtkstep, model, dg, Q)
         outprefix = @sprintf(
-            "%s/%s/mpirank%04d_step%04d",
+            "%s/mpirank%04d_step%04d",
             vtkpath,
-            span,
             MPI.Comm_rank(mpicomm),
             vtkstep
         )
@@ -145,14 +172,18 @@ function make_callbacks(
         statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
         auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
+
+        vtkstep += 1
+
+        return vtkstep
     end
 
-    do_output("fast", vtkstep[2], model, dg, Q)
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("fast", vtkstep[2], model, dg, Q)
-        vtkstep[2] += 1
-        nothing
-    end
+    vtkstep = do_output(vtkstep, model, dg, Q)
+    cbvtk =
+        GenericCallbacks.EveryXSimulationSteps(params.nout) do (init = false)
+            vtkstep = do_output(vtkstep, model, dg, Q)
+            return nothing
+        end
 
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
@@ -166,7 +197,7 @@ function make_callbacks(
                 runtime = %s
                 norm(Q) = %.16e""",
                 ODESolvers.gettime(odesolver),
-                timeend,
+                params.timeend,
                 Dates.format(
                     convert(Dates.DateTime, Dates.now() - starttime[]),
                     Dates.dateformat"HH:MM:SS",
@@ -176,7 +207,7 @@ function make_callbacks(
         end
     end
 
-    return (cbinfo)
+    return (cbinfo, cbvtk)
 end
 
 #################
@@ -186,17 +217,18 @@ FT = Float64
 vtkpath =
     abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_bickley_jet"))
 
-const timeend = FT(200) # s
-const nout = FT(100)
-const dt = FT(0.02) # s
+let
+    timeend = FT(200) # s
+    nout = FT(100)
+    dt = FT(0.02) # s
 
-const N = 3
-const Nˣ = 8
-const Nʸ = 8
-const Lˣ = 4 / π  # m
-const Lʸ = 4 / π  # m
+    N = 3
+    Nˣ = 8
+    Nʸ = 8
+    Lˣ = 4 * FT(π)  # m
+    Lʸ = 4 * FT(π)  # m
 
-xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
-yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
+    params = (; N, Nˣ, Nʸ, Lˣ, Lʸ, dt, nout, timeend)
 
-run_bickley_jet(dt, nout)
+    run_bickley_jet(params)
+end
