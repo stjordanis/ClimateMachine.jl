@@ -19,11 +19,11 @@ export RiverModel, NoRiverModel, river_boundary_flux!, river_boundary_state!
 
 
 struct NoRiverModel <: BalanceLaw end
-
-struct RiverModel{Sx,Sy,MS,W,M} <: BalanceLaw
+## we should change this - we should only specify the slope vector components, not the unit vector components
+## and the magnitude
+struct RiverModel{Sx,Sy,W,M} <: BalanceLaw
     slope_x::Sx
     slope_y::Sy
-    mag_slope::MS
     width::W
     mannings::M
 end
@@ -31,15 +31,13 @@ end
 function RiverModel(
     slope_x::Function,
     slope_y::Function,
-    mag_slope::Function,
     width::Function;
     mannings::Function = (x, y) -> convert(eltype(x), 0.03))
     args = (
         slope_x,
         slope_y,
-        mag_slope,
         width,
-        mannings
+        mannings,
     )
     return RiverModel{typeof.(args)...}(args...)
 end
@@ -48,8 +46,12 @@ function calculate_velocity(river, x::Real, y::Real, h::Real)
     FT = eltype(h)
     sx = FT(river.slope_x(x, y))
     sy = FT(river.slope_y(x, y))
-    magnitude = h^FT(2/3) / river.mannings(x, y) * sqrt(river.mag_slope(x, y))
-    return SVector(sx * magnitude, sy * magnitude, zero(FT))
+    magnitude_slope = FT(sqrt(sx^FT(2.0)+sy^FT(2.0)))
+    mannings_coeff = FT(river.mannings(x, y))
+    magnitude = h^FT(2/3) / mannings_coeff * sqrt(magnitude_slope)
+    return SVector(sx * magnitude / magnitude_slope, 
+                   sy * magnitude / magnitude_slope, 
+                   zero(FT))
 end
 
 ## there is a default method for balance laws that adds no variables that we can use, so
