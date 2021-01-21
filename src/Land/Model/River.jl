@@ -56,18 +56,16 @@ end
 ### i deleted the other methods.
 vars_state(river::RiverModel, st::Prognostic, FT) = @vars(area::FT)
 
-function Land.land_init_aux!(land::LandModel, river::BalanceLaw, aux, geom::LocalGeometry)
+function Land.land_init_aux!(land::LandModel, river::Union{NoRiverModel,RiverModel}, aux, geom::LocalGeometry)
 end
 
-
-function Land.land_nodal_update_auxiliary_state!(land::LandModel, river::BalanceLaw, state, aux, t)
+function Land.land_nodal_update_auxiliary_state!(land::LandModel, river::Union{NoRiverModel,RiverModel}, state, aux, t)
 end
 
-function flux_first_order!(land::LandModel, river::BalanceLaw, flux::Grad, state::Vars, aux::Vars, t::Real, directions)
+function flux_first_order!(land::LandModel, river::NoRiverModel, flux::Grad, state::Vars, aux::Vars, t::Real, directions)
 end
 
-
-function flux_first_order!(land::LandModel, river::RiverModel, flux::Grad, state::Vars, aux::Vars, t::Real, directions) 
+function flux_first_order!(land::LandModel, river::RiverModel, flux::Grad, state::Vars, aux::Vars, t::Real, directions)
     x = aux.x
     y = aux.y
     width = river.width(x, y)
@@ -83,7 +81,7 @@ end
 function river_boundary_flux!(
     nf,
     bc::Land.AbstractBoundaryConditions,
-    m,
+    m::Union{NoRiverModel,RiverModel},
     land::LandModel,
     _...,
 )
@@ -92,7 +90,7 @@ end
 function river_boundary_state!(
     nf,
     bc::Land.AbstractBoundaryConditions,
-    m,
+    m::Union{NoRiverModel,RiverModel},
     land::LandModel,
     _...,
 )

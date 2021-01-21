@@ -28,11 +28,12 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
+function init_land_model!(land, state, aux, localgeo, time) 
+end
+
 @testset "NoRiver Model" begin
     ClimateMachine.init()
     FT = Float64
-
-    function init_land_model!(land, state, aux, localgeo, time) end
 
     soil_water_model = PrescribedWaterModel()
     soil_heat_model = PrescribedTemperatureModel()
@@ -68,7 +69,6 @@ using ClimateMachine.BalanceLaws:
         numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     )
 
-
     t0 = FT(0)
     timeend = FT(60)
     dt = FT(1)
@@ -102,12 +102,18 @@ using ClimateMachine.BalanceLaws:
     @test size(Base.collect(keys(state_vars)))[1] == 0
 end
 
+function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -0.1, xmax = 400)
+    FT = eltype(xin)
+    zmax = FT((FT(1.0)-xin / xmax) * topo_max)
+    alpha = FT(1.0) - zmax / zmin
+    zout = zmin + (zin - zmin) * alpha
+    x, y, z = xin, yin, zout
+    return x, y, z
+end
 
 @testset "Analytical River Model" begin
     ClimateMachine.init()
     FT = Float64
-
-    function init_land_model!(land, state, aux, localgeo, time) end
 
     soil_water_model = PrescribedWaterModel()
     soil_heat_model = PrescribedTemperatureModel()
@@ -121,11 +127,10 @@ end
         (x,y) -> eltype(x)(1);
         mannings = (x,y) -> eltype(x)(0.025)
     )
-
+    
+    # Analytical test case defined as Model 1 in DOI:
     # 10.1061/(ASCE)0733-9429(2007)133:2(217) 
     # Eqn 6
-    # debug boundry condition, constant positive flow rate after min 30
-    # add river boundry state land domain bc
     bc = LandDomainBC(
         minx_bc = LandComponentBC(river = Dirichlet((aux, t) -> eltype(aux)(0))),
     )
@@ -147,14 +152,6 @@ end
         source = sources,
         init_state_prognostic = init_land_model!,
     )
-    function warp_constant_slope(xin, yin, zin; topo_max = 0.2, zmin = -0.1, xmax = 400)
-        FT = eltype(xin)
-        zmax = FT((FT(1.0)-xin / xmax) * topo_max)
-        alpha = FT(1.0) - zmax / zmin
-        zout = zmin + (zin - zmin) * alpha
-        x, y, z = xin, yin, zout
-        return x, y, z
-    end
 
     N_poly = 1;
     xres = FT(2.286)
@@ -177,7 +174,6 @@ end
         param_set,
         m;
         zmin = zmin,
-        #numerical_flux_first_order = CentralNumericalFluxFirstOrder(),now the default for us
         meshwarp = (x...) -> warp_constant_slope(x...;
         topo_max = topo_max, zmin = zmin, xmax = xmax),
     );
@@ -220,14 +216,19 @@ end
 
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
-
+    # Compare flowrate analytical derivation
     aux = solver_config.dg.state_auxiliary;
-    mask = aux[:,1,:] .== 182.88
+     
+    # get all nodal points at the max X bound of the domain
+    mask = Array(aux[:,1,:] .== 182.88)
     n_outputs = length(dons)
-    area = [mean(dons[k]["area"][mask[:]]) for k in 1:n_outputs]
+    # get prognostic variable area from nodal state (m^2)
+    area = [mean(Array(dons[k]["area"])[mask[:]]) for k in 1:n_outputs]
     height = area ./ ymax
+    # get similation timesteps (s)
     time_data = [dons[l]["t"][1] for l in 1:n_outputs]
-    
+   
+
     alpha = sqrt(0.0016)/0.025
     i = 1.4e-5
     L = xmax
@@ -271,6 +272,6 @@ end
         
     end
     
-    @test sqrt_rmse_over_max_q = sqrt(mean((analytic.(time_data, Ref(alpha), Ref(t_c), Ref(t_r), Ref(i), Ref(L), Ref(m)) .- q).^2.0))/ maximum(q) < 3e-3
-    
+    # The Ref's here are to ensure it works on CPU and GPU compatible array backends (q can be a GPU array)
+    @test sqrt_rmse_over_max_q = sqsrt(mean((analytic.(time_data, alpha, t_c, t_r, i, L, m) .- q).^4.0))/ maximum(q) < 3e-3
 end
