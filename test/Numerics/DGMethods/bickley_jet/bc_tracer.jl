@@ -9,7 +9,7 @@ sets transmissive ghost point
 function ocean_boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Insulating,
-    ::BJModel,
+    ::CNSE2D,
     state⁺,
     aux⁺,
     n⁻,
@@ -31,7 +31,7 @@ sets ghost point to have no numerical flux on the boundary for κ∇θ
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Insulating,
-    ::BJModel,
+    ::CNSE2D,
     state⁺,
     gradflux⁺,
     aux⁺,
@@ -56,7 +56,7 @@ applies insulating conditions for first-order and gradient fluxes
 function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::TemperatureFlux,
-    model::BJModel,
+    model::CNSE2D,
     args...,
 )
     return ocean_boundary_state!(nf, Insulating(), model, args...)
@@ -71,7 +71,7 @@ sets ghost point to have specified flux on the boundary for κ∇θ
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::TemperatureFlux,
-    model::BJModel,
+    model::CNSE2D,
     state⁺,
     gradflux⁺,
     aux⁺,

@@ -1,5 +1,5 @@
 """
-    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::BJModel)
+    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::CNSE2D)
 
 apply free slip boundary condition for velocity
 sets reflective ghost point
@@ -7,7 +7,7 @@ sets reflective ghost point
 @inline function ocean_boundary_state!(
     ::NumericalFluxFirstOrder,
     ::Impenetrable{FreeSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::TurbulenceClosure,
     state⁺,
     aux⁺,
@@ -29,20 +29,20 @@ sets reflective ghost point
 end
 
 """
-    ocean_boundary_state!(::Union{NumericalFluxGradient, NumericalFluxSecondOrder}, ::Impenetrable{FreeSlip}, ::BJModel)
+    ocean_boundary_state!(::Union{NumericalFluxGradient, NumericalFluxSecondOrder}, ::Impenetrable{FreeSlip}, ::CNSE2D)
 
 no second order flux computed for linear drag
 """
 ocean_boundary_state!(
     ::Union{NumericalFluxGradient, NumericalFluxSecondOrder},
     ::VelocityBC,
-    ::BJModel,
+    ::CNSE2D,
     ::LinearDrag,
     _...,
 ) = nothing
 
 """
-    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::BJModel)
+    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::CNSE2D)
 
 apply free slip boundary condition for velocity
 sets non-reflective ghost point
@@ -50,7 +50,7 @@ sets non-reflective ghost point
 function ocean_boundary_state!(
     ::NumericalFluxGradient,
     ::Impenetrable{FreeSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     state⁺,
     aux⁺,
@@ -72,7 +72,7 @@ function ocean_boundary_state!(
 end
 
 """
-    shallow_normal_boundary_flux_second_order!(::NumericalFluxSecondOrder, ::Impenetrable{FreeSlip}, ::BJModel)
+    shallow_normal_boundary_flux_second_order!(::NumericalFluxSecondOrder, ::Impenetrable{FreeSlip}, ::CNSE2D)
 
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
@@ -80,7 +80,7 @@ apply zero numerical flux in the normal direction
 function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{FreeSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     state⁺,
     gradflux⁺,
@@ -99,7 +99,7 @@ function ocean_boundary_state!(
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::BJModel)
+    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::CNSE2D)
 
 apply no slip boundary condition for velocity
 sets reflective ghost point
@@ -107,7 +107,7 @@ sets reflective ghost point
 @inline function ocean_boundary_state!(
     ::NumericalFluxFirstOrder,
     ::Impenetrable{NoSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::TurbulenceClosure,
     state⁺,
     aux⁺,
@@ -124,7 +124,7 @@ sets reflective ghost point
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::BJModel)
+    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::CNSE2D)
 
 apply no slip boundary condition for velocity
 set numerical flux to zero for U
@@ -132,7 +132,7 @@ set numerical flux to zero for U
 @inline function ocean_boundary_state!(
     ::NumericalFluxGradient,
     ::Impenetrable{NoSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     state⁺,
     aux⁺,
@@ -149,7 +149,7 @@ set numerical flux to zero for U
 end
 
 """
-    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::BJModel)
+    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::CNSE2D)
 
 apply no slip boundary condition for velocity
 sets ghost point to have no numerical flux on the boundary for U
@@ -157,7 +157,7 @@ sets ghost point to have no numerical flux on the boundary for U
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{NoSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     state⁺,
     gradflux⁺,
@@ -176,20 +176,20 @@ sets ghost point to have no numerical flux on the boundary for U
 end
 
 """
-    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::BJModel)
+    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::CNSE2D)
 
 no mass boundary condition for penetrable
 """
 ocean_boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Penetrable{FreeSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     _...,
 ) = nothing
 
 """
-    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::BJModel)
+    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::CNSE2D)
 
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
@@ -197,7 +197,7 @@ apply zero numerical flux in the normal direction
 function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Penetrable{FreeSlip},
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     state⁺,
     gradflux⁺,
@@ -224,7 +224,7 @@ applies free slip conditions for first-order and gradient fluxes
 function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Impenetrable{<:KinematicStress},
-    model::BJModel,
+    model::CNSE2D,
     turb::TurbulenceClosure,
     args...,
 )
@@ -246,7 +246,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{<:KinematicStress},
-    model::BJModel,
+    model::CNSE2D,
     state⁺,
     gradflux⁺,
     aux⁺,
@@ -272,7 +272,7 @@ applies free slip conditions for first-order and gradient fluxes
 function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Penetrable{<:KinematicStress},
-    model::BJModel,
+    model::CNSE2D,
     turb::TurbulenceClosure,
     args...,
 )
@@ -294,7 +294,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Penetrable{<:KinematicStress},
-    shallow::BJModel,
+    shallow::CNSE2D,
     ::TurbulenceClosure,
     state⁺,
     gradflux⁺,

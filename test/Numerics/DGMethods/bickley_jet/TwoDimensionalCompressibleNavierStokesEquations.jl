@@ -1,6 +1,6 @@
-module BickleyJet
+module TwoDimensionalCompressibleNavierStokes
 
-export BickleyJetModel
+export TwoDimensionalCompressibleNavierStokesEquations
 
 using StaticArrays
 using ClimateMachine.MPIStateArrays: MPIStateArray
@@ -75,7 +75,7 @@ struct KinematicStress{T} <: Forcing
 end
 
 """
-    BickleyJetModel <: BalanceLaw
+    TwoDimensionalCompressibleNavierStokesEquations <: BalanceLaw
 
 A `BalanceLaw` for shallow water modeling.
 
@@ -83,10 +83,11 @@ write out the equations here
 
 # Usage
 
-    BickleyJetModel()
+    TwoDimensionalCompressibleNavierStokesEquations()
 
 """
-struct BickleyJetModel{D, A, T, C, F, BC, FT} <: BalanceLaw
+struct TwoDimensionalCompressibleNavierStokesEquations{D, A, T, C, F, BC, FT} <:
+       BalanceLaw
     domain::D
     advection::A
     turbulence::T
@@ -95,7 +96,7 @@ struct BickleyJetModel{D, A, T, C, F, BC, FT} <: BalanceLaw
     boundary_conditions::BC
     g::FT
     c::FT
-    function BickleyJetModel{FT}(
+    function TwoDimensionalCompressibleNavierStokesEquations{FT}(
         domain::D,
         advection::A,
         turbulence::T,
@@ -117,9 +118,9 @@ struct BickleyJetModel{D, A, T, C, F, BC, FT} <: BalanceLaw
         )
     end
 end
-BJModel = BickleyJetModel
+CNSE2D = TwoDimensionalCompressibleNavierStokesEquations
 
-function vars_state(m::BJModel, ::Prognostic, T)
+function vars_state(m::CNSE2D, ::Prognostic, T)
     @vars begin
         ρ::T
         ρu::SVector{2, T}
@@ -127,11 +128,11 @@ function vars_state(m::BJModel, ::Prognostic, T)
     end
 end
 
-function init_state_prognostic!(m::BJModel, state::Vars, aux::Vars, localgeo, t)
+function init_state_prognostic!(m::CNSE2D, state::Vars, aux::Vars, localgeo, t)
     ocean_init_state!(m, state, aux, localgeo, t)
 end
 
-function vars_state(m::BJModel, ::Auxiliary, T)
+function vars_state(m::CNSE2D, ::Auxiliary, T)
     @vars begin
         x::T
         y::T
@@ -139,7 +140,7 @@ function vars_state(m::BJModel, ::Auxiliary, T)
 end
 
 function init_state_auxiliary!(
-    model::BJModel,
+    model::CNSE2D,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
@@ -153,7 +154,7 @@ function init_state_auxiliary!(
     )
 end
 
-function vars_state(m::BJModel, ::Gradient, T)
+function vars_state(m::CNSE2D, ::Gradient, T)
     @vars begin
         ∇u::SVector{2, T}
         ∇θ::T
@@ -161,7 +162,7 @@ function vars_state(m::BJModel, ::Gradient, T)
 end
 
 function compute_gradient_argument!(
-    model::BJModel,
+    model::CNSE2D,
     grad::Vars,
     state::Vars,
     aux::Vars,
@@ -192,7 +193,7 @@ compute_gradient_argument!(::LinearDrag, _...) = nothing
     return nothing
 end
 
-function vars_state(m::BJModel, ::GradientFlux, T)
+function vars_state(m::CNSE2D, ::GradientFlux, T)
     @vars begin
         ν∇u::SMatrix{3, 2, T, 6}
         κ∇θ::SVector{3, T}
@@ -200,7 +201,7 @@ function vars_state(m::BJModel, ::GradientFlux, T)
 end
 
 function compute_gradient_flux!(
-    model::BJModel,
+    model::CNSE2D,
     gradflux::Vars,
     grad::Grad,
     state::Vars,
@@ -218,10 +219,10 @@ function compute_gradient_flux!(
     )
 end
 
-compute_gradient_flux!(::BJModel, ::LinearDrag, _...) = nothing
+compute_gradient_flux!(::CNSE2D, ::LinearDrag, _...) = nothing
 
 @inline function compute_gradient_flux!(
-    ::BJModel,
+    ::CNSE2D,
     turb::ConstantViscosity,
     gradflux::Vars,
     grad::Grad,
@@ -239,7 +240,7 @@ compute_gradient_flux!(::BJModel, ::LinearDrag, _...) = nothing
 end
 
 @inline function flux_first_order!(
-    model::BJModel,
+    model::CNSE2D,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -271,10 +272,10 @@ end
     return nothing
 end
 
-advective_flux!(::BJModel, ::Nothing, _...) = nothing
+advective_flux!(::CNSE2D, ::Nothing, _...) = nothing
 
 @inline function advective_flux!(
-    ::BJModel,
+    ::CNSE2D,
     ::NonLinearAdvectionTerm,
     flux::Grad,
     state::Vars,
@@ -293,7 +294,7 @@ advective_flux!(::BJModel, ::Nothing, _...) = nothing
 end
 
 function flux_second_order!(
-    model::BJModel,
+    model::CNSE2D,
     flux::Grad,
     state::Vars,
     gradflux::Vars,
@@ -304,10 +305,10 @@ function flux_second_order!(
     flux_second_order!(model, model.turbulence, flux, state, gradflux, aux, t)
 end
 
-flux_second_order!(::BJModel, ::LinearDrag, _...) = nothing
+flux_second_order!(::CNSE2D, ::LinearDrag, _...) = nothing
 
 @inline function flux_second_order!(
-    ::BJModel,
+    ::CNSE2D,
     ::ConstantViscosity,
     flux::Grad,
     state::Vars,
@@ -322,7 +323,7 @@ flux_second_order!(::BJModel, ::LinearDrag, _...) = nothing
 end
 
 @inline function source!(
-    model::BJModel,
+    model::CNSE2D,
     source::Vars,
     state::Vars,
     gradflux::Vars,
@@ -337,10 +338,10 @@ end
     return nothing
 end
 
-coriolis_force!(::BJModel, ::Nothing, _...) = nothing
+coriolis_force!(::CNSE2D, ::Nothing, _...) = nothing
 
 @inline function coriolis_force!(
-    model::BJModel,
+    model::CNSE2D,
     coriolis::fPlaneCoriolis,
     source,
     state,
@@ -359,10 +360,10 @@ coriolis_force!(::BJModel, ::Nothing, _...) = nothing
     return nothing
 end
 
-forcing_term!(::BJModel, ::Nothing, _...) = nothing
+forcing_term!(::CNSE2D, ::Nothing, _...) = nothing
 
 @inline function forcing_term!(
-    model::BJModel,
+    model::CNSE2D,
     forcing::KinematicStress,
     source,
     state,
@@ -374,41 +375,34 @@ forcing_term!(::BJModel, ::Nothing, _...) = nothing
     return nothing
 end
 
-linear_drag!(::BJModel, ::ConstantViscosity, _...) = nothing
+linear_drag!(::CNSE2D, ::ConstantViscosity, _...) = nothing
 
-@inline function linear_drag!(
-    ::BJModel,
-    turb::LinearDrag,
-    source,
-    state,
-    aux,
-    t,
-)
+@inline function linear_drag!(::CNSE2D, turb::LinearDrag, source, state, aux, t)
     source.ρu -= turb.λ * state.ρu
 
     return nothing
 end
 
-@inline wavespeed(m::BJModel, _...) = m.c
+@inline wavespeed(m::CNSE2D, _...) = m.c
 
-boundary_conditions(model::BJModel) = model.boundary_conditions
+boundary_conditions(model::CNSE2D) = model.boundary_conditions
 
 """
-    boundary_state!(nf, ::BJModel, args...)
+    boundary_state!(nf, ::CNSE2D, args...)
 
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions
 """
-@inline function boundary_state!(nf, bc, model::BJModel, args...)
+@inline function boundary_state!(nf, bc, model::CNSE2D, args...)
     return _ocean_boundary_state!(nf, bc, model, args...)
 end
 
 """
-    ocean_boundary_state!(nf, bc::OceanBC, ::BJModel)
+    ocean_boundary_state!(nf, bc::OceanBC, ::CNSE2D)
 
 splits boundary condition application into velocity
 """
-@inline function ocean_boundary_state!(nf, bc::OceanBC, m::BJModel, args...)
+@inline function ocean_boundary_state!(nf, bc::OceanBC, m::CNSE2D, args...)
     return ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
     return ocean_boundary_state!(nf, bc.temperature, m, args...)
 end

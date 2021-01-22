@@ -8,9 +8,8 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorders
 using ClimateMachine.Ocean
-using ClimateMachine.Ocean.OceanProblems
 
-include("../../../src/Ocean/BickleyJet/BickleyJetModel.jl")
+include("TwoDimensionalCompressibleNavierStokesEquations.jl")
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -28,7 +27,7 @@ using Logging, Printf, Dates
 import ClimateMachine.Ocean: ocean_init_state!, ocean_init_aux!
 
 function ocean_init_state!(
-    ::BickleyJet.BickleyJetModel,
+    ::TwoDimensionalCompressibleNavierStokes.TwoDimensionalCompressibleNavierStokesEquations,
     state,
     aux,
     localgeo,
@@ -59,7 +58,11 @@ function ocean_init_state!(
     return nothing
 end
 
-function ocean_init_aux!(::BickleyJet.BickleyJetModel, aux, geom)
+function ocean_init_aux!(
+    ::TwoDimensionalCompressibleNavierStokes.CNSE2D,
+    aux,
+    geom,
+)
     @inbounds begin
         aux.x = geom.coord[1]
         aux.y = geom.coord[2]
@@ -89,10 +92,10 @@ function run_bickley_jet(params)
         polynomialorder = params.N,
     )
 
-    model = BickleyJet.BickleyJetModel{FT}(
+    model = TwoDimensionalCompressibleNavierStokes.CNSE2D{FT}(
         (params.Lˣ, params.Lʸ),
         ClimateMachine.Ocean.NonLinearAdvectionTerm(),
-        BickleyJet.ConstantViscosity{FT}(
+        TwoDimensionalCompressibleNavierStokes.ConstantViscosity{FT}(
             ν = 0, # 1e-6,   # m²/s
             κ = 0, # 1e-6,   # m²/s
         ),
@@ -135,13 +138,6 @@ function run_bickley_jet(params)
     ArrayType = %s""" eng0 ArrayType
 
     solve!(Q, odesolver; timeend = params.timeend, callbacks = cbvector)
-
-    Qe = init_ode_state(dg, params.timeend, init_on_cpu = true)
-
-    error = euclidean_distance(Q, Qe) / norm(Qe)
-
-    println("2D error = ", error)
-    @test isapprox(error, FT(0.0); atol = 0.005)
 
     return nothing
 end
