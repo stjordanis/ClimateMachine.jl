@@ -165,6 +165,7 @@ function make_callbacks(
     model,
     Q,
 )
+    vtkpath = joinpath(vtkpath, "N_$(params.N)_Nint_$(params.Nint)")
     if isdir(vtkpath)
         rm(vtkpath, recursive = true)
     end
@@ -180,7 +181,15 @@ function make_callbacks(
         @info "doing VTK output" outprefix
         statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
         auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
-        writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
+        writevtk(
+            outprefix,
+            Q,
+            dg,
+            statenames,
+            dg.state_auxiliary,
+            auxnames;
+            number_sample_points = 10,
+        )
 
         vtkstep += 1
 
