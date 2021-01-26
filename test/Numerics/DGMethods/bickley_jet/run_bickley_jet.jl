@@ -242,8 +242,9 @@ let
 
     N = 3
     Nint = 4
-    Nˣ = 16
-    Nʸ = 16
+    ndof = 32
+    Nˣ = cld(32, N + 1)
+    Nʸ = cld(32, N + 1)
     Lˣ = 4 * FT(π)  # m
     Lʸ = 4 * FT(π)  # m
 
