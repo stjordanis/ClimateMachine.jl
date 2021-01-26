@@ -14,7 +14,8 @@ include("TwoDimensionalCompressibleNavierStokesEquations.jl")
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.BalanceLaws: vars_state, Prognostic, Auxiliary
+using ClimateMachine.BalanceLaws:
+    vars_state, Prognostic, Auxiliary, number_states
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VTK
@@ -89,7 +90,7 @@ function run_bickley_jet(params)
         topl,
         FloatType = FT,
         DeviceArray = ArrayType,
-        polynomialorder = params.N,
+        polynomialorder = params.Nint,
     )
 
     model = TwoDimensionalCompressibleNavierStokes.CNSE2D{FT}(
@@ -116,7 +117,16 @@ function run_bickley_jet(params)
 
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
 
-    lsrk = LSRK54CarpenterKennedy(dg, Q, dt = params.dt, t0 = 0)
+    cutoff = CutoffFilter(grid, params.N + 1)
+
+    num_state_prognostic = number_states(model, Prognostic())
+    Filters.apply!(Q, 1:num_state_prognostic, grid, cutoff)
+    function custom_tendency(tendency, x...; kw...)
+        dg(tendency, x...; kw...)
+        Filters.apply!(tendency, 1:num_state_prognostic, grid, cutoff)
+    end
+
+    lsrk = LSRK54CarpenterKennedy(custom_tendency, Q, dt = params.dt, t0 = 0)
 
     odesolver = lsrk
 
@@ -219,12 +229,13 @@ let
     dt = FT(0.02) # s
 
     N = 3
+    Nint = 4
     Nˣ = 16
     Nʸ = 16
     Lˣ = 4 * FT(π)  # m
     Lʸ = 4 * FT(π)  # m
 
-    params = (; N, Nˣ, Nʸ, Lˣ, Lʸ, dt, nout, timeend)
+    params = (; N, Nˣ, Nʸ, Lˣ, Lʸ, dt, nout, timeend, Nint)
 
     run_bickley_jet(params)
 end
