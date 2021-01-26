@@ -117,13 +117,16 @@ function run_bickley_jet(params)
 
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
 
-    cutoff = CutoffFilter(grid, params.N + 1)
-
-    num_state_prognostic = number_states(model, Prognostic())
-    Filters.apply!(Q, 1:num_state_prognostic, grid, cutoff)
+    if params.Nint > params.N
+        cutoff = CutoffFilter(grid, params.N + 1)
+        num_state_prognostic = number_states(model, Prognostic())
+        Filters.apply!(Q, 1:num_state_prognostic, grid, cutoff)
+    end
     function custom_tendency(tendency, x...; kw...)
         dg(tendency, x...; kw...)
-        Filters.apply!(tendency, 1:num_state_prognostic, grid, cutoff)
+        if params.Nint > params.N
+            Filters.apply!(tendency, 1:num_state_prognostic, grid, cutoff)
+        end
     end
 
     lsrk = LSRK54CarpenterKennedy(custom_tendency, Q, dt = params.dt, t0 = 0)
