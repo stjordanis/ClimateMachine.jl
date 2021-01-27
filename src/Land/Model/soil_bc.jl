@@ -255,12 +255,55 @@ function soil_boundary_flux!(
     _...,
 )
 
-    precip_model = bc.precip_model
-    runoff_model = bc.runoff_model
-    #compute surface flux
-    net_surface_flux =
-        compute_surface_flux(runoff_model, precip_model, state⁻, t)
-    # at the top, the normal vector is equal to ẑ
-    diff⁺.soil.water.K∇h = n̂ * (-net_surface_flux)
+    diff⁺.soil.water.K∇h = compute_surface_grad_bc(land.soil,
+                                                   bc.runoff_model,
+                                                   bc.precip_model,
+                                                   n̂,
+                                                   state⁻,
+                                                   diff⁻,
+                                                   t
+                                                   )
+
+end
+
+
+
+"""
+    function soil_boundary_flux!(
+        nf,
+        bc::SurfaceDrivenWaterBoundaryConditions,
+        water::SoilWaterModel,
+        land::LandModel,
+        state⁺::Vars,
+        diff⁺::Vars,
+        aux⁺::Vars,
+        n̂,
+        state⁻::Vars,
+        diff⁻::Vars,
+        aux⁻::Vars,
+        t,
+    )
+
+The Surface Driven BC method for `soil_boundary_flux!` for the
+`SoilWaterModel`.
+"""
+function soil_boundary_state!(
+    nf,
+    bc::SurfaceDrivenWaterBoundaryConditions,
+    water::SoilWaterModel,
+    land::LandModel,
+    state⁺::Vars,
+    aux⁺::Vars,
+    n̂,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+
+    state⁺.soil.water.ϑ_l = compute_surface_state_bc(land.soil,
+                                                   bc.runoff_model,
+                                                   state⁻
+                                                   )
 
 end
