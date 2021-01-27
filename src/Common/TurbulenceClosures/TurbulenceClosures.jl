@@ -61,6 +61,7 @@ export TurbulenceClosureModel,
     ConstantViscosity,
     ConstantDynamicViscosity,
     ConstantKinematicViscosity,
+    TanhStabilisation,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
@@ -317,6 +318,72 @@ Given the rate-of-strain tensor `S`, computes its magnitude.
 """
 function strain_rate_magnitude(S::SHermitianCompact{3, FT, 6}) where {FT}
     return sqrt(2 * norm2(S))
+end
+
+"""
+    TanhStabilisation <: TurbulenceClosureModel
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+
+"""
+struct TanhStabilisation{FT} <: TurbulenceClosureModel
+    "Stabilisation Coefficient"
+    μ::FT
+    "Smoothness Exponent"
+    smoothness_exponent::FT
+    "Δu"
+    Δu::FT
+    "Bounds on viscosity"
+    μ_max::FT
+    μ_min::FT
+end
+
+vars_state(::TanhStabilisation, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::TanhStabilisation, ::GradientFlux, FT) = @vars(μ::FT, ∇u::SMatrix{3,3,FT,9})
+
+function init_aux_turbulence!(
+    ::TanhStabilisation,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    # Or store minimum nodal distance
+    aux.turbulence.Δ = lengthscale(geom)
+end
+
+function compute_gradient_flux!(
+    m::TanhStabilisation,
+    orientation::Orientation,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ∇u = ∇transform.u
+    ∇u² = sum(∇u .^ 2)
+    arg = (sqrt(∇u²) * aux.turbulence.Δ / m.Δu)^m.smoothness_exponent
+    μ_xy = m.μ + m.μ_min + (m.μ_max - m.μ_min) * tanh(arg)
+    diffusive.turbulence.μ = μ_xy
+    diffusive.turbulence.∇u = ∇u
+end
+
+function turbulence_tensors(
+    ::TanhStabilisation,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)       
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(param_set))
+    μ = diffusive.turbulence.μ
+    D_t = μ * _inv_Pr_turb
+    τ = μ * diffusive.turbulence.∇u
+    return μ, D_t, τ
 end
 
 """
