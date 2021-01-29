@@ -31,7 +31,7 @@ using ClimateMachine.BalanceLaws:
 function init_land_model!(land, state, aux, localgeo, time) 
 end
 
-#=
+
 @testset "NoRiver Model" begin
     ClimateMachine.init()
     FT = Float64
@@ -124,7 +124,7 @@ end
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     
     m_river = RiverModel(
-        (x,y) -> eltype(x)(0.0016),
+        (x,y) -> eltype(x)(-0.0016),
         (x,y) -> eltype(x)(0.0),
 #        (x,y) -> eltype(x)(0.0016),
         (x,y) -> eltype(x)(1);
@@ -276,9 +276,9 @@ end
     end
     
     # The Ref's here are to ensure it works on CPU and GPU compatible array backends (q can be a GPU array)
-    @test sqrt_rmse_over_max_q = sqsrt(mean((analytic.(time_data, alpha, t_c, t_r, i, L, m) .- q).^4.0))/ maximum(q) < 3e-3
+    @test sqrt_rmse_over_max_q = sqrt(mean((analytic.(time_data, alpha, t_c, t_r, i, L, m) .- q).^4.0))/ maximum(q) < 3e-3
 end
-=#
+
 
 function warp_tilted_v(xin, yin, zin)
     FT = eltype(xin)
@@ -298,19 +298,19 @@ function warp_tilted_v(xin, yin, zin)
     return x, y, z
 end
 
-## @testset "V Catchment Maxwell River Model" begin
+#@testset "V Catchment Maxwell River Model" begin
     ClimateMachine.init()
     FT = Float64
-
+    
     soil_water_model = PrescribedWaterModel()
     soil_heat_model = PrescribedTemperatureModel()
     soil_param_functions = nothing
-
+    
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
   
     function x_slope(x, y)
         MFT = eltype(x)
-        if x <= MFT(800)
+        if x < MFT(800)
             MFT(-0.05)
         elseif x <= MFT(820)
             MFT(0)
@@ -318,37 +318,39 @@ end
             MFT(0.05)
         end
     end
-
+    
     function y_slope(x, y)
         MFT = eltype(x)
         MFT(-0.02)
     end
-
+    
     function channel_mannings(x, y)
         MFT = eltype(x)
-        return x >= MFT(800) && x <= MFT(820) ? MFT(2.5 * 10^-4) : MFT(2.5 * 10^-3)
+        return x >= MFT(800) && x <= MFT(820) ? MFT(2.5*60 * 10^-3) : MFT(2.5*60 * 10^-4)
     end
-
+    
     m_river = RiverModel(
         x_slope,
         y_slope,
         (x,y) -> eltype(x)(1);
         mannings = channel_mannings,
     )
-   
+    
     bc = LandDomainBC(
         miny_bc = LandComponentBC(river = Dirichlet((aux, t) -> eltype(aux)(0))),
+        minx_bc = LandComponentBC(river = Dirichlet((aux, t) -> eltype(aux)(0))),
+        maxx_bc = LandComponentBC(river = Dirichlet((aux, t) -> eltype(aux)(0))),
     )
- 
+    
     function init_land_model!(land, state, aux, localgeo, time)
         state.river.area = eltype(state)(0)
     end
-
+    
     # units in m / s 
     precip(x, y, t) = t < (90 * 60) ? 3e-6 : 0.0
-
+    
     sources = (Precip{FT}(precip),)
-
+    
     m = LandModel(
         param_set,
         m_soil,
@@ -357,8 +359,9 @@ end
         source = sources,
         init_state_prognostic = init_land_model!,
     )
-
-    N_poly = 1;
+    
+    N_poly_hori = 1;
+    N_poly_vert = 1;
     xres = FT(20)
     yres = FT(20)
     zres = FT(1)
@@ -367,11 +370,11 @@ end
     zmin = FT(0);
     xmax = FT(1620)
     ymax = FT(1000)
-
-
+    
+    
     driver_config = ClimateMachine.MultiColumnLandModel(
         "LandModel",
-        (N_poly, N_poly),
+        (N_poly_hori, N_poly_vert),
         (xres,yres,zres),
         xmax,
         ymax,
@@ -379,13 +382,13 @@ end
         param_set,
         m;
         zmin = zmin,
-        meshwarp = (x...) -> warp_tilted_v(x...),
+        # meshwarp = (x...) -> warp_tilted_v(x...),
     );
-
+    
     t0 = FT(0)
     timeend = FT(180*60)
-    dt = FT(30)
-
+    dt = FT(3)
+    
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
@@ -398,11 +401,11 @@ end
     area_index =
         varsindex(vars_state(m, Prognostic(), FT), :river, :area)
     n_outputs = 60
-
+    
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
-
+    
     dons = Dict([k => Dict() for k in 1:n_outputs]...)
-
+    
     iostep = [1]
     callback = GenericCallbacks.EveryXSimulationTime(
         every_x_simulation_time,
@@ -417,20 +420,33 @@ end
         iostep[1] += 1
         return
     end
-
+    
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
-
+    
     # Compare flowrate analytical derivation
     aux = solver_config.dg.state_auxiliary;
-     
+    x = aux[:,1,:]
+    y = aux[:,2,:]
+    z = aux[:,3,:]
     # get all nodal points at the max X bound of the domain
-    mask = Array(aux[:,1,:] .== 182.88)
-    n_outputs = length(dons)
-    
-    # get prognostic variable area from nodal state (m^2)
-    area = [mean(Array(dons[k]["area"])[mask[:]]) for k in 1:n_outputs]
-    height = area ./ ymax
+    mask2 = (Float64.(aux[:,2,:] .== 1000.0) .+ Float64.(aux[:,1,:] .<= 820) .+ Float64.(aux[:,1,:] .> 800)) .== 3
+     n_outputs = length(dons)
+    function compute_Q(a,xv)
+        height = max.(a,0.0) ./ 1.0# width = 1 here, everywhere
+        v = calculate_velocity(m_river,xv, 1000.0, height)# put in y = 1000.0
+        speed = sqrt(v[1]^2.0+v[2]^2.0 +v[3]^2.0)
+        Q_outlet = speed .* height  .* 60.0 # multiply by 60 so it is per minute, not per second
+        return Q_outlet
+    end
+    # We divide by 4 because we have 4 nodal points with the same value at each x (z = 0, 1)
+    # Multiply by xres because the solution at each point roughly represents that the solution for that range in x
+    # Maybe there is a conceptual error here?
+    Q = [sum(compute_Q.(Array(dons[k]["area"])[:][mask2[:]], x[mask2[:]])) for k in 1:n_outputs] ./4.0 .* xres
+
+
 
     # get similation timesteps (s)
     time_data = [dons[l]["t"][1] for l in 1:n_outputs]
+    #also helpful
+    #scatter(aux[:,1,:][:], aux[:,2,:][:], dons[50]["area"][:])
 #end

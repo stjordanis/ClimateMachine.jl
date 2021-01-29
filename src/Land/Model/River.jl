@@ -15,7 +15,7 @@ import ..BalanceLaws:
 using ...DGMethods: LocalGeometry
 using StaticArrays: SVector
 
-export RiverModel, NoRiverModel, river_boundary_flux!, river_boundary_state!
+export RiverModel, NoRiverModel, river_boundary_flux!, river_boundary_state!, calculate_velocity
 
 
 struct NoRiverModel <: BalanceLaw end
@@ -46,16 +46,15 @@ function calculate_velocity(river, x::Real, y::Real, h::Real)
     FT = eltype(h)
     sx = FT(river.slope_x(x, y))
     sy = FT(river.slope_y(x, y))
-    magnitude_slope = FT(sqrt(sx^FT(2.0)+sy^FT(2.0)))
+    #magnitude_slope = FT(sqrt(sx^FT(2.0)+sy^FT(2.0)))
     mannings_coeff = FT(river.mannings(x, y))
-    magnitude = h^FT(2/3) / mannings_coeff * sqrt(magnitude_slope)
-    return SVector(sx * magnitude / magnitude_slope, 
-                   sy * magnitude / magnitude_slope, 
+    magnitude = h^FT(2/3) / mannings_coeff #* sqrt(magnitude_slope)
+    #if the slope is positive, dz/dx >0, flow should be in opposite direction. add in  minus signs
+    return SVector(-sign(sx) * magnitude*sqrt(abs(sx)),# / magnitude_slope, 
+                   -sign(sy) * magnitude*sqrt(abs(sy)),# / magnitude_slope, 
                    zero(FT))
 end
 
-## there is a default method for balance laws that adds no variables that we can use, so
-### i deleted the other methods.
 vars_state(river::RiverModel, st::Prognostic, FT) = @vars(area::FT)
 
 function Land.land_init_aux!(land::LandModel, river::Union{NoRiverModel,RiverModel}, aux, geom::LocalGeometry)
@@ -71,9 +70,10 @@ function flux_first_order!(land::LandModel, river::RiverModel, flux::Grad, state
     x = aux.x
     y = aux.y
     width = river.width(x, y)
-    height = state.river.area / width
+    area = max(eltype(state)(0.0), state.river.area)
+    height = area / width
     v = calculate_velocity(river, x, y, height)
-    Q = state.river.area * v
+    Q = area * v
     flux.river.area = Q
 end 
 
