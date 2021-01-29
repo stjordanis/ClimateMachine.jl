@@ -59,14 +59,18 @@ function config_solid_body_rotation(
     # Set up the atmosphere model
     exp_name = "SolidBodyRotation"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    
+    problem = AtmosProblem(
+                           boundaryconditions = (InitStateBC(),),
+                           init_state_prognostic = init_solid_body_rotation!
+                          )
 
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
-        init_state_prognostic = init_solid_body_rotation!,
+        problem = problem,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis()),
     )
