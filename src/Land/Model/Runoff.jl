@@ -1,7 +1,11 @@
 module Runoff
 
-using ...VariableTemplates
+using LinearAlgebra
 using DocStringExtensions
+
+
+using ...VariableTemplates
+using ...Land:SoilModel
 
 export AbstractPrecipModel,
     DrivenConstantPrecip,

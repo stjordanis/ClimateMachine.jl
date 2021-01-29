@@ -217,14 +217,14 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
-include("Runoff.jl")
-using .Runoff
-include("land_bc.jl")
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
 include("SoilHeatParameterizations.jl")
 using .SoilHeatParameterizations
 include("soil_model.jl")
+include("Runoff.jl")
+using .Runoff
+include("land_bc.jl")
 include("soil_water.jl")
 include("soil_heat.jl")
 include("soil_bc.jl")
