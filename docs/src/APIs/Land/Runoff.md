@@ -10,5 +10,7 @@ AbstractPrecipModel
 DrivenConstantPrecip
 AbstractSurfaceRunoffModel
 NoRunoff
-compute_surface_flux
+CoarseGridRunoff
+compute_surface_state_bc
+compute_surface_grad_bc
 ```

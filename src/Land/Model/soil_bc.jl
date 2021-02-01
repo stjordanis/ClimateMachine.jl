@@ -255,14 +255,15 @@ function soil_boundary_flux!(
     _...,
 )
 
-    diff⁺.soil.water.K∇h = compute_surface_grad_bc(land.soil,
-                                                   bc.runoff_model,
-                                                   bc.precip_model,
-                                                   n̂,
-                                                   state⁻,
-                                                   diff⁻,
-                                                   t
-                                                   )
+    diff⁺.soil.water.K∇h = compute_surface_grad_bc(
+        land.soil,
+        bc.runoff_model,
+        bc.precip_model,
+        n̂,
+        state⁻,
+        diff⁻,
+        t,
+    )
 
 end
 
@@ -301,9 +302,7 @@ function soil_boundary_state!(
     _...,
 )
 
-    state⁺.soil.water.ϑ_l = compute_surface_state_bc(land.soil,
-                                                   bc.runoff_model,
-                                                   state⁻
-                                                   )
+    state⁺.soil.water.ϑ_l =
+        compute_surface_state_bc(land.soil, bc.runoff_model, state⁻)
 
 end

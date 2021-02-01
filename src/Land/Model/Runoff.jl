@@ -5,7 +5,7 @@ using DocStringExtensions
 
 
 using ...VariableTemplates
-using ...Land:SoilModel
+using ...Land: SoilModel
 
 export AbstractPrecipModel,
     DrivenConstantPrecip,
@@ -77,21 +77,22 @@ struct CoarseGridRunoff <: AbstractSurfaceRunoffModel end
 Given a runoff model and a precipitation distribution function, compute 
 the surface water Neumann BC. This can be a function of time, and state.
 """
-function compute_surface_grad_bc(soil::SoilModel,
-                                 runoff_model::CoarseGridRunoff,
-                                 precip_model::AbstractPrecipModel,
-                                 n̂,
-                                 state⁻::Vars,
-                                 diff⁻::Vars,
-                                 t::Real
-                                 )
+function compute_surface_grad_bc(
+    soil::SoilModel,
+    runoff_model::CoarseGridRunoff,
+    precip_model::AbstractPrecipModel,
+    n̂,
+    state⁻::Vars,
+    diff⁻::Vars,
+    t::Real,
+)
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
     if incident_water_flux < -norm(diff⁻.soil.water.K∇h) # More negative if both are negative, 
         #ponding BC
         K∇h⁺ = diff⁻.soil.water.K∇h
     else
-        K∇h⁺ = n̂ *  (-FT(2)*incident_water_flux) - diff⁻.soil.water.K∇h
+        K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
     end
     return K∇h⁺
 end
@@ -111,17 +112,18 @@ end
 Given a runoff model and a precipitation distribution function, compute 
 the surface water Neumann BC. This can be a function of time, and state.
 """
-function compute_surface_grad_bc(soil::SoilModel,
-                                 runoff_model::NoRunoff,
-                                 precip_model::AbstractPrecipModel,
-                                 n̂,
-                                 state⁻::Vars,
-                                 diff⁻::Vars,
-                                 t::Real
-                                 )
+function compute_surface_grad_bc(
+    soil::SoilModel,
+    runoff_model::NoRunoff,
+    precip_model::AbstractPrecipModel,
+    n̂,
+    state⁻::Vars,
+    diff⁻::Vars,
+    t::Real,
+)
     FT = eltype(state⁻)
     incident_water_flux = precip_model(t)
-    K∇h⁺ = n̂ *  (-FT(2)*incident_water_flux) - diff⁻.soil.water.K∇h
+    K∇h⁺ = n̂ * (-FT(2) * incident_water_flux) - diff⁻.soil.water.K∇h
     return K∇h⁺
 end
 
@@ -137,10 +139,11 @@ end
 Given a runoff model and a precipitation distribution function, compute 
 the surface water Dirichlet BC. This can be a function of time, and state.
 """
-function compute_surface_state_bc(soil::SoilModel,
-                                  runoff_model::CoarseGridRunoff,
-                                  state⁻::Vars,
-                                  )
+function compute_surface_state_bc(
+    soil::SoilModel,
+    runoff_model::CoarseGridRunoff,
+    state⁻::Vars,
+)
     FT = eltype(state⁻)
     bc_value = soil.param_functions.porosity - state⁻.soil.water.θ_i
     ϑ_l⁺ = bc_value
@@ -158,10 +161,11 @@ end
 Given a runoff model and a precipitation distribution function, compute 
 the surface water Dirichlet BC. This can be a function of time, and state.
 """
-function compute_surface_state_bc(soil::SoilModel,
-                                  runoff_model::NoRunoff,
-                                  state⁻::Vars,
-                                  )
+function compute_surface_state_bc(
+    soil::SoilModel,
+    runoff_model::NoRunoff,
+    state⁻::Vars,
+)
     return state⁻.soil.water.ϑ_l
 end
 

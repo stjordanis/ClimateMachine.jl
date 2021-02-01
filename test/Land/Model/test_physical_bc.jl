@@ -26,6 +26,8 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
+import ClimateMachine.DGMethods.FVReconstructions: FVLinear
+
 @testset "NoRunoff" begin
     ClimateMachine.init()
 
@@ -200,10 +202,8 @@ end
         init_state_prognostic = init_soil_water!,
     )
 
-
-    N_poly = 2
-    nelem_vert = 50
-
+    N_poly = (1,0)
+    nelem_vert = 100
 
     # Specify the domain boundaries
     zmax = FT(0)
@@ -218,6 +218,8 @@ end
         m;
         zmin = zmin,
         numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        fv_reconstruction = FVLinear(),
+
     )
 
 
