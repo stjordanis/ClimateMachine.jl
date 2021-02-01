@@ -46,12 +46,16 @@ import ClimateMachine.DGMethods.FVReconstructions: FVLinear
     precip = (t) -> surface_precip_amplitude * sin(f * t)
     ϑ_l0 = (aux) -> eltype(aux)(0.2)
     bc = LandDomainBC(
-        bottom_bc = LandComponentBC(soil_water = Neumann((aux,t) -> eltype(aux)(0.0))),
-        surface_bc = LandComponentBC( soil_water = SurfaceDrivenWaterBoundaryConditions(
-            FT;
-            precip_model = DrivenConstantPrecip{FT}(precip),
-            runoff_model = NoRunoff(),
-        ))
+        bottom_bc = LandComponentBC(
+            soil_water = Neumann((aux, t) -> eltype(aux)(0.0)),
+        ),
+        surface_bc = LandComponentBC(
+            soil_water = SurfaceDrivenWaterBoundaryConditions(
+                FT;
+                precip_model = DrivenConstantPrecip{FT}(precip),
+                runoff_model = NoRunoff(),
+            ),
+        ),
     )
 
     soil_water_model = SoilWaterModel(FT; initialϑ_l = ϑ_l0)
@@ -100,31 +104,32 @@ import ClimateMachine.DGMethods.FVReconstructions: FVLinear
     )
     n_outputs = 60
     mygrid = solver_config.dg.grid
-    const every_x_simulation_time = ceil(Int, timeend / n_outputs);
+    every_x_simulation_time = ceil(Int, timeend / n_outputs)
     state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+    dons_arr =
+        Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0] # store time data
-    
+
     # We specify a function which evaluates `every_x_simulation_time` and returns
     # the state vector, appending the variables we are interested in into
     # `dons_arr`.
-    
+
     callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
         dons = dict_of_nodal_states(solver_config, state_types; interp = true)
         push!(dons_arr, dons)
         push!(time_data, gettime(solver_config.solver))
         nothing
-    end;
-    
+    end
+
     # # Run the integration
-    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
     push!(dons_arr, dons)
-    push!(time_data, gettime(solver_config.solver));
-    
+    push!(time_data, gettime(solver_config.solver))
+
     # Get z-coordinate
-    z = get_z(solver_config.dg.grid; rm_dupes = true);
+    z = get_z(solver_config.dg.grid; rm_dupes = true)
     N = length(dons_arr)
     computed_surface_flux = [dons_arr[k]["soil.water.K∇h[3]"][end] for k in 1:N]
     t = time_data
@@ -134,66 +139,66 @@ import ClimateMachine.DGMethods.FVReconstructions: FVLinear
 end
 
 
-#=
-@testset "Infiltration Excess" begin
+
+@testset "Explicit Dirichlet BC Comparison" begin
     ClimateMachine.init()
-
     FT = Float64
-
     function init_soil_water!(land, state, aux, localgeo, time)
         myfloat = eltype(state)
         state.soil.water.ϑ_l = myfloat(land.soil.water.initialϑ_l(aux))
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
-    soil_param_functions =
-        SoilParamFunctions{FT}(porosity = 0.495, Ksat = 0.0443 / (3600 * 100), S_s = 1e-4)
+    soil_param_functions = SoilParamFunctions{FT}(
+        porosity = 0.495,
+        Ksat = 0.0443 / (3600 * 100),
+        S_s = 1e-4,
+    )
     surface_precip_amplitude = FT(-5e-7)
-    f = FT(pi * 2.0 / 2000.0)
-    function precip_function(t, f)
-        myf = eltype(t)
-        if t < myf(10000.0)
-            return myf(0.0)
-        elseif t < myf(10500.0)
-            return surface_precip_amplitude * sin(f * (t-myf(10000)))
-        else
-            return surface_precip_amplitude
-        end
-    end
 
-    
-    precip = (t) -> precip_function(t, f)
+    precip = (t) -> surface_precip_amplitude
     hydraulics = vanGenuchten{FT}(n = 2.0)
     function hydrostatic_profile(z, zm, porosity, n, α)
         myf = eltype(z)
-        m = FT(1-1/n)
-        S = FT((FT(1)+(α*(z-zm))^n)^(-m))
-        return FT(S*porosity)
+        m = FT(1 - 1 / n)
+        S = FT((FT(1) + (α * (z - zm))^n)^(-m))
+        return FT(S * porosity)
     end
 
-    
-
-
-    ϑ_l0 = (aux) -> eltype(aux)(hydrostatic_profile(aux.z,-1,0.495, hydraulics.n, hydraulics.α))
-    bc = LandDomainBC(
-        bottom_bc = LandComponentBC(soil_water = Neumann((aux,t) -> eltype(aux)(0.0))),
-        surface_bc = LandComponentBC( soil_water = SurfaceDrivenWaterBoundaryConditions(
-            FT;
-            precip_model = DrivenConstantPrecip{FT}(precip),
-            runoff_model = CoarseGridRunoff(),
+    ϑ_l0 =
+        (aux) -> eltype(aux)(hydrostatic_profile(
+            aux.z,
+            -1,
+            0.495,
+            hydraulics.n,
+            hydraulics.α,
         ))
-    )
 
     soil_water_model = SoilWaterModel(
         FT;
         moisture_factor = MoistureDependent{FT}(),
         hydraulics = hydraulics,
         initialϑ_l = ϑ_l0,
-    );
+    )
     soil_heat_model = PrescribedTemperatureModel()
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = ()
+
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(
+            soil_water = Neumann((aux, t) -> eltype(aux)(0.0)),
+        ),
+        surface_bc = LandComponentBC(
+            soil_water = SurfaceDrivenWaterBoundaryConditions(
+                FT;
+                precip_model = DrivenConstantPrecip{FT}(precip),
+                runoff_model = CoarseGridRunoff(),
+            ),
+        ),
+    )
+
+
     m = LandModel(
         param_set,
         m_soil;
@@ -202,7 +207,7 @@ end
         init_state_prognostic = init_soil_water!,
     )
 
-    N_poly = (1,0)
+    N_poly = (1, 0)
     nelem_vert = 100
 
     # Specify the domain boundaries
@@ -219,13 +224,12 @@ end
         zmin = zmin,
         numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
         fv_reconstruction = FVLinear(),
-
     )
 
 
     t0 = FT(0)
-    timeend = FT(64000)
-    dt = FT(2)
+    timeend = FT(40000)
+    dt = FT(4)
 
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -233,35 +237,178 @@ end
         driver_config,
         ode_dt = dt,
     )
-    n_outputs = 60
-    mygrid = solver_config.dg.grid
-    const every_x_simulation_time = ceil(Int, timeend / n_outputs);
-    state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
-    time_data = FT[0] # store time data
-    
-    # We specify a function which evaluates `every_x_simulation_time` and returns
-    # the state vector, appending the variables we are interested in into
-    # `dons_arr`.
-    
-    callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-        dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-        push!(dons_arr, dons)
-        push!(time_data, gettime(solver_config.solver))
-        nothing
-    end;
-    
-    # # Run the integration
-    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+    state_types = (Prognostic(),)
 
-    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(dons_arr, dons)
-    push!(time_data, gettime(solver_config.solver));
-    
-    # Get z-coordinate
-    z = get_z(solver_config.dg.grid; rm_dupes = true);
-    N = length(dons_arr)
-    computed_surface_flux = [dons_arr[k]["soil.water.K∇h[3]"][end] for k in 1:N]
-    t = time_data
+    ClimateMachine.invoke!(solver_config;)
+
+    srf_dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+
+    ###### Repeat with explicit dirichlet BC
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(
+            soil_water = Neumann((aux, t) -> eltype(aux)(0.0)),
+        ),
+        surface_bc = LandComponentBC(
+            soil_water = Dirichlet((aux, t) -> eltype(aux)(0.495)),
+        ),
+    )
+
+
+    m = LandModel(
+        param_set,
+        m_soil;
+        boundary_conditions = bc,
+        source = sources,
+        init_state_prognostic = init_soil_water!,
+    )
+
+    N_poly = (1, 0)
+    nelem_vert = 100
+
+    # Specify the domain boundaries
+    zmax = FT(0)
+    zmin = FT(-1)
+
+    driver_config = ClimateMachine.SingleStackConfiguration(
+        "LandModel",
+        N_poly,
+        nelem_vert,
+        zmax,
+        param_set,
+        m;
+        zmin = zmin,
+        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        fv_reconstruction = FVLinear(),
+    )
+
+
+    t0 = FT(0)
+    timeend = FT(40000)
+    dt = FT(4)
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+    )
+    state_types = (Prognostic(),)
+
+    # # Run the integration
+    ClimateMachine.invoke!(solver_config;)
+
+    dir_dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    @test sum(srf_dons["soil.water.ϑ_l"] .- dir_dons["soil.water.ϑ_l"]) == 0
 end
-=#
+
+@testset "Explicit Flux BC Comparison" begin
+    ClimateMachine.init()
+    FT = Float64
+    function init_soil_water!(land, state, aux, localgeo, time)
+        myfloat = eltype(state)
+        state.soil.water.ϑ_l = myfloat(land.soil.water.initialϑ_l(aux))
+        state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
+    end
+
+    soil_param_functions = SoilParamFunctions{FT}(
+        porosity = 0.495,
+        Ksat = 0.0443 / (3600 * 100),
+        S_s = 1e-4,
+    )
+    surface_precip_amplitude = FT(0)
+
+    precip = (t) -> surface_precip_amplitude
+    hydraulics = vanGenuchten{FT}(n = 2.0)
+    function hydrostatic_profile(z, zm, porosity, n, α)
+        myf = eltype(z)
+        m = FT(1 - 1 / n)
+        S = FT((FT(1) + (α * (z - zm))^n)^(-m))
+        return FT(S * porosity)
+    end
+
+    ϑ_l0 =
+        (aux) -> eltype(aux)(hydrostatic_profile(
+            aux.z,
+            -1,
+            0.495,
+            hydraulics.n,
+            hydraulics.α,
+        ))
+
+    soil_water_model = SoilWaterModel(
+        FT;
+        moisture_factor = MoistureDependent{FT}(),
+        hydraulics = hydraulics,
+        initialϑ_l = ϑ_l0,
+    )
+    soil_heat_model = PrescribedTemperatureModel()
+
+    m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
+    sources = ()
+
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(
+            soil_water = Neumann((aux, t) -> eltype(aux)(0.0)),
+        ),
+        surface_bc = LandComponentBC(
+            soil_water = SurfaceDrivenWaterBoundaryConditions(
+                FT;
+                precip_model = DrivenConstantPrecip{FT}(precip),
+                runoff_model = CoarseGridRunoff(),
+            ),
+        ),
+    )
+
+
+    m = LandModel(
+        param_set,
+        m_soil;
+        boundary_conditions = bc,
+        source = sources,
+        init_state_prognostic = init_soil_water!,
+    )
+
+    N_poly = (1, 0)
+    nelem_vert = 200
+
+    # Specify the domain boundaries
+    zmax = FT(0)
+    zmin = FT(-1)
+
+    driver_config = ClimateMachine.SingleStackConfiguration(
+        "LandModel",
+        N_poly,
+        nelem_vert,
+        zmax,
+        param_set,
+        m;
+        zmin = zmin,
+        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        fv_reconstruction = FVLinear(),
+    )
+
+
+    t0 = FT(0)
+    timeend = FT(100000)
+    dt = FT(4)
+
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+    )
+    state_types = (Prognostic(), Auxiliary(), GradientFlux())
+
+    ClimateMachine.invoke!(solver_config;)
+
+    srf_dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    z = srf_dons["z"][150:end]
+    error1 = sqrt(mean(
+        (
+            srf_dons["soil.water.ϑ_l"][150:end] .-
+            hydrostatic_profile.(z, -1, 0.495, hydraulics.n, hydraulics.α)
+        ) .^ 2.0,
+    ))
+    error2 = sqrt(mean(srf_dons["soil.water.K∇h[3]"][150:end] .^ 2.0))
+    #error1 is quite large... so this indicates this approach does not work.
+end
