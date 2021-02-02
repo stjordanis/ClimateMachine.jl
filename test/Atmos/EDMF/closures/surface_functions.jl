@@ -11,6 +11,8 @@ const ArrayType = ClimateMachine.array_type()
         atmos::AtmosModel{FT},
         state::Vars,
         aux::Vars,
+        state_int::Vars,
+        aux_int::Vars,
         zLL::FT,
     ) where {FT}
 
@@ -24,8 +26,8 @@ water specific humidity (`q_tot`), environmental variances of
  - `atmos`, an `AtmosModel`
  - `state`, state variables
  - `aux`, auxiliary variables
- - `state`, state variables at first interior point
- - `aux`, auxiliary variables at first interior point
+ - `state_int`, state variables at first interior point
+ - `aux_int`, auxiliary variables at first interior point
  - `zLL`, height of the lowest nodal level
 """
 function subdomain_surface_values(
