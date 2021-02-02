@@ -30,6 +30,7 @@ const imex_methods_lowstorage_compatible = (
     (ARK2GiraldoKellyConstantinescu, 2),
     (ARK437L2SA1KennedyCarpenter, 4),
     (ARK548L2SA2KennedyCarpenter, 5),
+    (DBM453VoglEtAl, 3),
 )
 const imex_methods_naivestorage_compatible = (
     (ARK1ForwardBackwardEuler, 1),
@@ -43,6 +44,7 @@ const imex_methods_naivestorage_compatible = (
     # any other ARK-type methods that have more general Butcher tables
     # (but with same number of stages) should be tested here:
     (Trap2LockWoodWeller, 2),
+    (DBM453VoglEtAl, 3),
 )
 
 const mis_methods =
