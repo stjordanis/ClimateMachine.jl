@@ -81,7 +81,7 @@ function subdomain_surface_values(
     )
     x_ave = MArray{Tuple{3}, FT}(u_ave, vdse_ave, qt_ave)
 
-    z_rough = MArray{Tuple{4}, FT}(surf.z_0, surf.z_0, surf.z_0)
+    z_rough = MArray{Tuple{3}, FT}(surf.z_0, surf.z_0, surf.z_0)
 
     surf_flux_cond = surface_conditions(
         atmos.param_set,
