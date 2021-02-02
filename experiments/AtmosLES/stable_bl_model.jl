@@ -36,6 +36,7 @@ using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 using ClimateMachine.SurfaceFluxes
+using ClimateMachine.SurfaceFluxes: DGScheme
 import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
