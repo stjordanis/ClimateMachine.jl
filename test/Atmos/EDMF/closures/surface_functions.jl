@@ -2,7 +2,6 @@
 
 using Statistics
 using ClimateMachine.SurfaceFluxes
-const ArrayType = ClimateMachine.array_type()
 
 """
     subdomain_surface_values(
@@ -63,13 +62,14 @@ function subdomain_surface_values(
     u_star_init = FT(0.1)
     th_star_init = eps(FT)
     qt_star_init = eps(FT)
-    x_init = ArrayType(FT[LMO_init, u_star_init, th_star_init, qt_star_init])
+    x_init =
+        MArray{Tuple{4}, FT}(LMO_init, u_star_init, th_star_init, qt_star_init)
 
     # Surface values for variables: To be revised
     u_sfc = FT(0)
     thv_sfc = virtual_pottemp(ts)
     qt_sfc = total_specific_humidity(ts)
-    x_s = ArrayType(FT[u_sfc, thv_sfc, qt_sfc])
+    x_s = MArray{Tuple{3}, FT}(u_sfc, thv_sfc, qt_sfc)
     VDSE_scale = _cp_m * virtual_pottemp(ts) # Revise
 
     # Avg values in first cell for variables: To be revised
@@ -79,9 +79,9 @@ function subdomain_surface_values(
         (gm_int.ρu[1] * ρ_int_inv) * (gm_int.ρu[1] * ρ_int_inv) +
         (gm_int.ρu[2] * ρ_int_inv) * (gm_int.ρu[2] * ρ_int_inv),
     )
-    x_ave = ArrayType(FT[u_ave, vdse_ave, qt_ave])
+    x_ave = MArray{Tuple{3}, FT}(u_ave, vdse_ave, qt_ave)
 
-    z_rough = ArrayType(FT[surf.z_0, surf.z_0, surf.z_0])
+    z_rough = MArray{Tuple{4}, FT}(surf.z_0, surf.z_0, surf.z_0)
 
     surf_flux_cond = surface_conditions(
         atmos.param_set,
