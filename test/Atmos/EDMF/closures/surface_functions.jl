@@ -91,7 +91,7 @@ function subdomain_surface_values(
         z_rough,
         VDSE_scale,
         zLL,
-        ClimateMachine.SurfaceFluxes.DGScheme(),
+        DGScheme(),
     )
 
     θ_liq_surface_flux = surf_flux_cond.flux[2]
