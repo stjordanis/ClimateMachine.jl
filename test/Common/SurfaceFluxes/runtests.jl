@@ -115,21 +115,7 @@ const param_set = EarthParameterSet()
         # Constants
         Δz = Tuple(z)[ii]
 
-        # F_exchange
-        F_exchange = ArrayType(FT[0.01, -0.01, -0.000001])
-
-        args = (
-            param_set,
-            x_init,
-            x_ave,
-            x_s,
-            z_rough,
-            F_exchange,
-            vdse_ave,
-            qt_ave,
-            Δz,
-            z_ave / 2,
-        )
+        args = (param_set, x_init, x_ave, x_s, z_rough, vdse_ave, Δz)
 
         ## Assuming surface fluxes are not given
         result = surface_conditions(args..., SF.DGScheme())

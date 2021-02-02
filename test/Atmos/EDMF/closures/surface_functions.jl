@@ -1,6 +1,8 @@
 #### Surface model kernels
 
 using Statistics
+using ClimateMachine.SurfaceFluxes
+const ArrayType = ClimateMachine.array_type()
 
 """
     subdomain_surface_values(
@@ -22,6 +24,8 @@ water specific humidity (`q_tot`), environmental variances of
  - `atmos`, an `AtmosModel`
  - `state`, state variables
  - `aux`, auxiliary variables
+ - `state`, state variables at first interior point
+ - `aux`, auxiliary variables at first interior point
  - `zLL`, height of the lowest nodal level
 """
 function subdomain_surface_values(
@@ -30,26 +34,71 @@ function subdomain_surface_values(
     atmos::AtmosModel{FT},
     state::Vars,
     aux::Vars,
+    state_int::Vars,
+    aux_int::Vars,
     zLL::FT,
 ) where {FT}
 
     turbconv = atmos.turbconv
     N_up = n_updrafts(turbconv)
     gm = state
+    gm_int = state_int
     # TODO: change to new_thermo_state
     ts = recover_thermo_state(atmos, state, aux)
+    ts_int = recover_thermo_state(atmos, state_int, aux_int)
     q = PhasePartition(ts)
     _cp_m = cp_m(ts)
     lv = latent_heat_vapor(ts)
     Π = exner(ts)
     ρ_inv = 1 / gm.ρ
+    ρ_int_inv = 1 / gm.ρ
+
     surface_scalar_coeff = turbconv.surface.scalar_coeff
 
-    θ_liq_surface_flux = surf.shf / Π / _cp_m
-    q_tot_surface_flux = surf.lhf / lv
-    # these value should be given from the SurfaceFluxes.jl once it is merged
-    oblength = turbconv.surface.obukhov_length
-    ustar = turbconv.surface.ustar
+    # Retrieve surface fluxes based on MO similarity
+    ## Initial guesses for MO parameters
+    LMO_init = eps(FT)
+    u_star_init = FT(0.1)
+    th_star_init = eps(FT)
+    qt_star_init = eps(FT)
+    x_init = ArrayType(FT[LMO_init, u_star_init, th_star_init, qt_star_init])
+
+    # Surface values for variables: To be revised
+    u_sfc = FT(0)
+    thv_sfc = virtual_pottemp(ts)
+    qt_sfc = total_specific_humidity(ts)
+    x_s = ArrayType(FT[u_sfc, thv_sfc, qt_sfc])
+    VDSE_scale = _cp_m * virtual_pottemp(ts) # Revise
+
+    # Avg values in first cell for variables: To be revised
+    qt_ave = total_specific_humidity(ts_int)
+    vdse_ave = _cp_m * virtual_pottemp(ts_int)
+    u_ave = sqrt(
+        (gm_int.ρu[1] * ρ_int_inv) * (gm_int.ρu[1] * ρ_int_inv) +
+        (gm_int.ρu[2] * ρ_int_inv) * (gm_int.ρu[2] * ρ_int_inv),
+    )
+    x_ave = ArrayType(FT[u_ave, vdse_ave, qt_ave])
+
+    z_rough = ArrayType(FT[surf.z_0, surf.z_0, surf.z_0])
+
+    surf_flux_cond = surface_conditions(
+        atmos.param_set,
+        x_init,
+        x_ave,
+        x_s,
+        z_rough,
+        VDSE_scale,
+        zLL,
+        ClimateMachine.SurfaceFluxes.DGScheme(),
+    )
+
+    θ_liq_surface_flux = surf_flux_cond.flux[2]
+    q_tot_surface_flux = surf_flux_cond.flux[3]
+
+    oblength = surf_flux_cond.L_MO
+    ustar = surf_flux_cond.x_star[1]
+    println("Obukhov length is", oblength)
+    println("Friction velocity is", ustar)
 
     unstable = oblength < 0
     fact = unstable ? (1 - surf.ψϕ_stab * zLL / oblength)^(-FT(2 // 3)) : 1
@@ -83,6 +132,8 @@ function subdomain_surface_values(
         q_tot_cv = q_tot_cv,
         θ_liq_q_tot_cv = θ_liq_q_tot_cv,
         tke = tke,
+        ob_length = oblength,
+        u_star = ustar,
     )
 end;
 

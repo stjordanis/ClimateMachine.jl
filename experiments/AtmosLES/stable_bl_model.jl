@@ -35,6 +35,7 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
+using ClimateMachine.SurfaceFluxes
 import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
@@ -259,6 +260,9 @@ function stable_bl_model(
             (state, aux, t, normPu_int) -> C_drag,
             (state, aux, t) -> q_sfc,
         )
+        # elseif surface_flux == "Nishizawa2018"
+        #     energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
+        #     moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     else
         @warn @sprintf(
             """

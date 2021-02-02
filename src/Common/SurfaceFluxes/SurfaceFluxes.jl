@@ -114,10 +114,8 @@ Surface conditions given
  - `x_ave` volume-averaged value for variable `x`
  - `x_s` surface value for variable `x`
  - `z_0` roughness length for variable `x`
- - `F_exchange` flux at the top for variable `x`
  - `VDSE_scale` virtual dry static energy (i.e., basic potential temperature)
- - `Δz` layer thickness (not spatial discretization)
- - `z` coordinate axis
+ - `Δz` layer thickness
  - `VDSE_flux_star` potential temperature flux (optional)
 
 If `VDSE_flux_star` is not given, then it is computed by iteration
@@ -129,11 +127,8 @@ function surface_conditions(
     x_ave::AbstractVector,
     x_s::AbstractVector,
     z_0::AbstractVector,
-    F_exchange::AbstractVector,
     VDSE_scale::FT,
-    qt_bar::FT,
     Δz::FT,
-    z::FT,
     scheme,
     VDSE_flux_star::Union{Nothing, FT} = nothing,
 ) where {FT <: AbstractFloat, AbstractEarthParameterSet}
@@ -143,7 +138,6 @@ function surface_conditions(
     @assert length(x_ave) == n_vars
     @assert length(x_s) == n_vars
     @assert length(z_0) == n_vars
-    @assert length(F_exchange) == n_vars
     local sol
 
     args = (;
@@ -181,17 +175,8 @@ function surface_conditions(
     VDSE_flux_star = -u_star^3 * VDSE_scale / (_von_karman_const * _grav * L_MO)
     flux = -u_star * x_star
 
-    K_exchange = exchange_coefficients(
-        param_set,
-        z,
-        F_exchange,
-        x_star,
-        VDSE_scale,
-        L_MO,
-    )
-
     C_exchange =
-        get_flux_coefficients(param_set, z, x_star, VDSE_scale, L_MO, z_0)
+        get_flux_coefficients(param_set, Δz, x_star, VDSE_scale, L_MO, z_0)
 
     VFT = typeof(flux)
     return SurfaceFluxConditions{FT, VFT}(
