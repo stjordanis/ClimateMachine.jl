@@ -140,8 +140,8 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float64                             # floating type precision
-    poly_order = 5                           # discontinuous Galerkin polynomial order
+    FT = Float32                             # floating type precision
+    poly_order = 4                           # discontinuous Galerkin polynomial order
     n_horz = 10                              # horizontal element number
     n_vert = 5                               # vertical element number
     timestart = FT(0)                        # start time (s)
@@ -161,13 +161,10 @@ function main()
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
+        splitting_type = HEVISplitting(),
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
-        implicit_solver_adjustable = true,
-        solver_method = Trap2LockWoodWeller,
-        split_explicit_implicit = false,
-        discrete_splitting = true,
-        solver_storage_variant = NaiveVariant(),
+        solver_method = ARK2GiraldoKellyConstantinescu,
     )
     CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(

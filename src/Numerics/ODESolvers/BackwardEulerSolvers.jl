@@ -78,7 +78,7 @@ an `AbstractBackwardEulerSolver` object:
 where `Q` is the state vector, `Qhat` is the right-hand side,
 and `f` is the discretized implicit operator.
 """
-get_implicit_operator_coefficient(::AbstractBackwardEulerSolver) = nothing
+function get_implicit_operator_coefficient end
 
 """
     setup_backward_Euler_solver(solver, Q, α, tendency!)

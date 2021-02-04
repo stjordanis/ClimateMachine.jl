@@ -7,6 +7,8 @@ export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 export Trap2LockWoodWeller
 
+using Printf
+
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and
 # Constantinescu (2013) directly.  Seems to cut the number of solver iterations
 # by half but requires Nstages - 1 additional storage.
@@ -69,6 +71,7 @@ mutable struct AdditiveRungeKutta{
     AT,
     V,
     VS,
+    IST,
     Nstages,
     Nstages_sq,
     Nstagesm1,
@@ -84,7 +87,7 @@ mutable struct AdditiveRungeKutta{
     "rhs linear operator"
     rhs_implicit!::Any
     "a dictionary of backward Euler solvers"
-    implicit_solvers::Any
+    implicit_solvers::IST
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
@@ -142,23 +145,23 @@ mutable struct AdditiveRungeKutta{
         variant_storage = additional_storage(variant, Q, Nstages)
         VS = typeof(variant_storage)
 
-        # The code throughout assumes SDIRK implicit tableau so we assert that
-        # here.
-        # for is in 2:Nstages
-        #     @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
-        # end
-
-        # NOTE: this is only for composing an ARK method with
-        # a MIS timestepper
-        # TODO: Clean this up
-
         implicit_solvers = Dict()
 
         rk_diag = unique(diag(RKA_implicit))
+        @show rk_diag
+
         # Remove all zero entries from `rk_diag`
         # so we build all unique implicit solvers (parameterized by the
         # corresponding RK coefficient)
-        filter!(c -> c !== 0, rk_diag)
+        filter!(c -> !iszero(c), rk_diag)
+        @show rk_diag
+
+        if variant_storage isa LowStorageVariant
+            # LowStorageVariant assumes the implicit RK method is an
+            # SDIRK method, so there is only one unique, non-zero diagonal
+            # entry in the implicit Butcher table
+            @assert length(rk_diag) == 1
+        end
 
         if isempty(nsubsteps)
             for rk_coeff in rk_diag
@@ -185,8 +188,8 @@ mutable struct AdditiveRungeKutta{
                 implicit_solvers[rk_coeff] = besolver!
             end
         end
-
-        new{T, RT, AT, V, VS, Nstages, Nstages^2, Nstages - 1}(
+        IST = typeof(implicit_solvers)
+        new{T, RT, AT, V, VS, IST, Nstages, Nstages^2, Nstages - 1}(
             RT(dt),
             RT(t0),
             0,
@@ -354,7 +357,7 @@ function dostep!(
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
         rk_coeff = RKA_implicit[istage, istage]
-        if rk_coeff !== 0
+        if !iszero(rk_coeff)
             besolver! = ark.implicit_solvers[rk_coeff]
             besolver!(Qstages[istage], Qhat, nothing, p, stagetime_implicit)
         end
@@ -408,8 +411,13 @@ function dostep!(
 )
     dt = ark.dt
 
-    besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
+
+    # LowStorageVariant assumes the implicit RK method is an SDIRK method
+    rk_coeff = RKA_implicit[end, end]
+    @show rk_coeff
+    besolver! = ark.implicit_solvers[rk_coeff]
+
     # NOTE: Using low-storage variant assumes that the butcher tables
     # for both the explicit and implicit parts have the same B and C
     # vectors
@@ -460,8 +468,7 @@ function dostep!(
 
         # solves
         # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Q_tt)
-        α = dt * RKA_implicit[istage, istage]
-        besolver!(Qtt, Qhat, α, p, stagetime)
+        besolver!(Qstages[istage], Qhat, nothing, p, stagetime)
 
         # update Qstages
         Qstages[istage] .+= Qtt
@@ -1142,7 +1149,7 @@ function ARK437L2SA1KennedyCarpenter(
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
 
-    @assert dt != nothing
+    @assert dt !== nothing
 
     T = eltype(Q)
     RT = real(T)
