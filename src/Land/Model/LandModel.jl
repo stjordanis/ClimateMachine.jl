@@ -22,7 +22,8 @@ import ..BalanceLaws:
     compute_gradient_flux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    nodal_update_auxiliary_state!
+    nodal_update_auxiliary_state!,
+    wavespeed
 using ..DGMethods: LocalGeometry, DGModel
 export LandModel
 
@@ -233,6 +234,9 @@ function init_state_prognostic!(
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
 
+
+
+
 include("Runoff.jl")
 using .Runoff
 include("land_bc.jl")
@@ -247,4 +251,23 @@ include("soil_bc.jl")
 include("source.jl")
 include("River.jl")
 using .River
+
+function wavespeed(
+    m::LandModel,
+    n⁻,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction
+)
+    FT = eltype(state)
+    g = FT(9.8)
+    width = m.river.width(aux.x,aux.y)
+    area = max(eltype(state)(0.0), state.river.area)
+    height = area ./ width
+    v = calculate_velocity(m.river, aux.x, aux.y, height)
+    speed = abs(norm(v))
+    return speed#+sqrt(g*height)
+end
+
 end # Module

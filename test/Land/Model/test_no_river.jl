@@ -183,7 +183,7 @@ end
 
     t0 = FT(0)
     timeend = FT(60*60)
-    dt = FT(1)
+    dt = FT(10)
 
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -382,12 +382,13 @@ end
         param_set,
         m;
         zmin = zmin,
+        numerical_flux_first_order = RusanovNumericalFlux()
         # meshwarp = (x...) -> warp_tilted_v(x...),
     );
     
     t0 = FT(0)
     timeend = FT(180*60)
-    dt = FT(3)
+    dt = FT(0.5)
     
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -429,7 +430,7 @@ end
     y = aux[:,2,:]
     z = aux[:,3,:]
     # get all nodal points at the max X bound of the domain
-    mask2 = (Float64.(aux[:,2,:] .== 1000.0) .+ Float64.(aux[:,1,:] .<= 820) .+ Float64.(aux[:,1,:] .> 800)) .== 3
+    mask2 = (Float64.(aux[:,2,:] .== 1000.0)) .==1# .+ Float64.(aux[:,1,:] .<= 820) .+ Float64.(aux[:,1,:] .> 800)) .== 3
      n_outputs = length(dons)
     function compute_Q(a,xv)
         height = max.(a,0.0) ./ 1.0# width = 1 here, everywhere
