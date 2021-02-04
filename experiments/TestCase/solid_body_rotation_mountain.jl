@@ -45,6 +45,15 @@ end
 function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
+    φ = latitude(bl.orientation, aux)
+    λ = longitude(bl.orientation, aux)
+    z = altitude(bl.orientation, bl.param_set, aux)
+
+    if φ == 0.0 && λ == 1.5707963267948966
+        @show z
+        @show aux.ref_state.T
+    end
+
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
     u_0::FT = 0

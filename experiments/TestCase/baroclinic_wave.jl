@@ -16,6 +16,8 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
@@ -30,6 +32,7 @@ const param_set = EarthParameterSet()
 
 function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
+
 
     # parameters
     _grav::FT = grav(bl.param_set)
@@ -149,6 +152,13 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     e_kin::FT = 0.5 * u_cart' * u_cart
     e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
 
+    if φ == 0.0 && λ == 0.0
+        # @show φ
+        # @show λ
+        @show z
+        @show T
+    end
+
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
@@ -198,6 +208,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        grid_stretching = SingleExponentialStretching(FT(4.5)),
     )
 
     return config
@@ -299,16 +310,38 @@ function config_diagnostics(FT, driver_config)
     info = driver_config.config_info
 
     # Setup diagnostic grid(s)
-    nlats = 128
+    # nlats = 128
 
-    sinθ, wts = compute_gaussian!(nlats)
-    lats = asin.(sinθ) .* 180 / π
-    lons = 180.0 ./ nlats * collect(FT, 1:1:(2nlats))[:] .- 180.0
+    # sinθ, wts = compute_gaussian!(nlats)
+    # lats = asin.(sinθ) .* 180 / π
+    # lons = 180.0 ./ nlats * collect(FT, 1:1:(2nlats))[:] .- 180.0
+
+    # boundaries = [
+    #     FT(lats[1]) FT(lons[1]) _planet_radius
+    #     FT(lats[end]) FT(lons[end]) FT(_planet_radius + info.domain_height)
+    # ]
+
+    # lvls = collect(range(
+    #     boundaries[1, 3],
+    #     boundaries[2, 3],
+    #     step = FT(1000), # in m
+    # ))
 
     boundaries = [
-        FT(lats[1]) FT(lons[1]) _planet_radius
-        FT(lats[end]) FT(lons[end]) FT(_planet_radius + info.domain_height)
+       FT(-90.0) FT(-180.0) _planet_radius
+       FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
+
+    #resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+
+    # interpol = ClimateMachine.InterpolationConfiguration(
+    #     driver_config,
+    #     boundaries;
+    #     axes = [lats, lons, lvls],
+    # )
+    lats = collect(range(boundaries[1, 1], boundaries[2, 1], step = FT(2)))
+
+    lons = collect(range(boundaries[1, 2], boundaries[2, 2], step = FT(2)))
 
     lvls = collect(range(
         boundaries[1, 3],
@@ -316,17 +349,12 @@ function config_diagnostics(FT, driver_config)
         step = FT(1000), # in m
     ))
 
-    #boundaries = [
-    #    FT(-90.0) FT(-180.0) _planet_radius
-    #    FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
-    #]
-
-    #resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
-
     interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config.grid.topology,
         driver_config,
-        boundaries;
-        axes = [lats, lons, lvls],
+        boundaries,
+        [lats, lons, lvls];
+        nr_toler = FT(1e-7),
     )
 
     dgngrp = setup_atmos_default_diagnostics(
@@ -336,14 +364,15 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
     )
 
-    ds_dgngrp = setup_atmos_spectra_diagnostics(
-        AtmosGCMConfigType(),
-        interval,
-        driver_config.name,
-        interpol = interpol,
-    )
+    # ds_dgngrp = setup_atmos_spectra_diagnostics(
+    #     AtmosGCMConfigType(),
+    #     interval,
+    #     driver_config.name,
+    #     interpol = interpol,
+    # )
 
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp, ds_dgngrp])
+    # return ClimateMachine.DiagnosticsConfiguration([dgngrp, ds_dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, ])
 end
 
 main()

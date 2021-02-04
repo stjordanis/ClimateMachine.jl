@@ -14,6 +14,7 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics: air_density, total_energy
@@ -29,6 +30,16 @@ const param_set = EarthParameterSet()
 
 function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
+
+    φ = latitude(bl.orientation, aux)
+    λ = longitude(bl.orientation, aux)
+    z = altitude(bl.orientation, bl.param_set, aux)
+    if φ == -0.6154797086703874 && λ == 2.356194490192345
+        # @show φ
+        # @show λ
+        @show z
+        @show aux.ref_state.T
+    end
 
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
@@ -71,6 +82,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         init_solid_body_rotation!;
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
+        grid_stretching = SingleExponentialStretching(FT(4.5)),
     )
 
     return config
@@ -87,7 +99,8 @@ function main()
 
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+        DryAdiabaticProfile{FT}(param_set, FT(290), FT(220))
+        # DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up driver configuration
@@ -118,7 +131,8 @@ function main()
 
     # initialize using a different ref state (mega-hack)
     temp_profile_init =
-        DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
+        DryAdiabaticProfile{FT}(param_set, FT(290), FT(220))
+        # DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
     init_ref_state = HydrostaticState(temp_profile_init)
 
     init_driver_config = config_solid_body_rotation(
@@ -184,10 +198,28 @@ function config_diagnostics(FT, driver_config)
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
     resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+    # interpol = ClimateMachine.InterpolationConfiguration(
+    #     driver_config,
+    #     boundaries,
+    #     resolution,
+    # )
+
+    lats = collect(range(boundaries[1, 1], boundaries[2, 1], step = FT(2)))
+
+    lons = collect(range(boundaries[1, 2], boundaries[2, 2], step = FT(2)))
+
+    lvls = collect(range(
+        boundaries[1, 3],
+        boundaries[2, 3],
+        step = FT(1000), # in m
+    ))
+
     interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config.grid.topology,
         driver_config,
         boundaries,
-        resolution,
+        [lats, lons, lvls];
+        nr_toler = FT(1e-7),
     )
 
     dgngrp = setup_atmos_default_diagnostics(

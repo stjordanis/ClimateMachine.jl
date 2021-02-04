@@ -122,6 +122,17 @@ function ref_state_finalize_init!(
         ts = PhaseEquil_ρpq(atmos.param_set, ρ, p, q_pt.tot)
     end
     T = air_temperature(ts)
+
+    # z = altitude(atmos, aux)
+    # φ = latitude(atmos, aux)
+    # λ = longitude(atmos, aux)
+    # if φ == -0.6154797086703874 && λ == 2.356194490192345
+    #     # @show φ
+    #     # @show λ
+    #     @show z
+    #     @show T
+    # end
+
     q_pt = PhasePartition(ts)
     q_tot = q_pt.tot
     q_liq = q_pt.liq

@@ -32,6 +32,16 @@ const param_set = EarthParameterSet()
 function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
+    φ = latitude(bl.orientation, aux)
+    λ = longitude(bl.orientation, aux)
+    z = altitude(bl.orientation, bl.param_set, aux)
+    if φ == -0.6154797086703874 && λ == 2.356194490192345
+        # @show φ
+        # @show λ
+        @show z
+        @show aux.ref_state.T
+    end
+
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
     u_0::FT = 0
@@ -80,7 +90,7 @@ function config_solid_body_rotation(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
-        #grid_stretching = SingleExponentialStretching(FT(2.0)),
+        # grid_stretching = SingleExponentialStretching(FT(4.5)),
     )
 
     return config
@@ -98,7 +108,8 @@ function main()
 
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+        DryAdiabaticProfile{FT}(param_set, FT(290), FT(220))
+        # DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref; subtract_off = false)
 
     # Set up driver configuration
@@ -129,7 +140,8 @@ function main()
 
     # initialize using a different ref state (mega-hack)
     temp_profile_init =
-        DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
+        DryAdiabaticProfile{FT}(param_set, FT(280), FT(230))
+        # DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
     init_ref_state = HydrostaticState(temp_profile_init; subtract_off = false)
 
     init_driver_config = config_solid_body_rotation(

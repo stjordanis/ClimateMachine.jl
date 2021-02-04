@@ -16,6 +16,8 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
@@ -30,6 +32,8 @@ const param_set = EarthParameterSet()
 
 function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
+
+
 
     # parameters
     _grav::FT = grav(bl.param_set)
@@ -149,6 +153,13 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     e_kin::FT = 0.5 * u_cart' * u_cart
     e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
 
+    if φ == 0.0 && λ == 0.0
+        # @show φ
+        # @show λ
+        @show z
+        @show T
+    end
+
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
@@ -206,6 +217,7 @@ function config_baroclinic_wave(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
+        # grid_stretching = SingleExponentialStretching(FT(4.5)),
     )
 
     return config
@@ -314,10 +326,28 @@ function config_diagnostics(FT, driver_config)
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
     resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+    # interpol = ClimateMachine.InterpolationConfiguration(
+    #     driver_config,
+    #     boundaries,
+    #     resolution,
+    # )
+
+    lats = collect(range(boundaries[1, 1], boundaries[2, 1], step = FT(2)))
+
+    lons = collect(range(boundaries[1, 2], boundaries[2, 2], step = FT(2)))
+
+    lvls = collect(range(
+        boundaries[1, 3],
+        boundaries[2, 3],
+        step = FT(1000), # in m
+    ))
+
     interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config.grid.topology,
         driver_config,
         boundaries,
-        resolution,
+        [lats, lons, lvls];
+        nr_toler = FT(1e-7),
     )
 
     dgngrp = setup_atmos_default_diagnostics(
