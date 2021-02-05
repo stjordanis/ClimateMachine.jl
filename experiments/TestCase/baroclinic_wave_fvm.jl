@@ -153,17 +153,17 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     e_kin::FT = 0.5 * u_cart' * u_cart
     e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
 
-    if φ == 0.0 && λ == 0.0
-        # @show φ
-        # @show λ
-        @show z
-        @show T
-    end
-
     ## Assign state variables
     state.ρ = ρ
     state.ρu = ρ * u_cart
     state.energy.ρe = ρ * e_tot
+
+    if φ == 0.0 && λ == 0.0
+        @show z
+        @show T
+        @show u_sphere[1]
+        @show state.ρ 
+    end
 
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
@@ -176,6 +176,7 @@ function config_baroclinic_wave(
     FT,
     poly_order,
     fv_reconstruction,
+    grid_stretching,
     resolution,
     with_moisture,
 )
@@ -217,7 +218,7 @@ function config_baroclinic_wave(
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
-        # grid_stretching = SingleExponentialStretching(FT(4.5)),
+        grid_stretching = grid_stretching,
     )
 
     return config
@@ -247,12 +248,14 @@ function main()
     n_vert = 20                              # vertical element number
     timestart::FT = 0                        # start time (s)
     timeend::FT = 3600                       # end time (s)
+    grid_stretching = SingleExponentialStretching(FT(0.0))
 
     # Set up driver configuration
     driver_config = config_baroclinic_wave(
         FT,
         poly_order,
         fv_reconstruction,
+        grid_stretching,
         (n_horz, n_vert),
         with_moisture,
     )
@@ -277,7 +280,7 @@ function main()
     )
 
     # Set up diagnostics
-    dgn_config = config_diagnostics(FT, driver_config)
+    dgn_config = config_diagnostics(FT, driver_config, grid_stretching)
 
     #TODO enable filter
     # # Set up user-defined callbacks
@@ -315,7 +318,7 @@ function main()
     )
 end
 
-function config_diagnostics(FT, driver_config)
+function config_diagnostics(FT, driver_config, grid_stretching)
     interval = "12shours" # chosen to allow diagnostics every 12 simulated hours
 
     _planet_radius = FT(planet_radius(param_set))
@@ -336,11 +339,21 @@ function config_diagnostics(FT, driver_config)
 
     lons = collect(range(boundaries[1, 2], boundaries[2, 2], step = FT(2)))
 
-    lvls = collect(range(
-        boundaries[1, 3],
-        boundaries[2, 3],
-        step = FT(1000), # in m
-    ))
+    # lvls = collect(range(
+    #     boundaries[1, 3],
+    #     boundaries[2, 3],
+    #     step = FT(1000), # in m
+    # ))
+
+    lvls = grid1d(                                                                                        
+        _planet_radius,                                                                                   
+        FT(_planet_radius + info.domain_height),                                                          
+        grid_stretching,                                                                                  
+        nelem = info.nelem_vert,                                                                          
+    )                                                                                                     
+    println(collect(lvls))                                                                                
+    lvls = (lvls[1:end - 1] .+ lvls[2:end]) / 2.0                                                         
+    println(collect(lvls))       
 
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config.grid.topology,

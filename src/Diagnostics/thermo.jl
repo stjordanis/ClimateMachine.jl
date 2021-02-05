@@ -1,5 +1,7 @@
 using ..Atmos
 using ..Atmos: MoistureModel
+using ClimateMachine
+using ClimateMachine.Orientations
 
 # Helpers to gather the thermodynamic variables across the DG grid
 
@@ -31,6 +33,16 @@ thermo_vars(bl, array) = Vars{vars_thermo(bl, eltype(array))}(array)
 
 # compute thermodynamic variables visitor function
 function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
+
+    φ = latitude(atmos, aux)
+    λ = longitude(atmos, aux)
+    z = altitude(atmos, aux)
+    if φ == 0 && λ == 0
+        @show z
+        @show state.ρ
+    end
+
+
     e_tot = state.energy.ρe / state.ρ
     ts = recover_thermo_state(atmos, state, aux)
     e_int = internal_energy(ts)
