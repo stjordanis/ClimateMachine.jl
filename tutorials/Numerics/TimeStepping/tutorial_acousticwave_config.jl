@@ -27,7 +27,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
 end
 
 function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
-    # callable to set initial conditions
+    ## callable to set initial conditions
     FT = eltype(state)
 
     λ = longitude(bl, aux)
@@ -54,10 +54,10 @@ end
 function run_acousticwave(ode_solver, CFL, CFL_direction, timeend)
     FT = Float64
 
-    # DG polynomial orders
+    ## DG polynomial orders
     N = (4, 4)
 
-    # Domain resolution
+    ## Domain resolution
     nelem_horz = 6
     nelem_vert = 4
     resolution = (nelem_horz, nelem_vert)
