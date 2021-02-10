@@ -65,9 +65,14 @@ if generate_tutorials
                 ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
             "Time-Stepping" => [
                 "Introduction" => "Numerics/TimeStepping/ts_intro.jl",
-                "Numerics/TimeStepping/tutorial_risingbubble_config.jl",
-                "Explicit Runge-Kutta methods" =>
+                "Explicit Runge-Kutta methods" => [
                     "Numerics/TimeStepping/explicit_lsrk.jl",
+                    "Numerics/TimeStepping/tutorial_risingbubble_config.jl",
+                ],
+                "Implicit-Explicit (IMEX) Additive Runge-Kutta methods" => [
+                    "Numerics/TimeStepping/imex_ark.jl",
+                    "Numerics/TimeStepping/tutorial_acousticwave_config.jl",
+                ],
             ],
         ],
         "Diagnostics" => [

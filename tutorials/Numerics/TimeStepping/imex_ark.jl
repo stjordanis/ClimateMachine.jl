@@ -2,12 +2,11 @@
 
 # Lore ipsum
 
-#include(joinpath(
-    # @__DIR__,
-    # "../../../../../",
-    # "tutorials/Numerics/TimeStepping/tutorial_acousticwave_config.jl", # need absolute path concatenation on cluster
-    include("tutorials/Numerics/TimeStepping/tutorial_acousticwave_config.jl") # need relatie path to test locally
-#))
+include(joinpath(
+    @__DIR__,
+    "../../../../../",
+    "tutorials/Numerics/TimeStepping/tutorial_acousticwave_config.jl",
+))
 
 FT = Float64
 timeend = FT(3600)

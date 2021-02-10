@@ -12,6 +12,9 @@ using ClimateMachine.Grids
 using ClimateMachine.ODESolvers
 
 using CLIMAParameters
+
+using StaticArrays
+
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
