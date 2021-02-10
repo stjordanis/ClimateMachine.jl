@@ -69,10 +69,11 @@ if generate_tutorials
                     "Numerics/TimeStepping/explicit_lsrk.jl",
                     "Numerics/TimeStepping/tutorial_risingbubble_config.jl",
                 ],
-                "Implicit-Explicit (IMEX) Additive Runge-Kutta methods" => [
-                    "Numerics/TimeStepping/imex_ark.jl",
-                    "Numerics/TimeStepping/tutorial_acousticwave_config.jl",
-                ],
+                "Implicit-Explicit (IMEX) Additive Runge-Kutta methods" =>
+                    [
+                        "Numerics/TimeStepping/imex_ark.jl",
+                        "Numerics/TimeStepping/tutorial_acousticwave_config.jl",
+                    ],
             ],
         ],
         "Diagnostics" => [
