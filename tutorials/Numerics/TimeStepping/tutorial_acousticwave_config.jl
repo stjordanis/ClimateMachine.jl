@@ -60,7 +60,6 @@ function run_acousticwave(ode_solver, CFL, CFL_direction, timeend)
     resolution = (nelem_horz, nelem_vert)
 
     t0 = FT(0)
-    timeend = FT(3600)
 
     setup = AcousticWaveSetup{FT}()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
@@ -95,7 +94,6 @@ function run_acousticwave(ode_solver, CFL, CFL_direction, timeend)
         driver_config,
         Courant_number = CFL,
         init_on_cpu = true,
-        Courant_number = CFL,
         ode_solver_type = ode_solver,
         CFL_direction = CFL_direction,
     )
